@@ -25,6 +25,7 @@ export * from "./kindling";
 export * from "./energy-truth";
 export * from "./uptake";
 export * from "./custody";
+export * from "./worldlight";
 export * from "./chain";
 export * from "./rpc";
 export * from "./benchmark";
