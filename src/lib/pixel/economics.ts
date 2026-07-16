@@ -106,7 +106,9 @@ export function spendCredits(
   reason: string,
 ): LightCreditAccount {
   if (account.credits < cost) {
-    throw new Error(`Insufficient Light Credits for ${reason} (have ${account.credits}, need ${cost})`);
+    throw new Error(
+      `Insufficient Light Credits for ${reason} (have ${account.credits}, need ${cost})`,
+    );
   }
   return { ...account, credits: account.credits - cost };
 }
@@ -124,12 +126,10 @@ export function valueThesis(): {
   return {
     cap: PIX_HARD_CAP,
     baseUnits: PIX_BASE_UNITS,
-    dualLayer:
-      "PIX is scarce money/security; Light Credits are uncapped builder/agent fuel.",
+    dualLayer: "PIX is scarce money/security; Light Credits are uncapped builder/agent fuel.",
     analogy:
       "Same 21M hard-cap math as Bitcoin for PIX; 1 PIX = 1e8 units so micropayments never starve. Credits are ICP-style cycles for compute/SISO/MCP.",
-    issuance:
-      "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS).",
+    issuance: "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS).",
     sinks: [
       "Revelation fees paid to sequencers (anti-spam + security budget)",
       "Bridge collateral — PIX locked/escrowed for shineOut, then released",
