@@ -47,7 +47,7 @@ export function usePixelChain() {
         setAlice(a);
         setBob(b);
         setChain(genesis);
-        setHistory(genesis.blocks.flatMap((block) => block.transactions));
+        setHistory(genesis.pixels.flatMap((block) => block.transactions));
         setValid(await verifyChain(genesis));
         setPhase("Ready. Propose a transfer — it stays both until light reveals it.");
       } catch (err) {
@@ -102,8 +102,9 @@ export function usePixelChain() {
     setRevealing(true);
     setError(null);
     try {
-      const next = await sequenceBlock(chain);
-      const tip = next.blocks[next.blocks.length - 1];
+      if (!alice) throw new Error("No sequencer key");
+      const next = await sequenceBlock(chain, alice);
+      const tip = next.pixels[next.pixels.length - 1];
       const tx = tip.transactions[0];
       setChain(next);
       setLastTx(tx);
@@ -152,8 +153,8 @@ export function usePixelChain() {
   /** Apply chain state from Lumen / RPC execution (real settlement). */
   const applyChain = useCallback(async (next: PixelChainState, note?: string) => {
     setChain(next);
-    setHistory(next.blocks.flatMap((b) => b.transactions));
-    const tip = next.blocks[next.blocks.length - 1];
+    setHistory(next.pixels.flatMap((b) => b.transactions));
+    const tip = next.pixels[next.pixels.length - 1];
     if (tip?.transactions[0]) setLastTx(tip.transactions[0]);
     setValid(await verifyChain(next));
     if (note) setPhase(note);

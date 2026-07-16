@@ -10,6 +10,7 @@ export * from "./transaction";
 export * from "./pol";
 export * from "./light-color";
 export * from "./expression";
+export * from "./interactions";
 export * from "./chain";
 export * from "./rpc";
 export * from "./benchmark";

@@ -6,7 +6,7 @@
  * live in-memory chain (not stubs).
  */
 
-import { balanceOf, type PixelChainState, type PixelBlock, verifyChain } from "./chain";
+import { balanceOf, type PixelChainState, type LedgerPixel, verifyChain } from "./chain";
 import { estimatePoLSCost } from "./pol";
 import type { Transaction } from "./transaction";
 
@@ -39,7 +39,7 @@ export interface PixelRpcContext {
   clientVersion: string;
 }
 
-function headerView(block: PixelBlock) {
+function headerView(block: LedgerPixel) {
   return {
     number: `0x${block.index.toString(16)}`,
     hash: `0x${block.hash.slice(0, 64)}`,
@@ -84,11 +84,11 @@ export async function handlePixelRpc(
       case "pix_chainId":
         return ok(id, `0x${ctx.networkId.toString(16)}`);
       case "pix_blockNumber":
-        return ok(id, `0x${(ctx.chain.blocks.length - 1).toString(16)}`);
+        return ok(id, `0x${(ctx.chain.pixels.length - 1).toString(16)}`);
       case "pix_getBlockByNumber": {
         const tag = String(params[0] ?? "latest");
-        const idx = tag === "latest" ? ctx.chain.blocks.length - 1 : parseInt(tag, 16);
-        const block = ctx.chain.blocks[idx];
+        const idx = tag === "latest" ? ctx.chain.pixels.length - 1 : parseInt(tag, 16);
+        const block = ctx.chain.pixels[idx];
         if (!block) throw rpcError(-32602, "block not found");
         return ok(id, headerView(block));
       }
@@ -104,7 +104,7 @@ export async function handlePixelRpc(
       case "pix_verifyChain":
         return ok(id, {
           valid: await verifyChain(ctx.chain),
-          blocks: ctx.chain.blocks.length,
+          pixels: ctx.chain.pixels.length,
           pending: ctx.chain.pending.length,
         });
       case "pix_getEnergyProfile":
@@ -112,7 +112,7 @@ export async function handlePixelRpc(
       case "pix_getLedgerPixels":
         return ok(
           id,
-          ctx.chain.blocks.map((b) => ({
+          ctx.chain.pixels.map((b) => ({
             index: b.index,
             color: b.color,
             hash: b.hash.slice(0, 16),

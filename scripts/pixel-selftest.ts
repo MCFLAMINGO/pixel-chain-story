@@ -124,7 +124,7 @@ async function main() {
   if (!isColorAbsent(dark.color) || dark.spectrum.illumination !== 0) {
     throw new Error("FAIL: unlit pixel must have absent color");
   }
-  for (const b of chain.blocks) {
+  for (const b of chain.pixels) {
     if (!b.illuminated) throw new Error("on-chain block must be illuminated");
     if (isColorAbsent(b.color)) throw new Error("lit block must have color");
   }

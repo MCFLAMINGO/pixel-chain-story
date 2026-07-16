@@ -4,35 +4,35 @@ import {
   chainToRealityField,
   cssRgb,
   proximityLinks,
-  type PixelBlock,
+  type LedgerPixel,
 } from "@/lib/pixel";
 
 /**
- * Immersive Abstract Expressionist reading of the ledger.
+ * Immersive Abstract Expressionist reading of the Pixel Ledger.
  * Void until light. Gesture = revelation path. Proximity only under illumination.
  */
 export function RealityField({
-  blocks,
+  pixels,
   pendingCount = 0,
 }: {
-  blocks: PixelBlock[];
+  pixels: LedgerPixel[];
   pendingCount?: number;
 }) {
   const [focus, setFocus] = useState<number | null>(null);
-  const field = useMemo(() => chainToRealityField(blocks), [blocks]);
-  const path = useMemo(() => actionPath(blocks), [blocks]);
+  const field = useMemo(() => chainToRealityField(pixels), [pixels]);
+  const path = useMemo(() => actionPath(pixels), [pixels]);
   const links = useMemo(() => {
     if (focus === null) return [];
     return proximityLinks(
-      blocks.map((b) => ({
-        index: b.index,
-        illuminated: b.illuminated,
-        transactions: b.transactions,
-        color: b.color,
+      pixels.map((p) => ({
+        index: p.index,
+        illuminated: p.illuminated,
+        transactions: p.transactions,
+        color: p.color,
       })),
       focus,
     );
-  }, [blocks, focus]);
+  }, [pixels, focus]);
 
   const pathD =
     path.length > 0
@@ -48,7 +48,6 @@ export function RealityField({
             "radial-gradient(ellipse at 50% 40%, oklch(0.18 0.03 145), oklch(0.08 0.02 145))",
         }}
       >
-        {/* Newman zips — light cutting the void */}
         {field.zips.map((z, i) => (
           <div
             key={`zip-${i}`}
@@ -60,7 +59,6 @@ export function RealityField({
           />
         ))}
 
-        {/* Pollock action path — sequence of revelations */}
         <svg
           className="pointer-events-none absolute inset-0 h-full w-full"
           viewBox="0 0 1000 560"
@@ -99,7 +97,6 @@ export function RealityField({
             })}
         </svg>
 
-        {/* Rothko events — color is the information */}
         {field.strokes.map((stroke) => {
           const isFocus = focus === stroke.index;
           const near = links.some((l) => l.to === stroke.index);
@@ -142,7 +139,6 @@ export function RealityField({
           );
         })}
 
-        {/* Pending ghosts — in the field but uncolored */}
         {pendingCount > 0 && (
           <p className="absolute right-4 bottom-4 font-pixel text-[10px] tracking-[0.2em] text-white/40 uppercase">
             {pendingCount} in superposition · color absent

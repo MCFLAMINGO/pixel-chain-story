@@ -33,13 +33,13 @@ function Index() {
   const [amount, setAmount] = useState("250");
   const [memo, setMemo] = useState("For a lighter world");
   const energy = estimatePoLSCost();
-  const blocks = pixel.chain?.blocks ?? [];
+  const blocks = pixel.chain?.pixels ?? [];
 
   return (
     <main className="min-h-screen overflow-x-hidden text-foreground">
       <section className="pixel-hero-light relative min-h-[100svh]">
         <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden>
-          {blocks.length > 0 ? (
+          {pixels.length > 0 ? (
             <LedgerField
               blocks={blocks}
               pendingCount={pixel.pending}

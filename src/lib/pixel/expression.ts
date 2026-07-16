@@ -17,7 +17,7 @@
  * This is not a skin. It is the transfer protocol’s aesthetic physics.
  */
 
-import type { PixelBlock } from "./chain";
+import type { LedgerPixel } from "./chain";
 import { isColorAbsent, type PixelColor } from "./light-color";
 
 export interface FieldStroke {
@@ -46,22 +46,22 @@ export const EXPRESSION_AXIOM =
  * Render the chain as an Abstract Expressionist field:
  * illuminated blocks become chromatic events in the void.
  */
-export function chainToRealityField(blocks: PixelBlock[], cols?: number): RealityField {
-  const n = Math.max(blocks.length, 1);
+export function chainToRealityField(pixels: LedgerPixel[], cols?: number): RealityField {
+  const n = Math.max(pixels.length, 1);
   const c = cols ?? Math.max(8, Math.ceil(Math.sqrt(n * 1.4)));
   const strokes: FieldStroke[] = [];
 
-  for (const block of blocks) {
-    const row = Math.floor(block.index / c);
-    const col = block.index % c;
+  for (const pixel of pixels) {
+    const row = Math.floor(pixel.index / c);
+    const col = pixel.index % c;
     const rows = Math.max(1, Math.ceil(n / c));
     strokes.push({
       x: (col + 0.5) / c,
       y: (row + 0.5) / rows,
-      color: block.color,
-      energy: Math.min(1, 0.25 + block.transactions.length * 0.2 + (block.sequence % 7) * 0.05),
-      index: block.index,
-      illuminated: block.illuminated && !isColorAbsent(block.color),
+      color: pixel.color,
+      energy: Math.min(1, 0.25 + pixel.transactions.length * 0.2 + (pixel.sequence % 7) * 0.05),
+      index: pixel.index,
+      illuminated: pixel.illuminated && !isColorAbsent(pixel.color),
     });
   }
 
@@ -69,7 +69,7 @@ export function chainToRealityField(blocks: PixelBlock[], cols?: number): Realit
   const zips: { y: number; intensity: number }[] = [];
   const rows = Math.max(1, Math.ceil(n / c));
   for (let r = 0; r < rows; r++) {
-    const rowBlocks = blocks.filter((b) => Math.floor(b.index / c) === r && b.illuminated);
+    const rowBlocks = pixels.filter((b) => Math.floor(b.index / c) === r && b.illuminated);
     if (rowBlocks.length === 0) continue;
     zips.push({
       y: (r + 0.5) / rows,
@@ -81,7 +81,7 @@ export function chainToRealityField(blocks: PixelBlock[], cols?: number): Realit
 }
 
 /** Drip path — Pollock-like polyline through successive revelations. */
-export function actionPath(blocks: PixelBlock[]): { x: number; y: number }[] {
-  const field = chainToRealityField(blocks);
+export function actionPath(pixels: LedgerPixel[]): { x: number; y: number }[] {
+  const field = chainToRealityField(pixels);
   return field.strokes.filter((s) => s.illuminated).map((s) => ({ x: s.x, y: s.y }));
 }
