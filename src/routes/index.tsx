@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AccessDemo } from "@/components/pixel/AccessDemo";
 import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
 import { KindlingPanel } from "@/components/pixel/KindlingPanel";
+import { WorldlightPanel } from "@/components/pixel/WorldlightPanel";
 import { LedgerField } from "@/components/pixel/LedgerField";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
 import { RealityField } from "@/components/pixel/RealityField";
@@ -67,16 +68,16 @@ function Index() {
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
-                href="#kindling"
+                href="#worldlight"
                 className="font-pixel inline-flex rounded-md bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
               >
-                Kindle
+                Bring the world in
               </a>
               <a
-                href="#access"
+                href="#kindling"
                 className="font-pixel text-sm font-semibold underline decoration-primary/40 underline-offset-4"
               >
-                Uptake doors
+                Kindle
               </a>
             </div>
             <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -103,6 +104,8 @@ function Index() {
             <RealityField pixels={blocks} pendingCount={pixel.pending} />
           </div>
         </section>
+
+        <WorldlightPanel />
 
         <KindlingPanel />
 

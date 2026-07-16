@@ -31,6 +31,7 @@ import { Kindling } from "./kindling";
 import { energyTruthForIlluminate, formatEnergyTruth, datacenterRebuke } from "./energy-truth";
 import { Uptake } from "./uptake";
 import { Custody, SELF_CUSTODY_AXIOM } from "./custody";
+import { Worldlight } from "./worldlight";
 import type { ReadableMeta, TxOutput } from "./transaction";
 
 /** The three names of the one. */
@@ -132,6 +133,8 @@ export const One = {
   Kindling,
   /** Optical Personal Source — self-custody for everyone. */
   Custody,
+  /** How $5 / domains / treasuries / apps enter the light. */
+  Worldlight,
   /** Primitive → advanced on-ramps (bridges never hold keys). */
   Uptake,
   /** Waste refused — labeled energy/water models; rebuke hyperscale thirst. */
