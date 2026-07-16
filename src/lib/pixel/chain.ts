@@ -12,6 +12,7 @@ import {
   verifyLightProof,
   type LightProof,
 } from "./pol";
+import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import {
   createTransaction,
   finalizeTransaction,
@@ -111,14 +112,13 @@ export async function createGenesis(
   sequencer: LightKeypair,
   networkId = PIXEL_NETWORK_ID,
 ): Promise<PixelChainState> {
+  const genesisReward = lightReward(0);
+  assertUnderCap(0, genesisReward);
   const mint = await createTransaction({
     inputs: [],
-    outputs: [
-      { amount: 1_000_000, address: sequencer.address },
-      { amount: 1_000_000, address: sequencer.address },
-    ],
+    outputs: [{ amount: genesisReward, address: sequencer.address }],
     metadata: {
-      description: "Genesis light — the first revelation",
+      description: "Genesis light — first illumination (21M PIX hard cap)",
       reference: "GENESIS",
     },
   });
@@ -300,7 +300,28 @@ export async function sequenceBlock(
     throw new Error(`Not this node's turn to sequence (need ${chosen})`);
   }
 
-  const revealed = state.pending.map((tx) => finalizeTransaction(revealTransaction(tx, sequence)));
+  const nextIndex = tip.index + 1;
+  const reward = lightReward(nextIndex);
+  assertUnderCap(mintedThrough(nextIndex), reward);
+
+  const coinbase = finalizeTransaction(
+    revealTransaction(
+      await createTransaction({
+        inputs: [],
+        outputs: [{ amount: reward, address: localSequencer.address }],
+        metadata: {
+          description: `Light reward for illuminating pixel #${nextIndex}`,
+          reference: `LIGHT-${nextIndex}`,
+        },
+      }),
+      sequence,
+    ),
+  );
+
+  const revealed = [
+    coinbase,
+    ...state.pending.map((tx) => finalizeTransaction(revealTransaction(tx, sequence))),
+  ];
 
   for (const tx of revealed) {
     const ok = await verifyTransactionSignatures(tx);
@@ -318,7 +339,6 @@ export async function sequenceBlock(
 
   const root = await merkleRoot(revealed.map((t) => t.txid));
   const timestamp = Date.now();
-  const nextIndex = tip.index + 1;
   const hash = await hashBlock({
     index: nextIndex,
     prevHash: tip.hash,
@@ -460,7 +480,9 @@ export function serializeChain(state: PixelChainState): SerializedChain {
   };
 }
 
-export function deserializeChain(data: SerializedChain & { blocks?: LedgerPixel[] }): PixelChainState {
+export function deserializeChain(
+  data: SerializedChain & { blocks?: LedgerPixel[] },
+): PixelChainState {
   const utxos = new Map<string, Utxo>();
   for (const u of data.utxos ?? []) {
     utxos.set(utxoKey(u.txid, u.vout), u);

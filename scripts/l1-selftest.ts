@@ -46,7 +46,7 @@ async function main() {
   const { state: pending, tx } = await proposeTransfer(
     chainA,
     alice,
-    [{ amount: 333, address: bob.address }],
+    [{ amount: 13, address: bob.address }],
     { description: "L1 pixel settlement", recipientLabel: "@bob" },
   );
   chainA = pending;
@@ -73,9 +73,9 @@ async function main() {
   if (!(await verifyChain(chainA)) || !(await verifyChain(chainB))) {
     throw new Error("post-accept verify failed");
   }
-  if (balanceOf(chainA, bob.address) !== 333) throw new Error("bob balance");
-  if (balanceOf(chainB, bob.address) !== 333) throw new Error("bob balance on B");
-  console.log("▸ multi-node acceptPixel ✓ bob=333");
+  if (balanceOf(chainA, bob.address) !== 13) throw new Error("bob balance");
+  if (balanceOf(chainB, bob.address) !== 13) throw new Error("bob balance on B");
+  console.log("▸ multi-node acceptPixel ✓ bob=13");
 
   // Round-trip serialize name: pixels not blocks
   const snap = serializeChain(chainA);

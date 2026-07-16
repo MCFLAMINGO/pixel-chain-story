@@ -1,0 +1,67 @@
+# Pixel Ledger — Value, Sovereignty, Bridges
+
+## 1. Value structure (why PIX is scarce)
+
+Bitcoin’s 21,000,000 cap works because it is **knowable, finite, and tied to security**.
+Pixel Ledger copies the **math**, not the energy burn:
+
+| Parameter       | Bitcoin        | Pixel Ledger                   |
+| --------------- | -------------- | ------------------------------ |
+| Hard cap        | 21,000,000 BTC | **21,000,000 PIX**             |
+| Era length      | 210,000 blocks | **210,000 illuminated pixels** |
+| Initial reward  | 50 BTC         | **50 PIX**                     |
+| Issuance engine | Proof of Work  | **Proof of Light Sequence**    |
+
+**Why hold PIX**
+
+1. **Scarce settlement asset** — hard cap, transparent emission (`economics.ts`)
+2. **Utility** — fees / priority to illuminate transfers
+3. **Security budget** — light rewards pay sovereign sequencers
+4. **Bridge fuel** — lock/burn PIX to shine attestations onto other chains
+5. **Energy asymmetry** — security without hyperscaler power bills
+
+Sinks (deflationary pressure later): revelation fees, bridge locks/burns.
+
+## 2. Sovereignty (ICP-like: no AWS/Cloudflare kill switch)
+
+The ledger protocol **must not depend** on any single cloud or CDN.
+
+Enforced ideals (`sovereignty.ts`):
+
+- ≥ 7 independent node providers in an active sequencer set
+- No country > 34% of sequencers
+- Cloud-hosted sequencers ≤ 34%; single vendor ≤ 20%
+- Majority-cloud quorums rejected by honest peers
+- **Multiple light subnets** checkpoint each other
+- Light clients dial **many peers** — there is no required `api.*` hostname
+
+Marketing websites may sit on Cloudflare. **Pixel Ledger nodes must not need to.**
+
+Home / colo / minority-cloud / mobile providers are first-class. Optical and analog key paths survive network partitions.
+
+## 3. Agnostic bridging (“shine on all protocols”)
+
+Pixel is **not** an Ethereum L2 and **not** owned by any hub chain.
+
+It emits **Universal Light Attestations (ULA)**:
+
+1. Build bridge message (amount, dest chain, dest address)
+2. Anchor in an illuminated pixel’s light proof
+3. Relayer carries JSON attestation
+4. Destination verifies hash-OTS light proof + message commitment
+5. Destination mints/unlocks — Pixel never runs their VM
+
+| Direction    | Meaning                                                                  |
+| ------------ | ------------------------------------------------------------------------ |
+| **shineOut** | Lock/burn PIX → attest → unlock on ETH / BTC / Cosmos / Solana / ICP / … |
+| **shineIn**  | Lock on foreign chain → commitment on Pixel → release PIX                |
+
+Targets are peers: Ethereum, Bitcoin, Cosmos, Solana, Polkadot, ICP, other.
+
+## Commands
+
+```bash
+bun run test:pixel
+bun scripts/l1-selftest.ts
+bun scripts/scale-thesis-selftest.ts
+```

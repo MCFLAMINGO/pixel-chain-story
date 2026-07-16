@@ -120,13 +120,22 @@ export async function handlePixelRpc(
         );
       case "pix_protocolInfo":
         return ok(id, {
-          name: "Pixel",
+          name: "Pixel Ledger",
+          unit: "pixel (not block)",
           consensus: "Proof of Light Sequence (PoLS)",
           signatures: "PIX-HASH-OTS-128 (hash-based, quantum-resistant)",
           hash: "SHA-512",
           model: "UTXO",
           language: "Lumen (light-native) + TypeScript host",
           finality: "light-revelation (sequencer signature + beacon)",
+          economics: {
+            hardCap: 21_000_000,
+            issuance: "light rewards per illuminated pixel (halving eras of 210,000)",
+            analogy: "Bitcoin scarcity schedule; energy-cheap security",
+          },
+          sovereignty:
+            "Independent node providers; diversity caps on cloud/jurisdiction; no required CDN",
+          bridge: "Universal Light Attestations — agnostic shineOut/shineIn to any chain",
           ethereumAnalogues: {
             sequencer: "PBS / based sequencing (single light proof)",
             pendingPool: "mempools — held as superposition ghosts",
@@ -135,6 +144,18 @@ export async function handlePixelRpc(
             pqc: "aligns with Ethereum PQ migration research",
           },
         });
+      case "pix_getEmission": {
+        const { emissionInfo } = await import("./economics");
+        return ok(id, emissionInfo(ctx.chain.pixels.length));
+      }
+      case "pix_getSovereigntyPolicy": {
+        const { SOVEREIGNTY_POLICY, sovereigntyThesis } = await import("./sovereignty");
+        return ok(id, { policy: SOVEREIGNTY_POLICY, thesis: sovereigntyThesis() });
+      }
+      case "pix_getBridgeThesis": {
+        const { bridgeThesis } = await import("./bridge");
+        return ok(id, bridgeThesis());
+      }
       default:
         throw rpcError(-32601, `method not found: ${req.method}`);
     }

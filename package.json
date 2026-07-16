@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test:pixel": "bun scripts/pixel-selftest.ts"
+    "test:pixel": "bun scripts/pixel-selftest.ts",
+    "test:l1": "bun scripts/l1-selftest.ts",
+    "test:scale": "bun scripts/scale-thesis-selftest.ts",
+    "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
