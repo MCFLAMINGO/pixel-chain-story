@@ -325,7 +325,7 @@ export function worldlightThesis(): {
   custody: string;
 } {
   return {
-    usd: "Lock USD/USDC (or wire attestation) off-Pixel → shineIn → PIX credited to your Personal Source. Bridge vault is escrow; you keep the keys.",
+    usd: "LockFeeder: USDC rail / PixelUsdcLock or bank-wire attestation → verified receipt → shineIn → PIX on your Personal Source.",
     domain:
       "mcflamingo.com shines in as a domain artifact (digest + mirrors). The site keeps running where it runs; Pixel holds continuity if the host dies.",
     treasury:

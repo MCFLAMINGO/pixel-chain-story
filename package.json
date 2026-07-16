@@ -18,7 +18,8 @@
     "test:access": "bun scripts/access-selftest.ts",
     "test:kindling": "bun scripts/kindling-selftest.ts",
     "test:worldlight": "bun scripts/worldlight-selftest.ts",
-    "test:all": "bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight",
+    "test:lock": "bun scripts/lock-feeder-selftest.ts",
+    "test:all": "bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {

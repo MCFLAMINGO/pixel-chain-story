@@ -26,6 +26,7 @@ export * from "./energy-truth";
 export * from "./uptake";
 export * from "./custody";
 export * from "./worldlight";
+export * from "./lock-feeder";
 export * from "./chain";
 export * from "./rpc";
 export * from "./benchmark";

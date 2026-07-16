@@ -5,27 +5,28 @@ Not a whitepaper. The doors:
 ## 1. “I want $5 USD on the ledger”
 
 ```
-USD/USDC/wire locked elsewhere (bank, ETH, etc.)
-        ↓  foreign lock attestation
-   Worldlight shineIn
+Lock USDC (PixelUsdcLock / LocalUsdcRail)  OR  attest bank wire
+        ↓  verified LockReceipt
+   One.LockFeeder.feed
         ↓
-   Bridge escrow releases PIX
+   Worldlight illuminate (bridge escrow → PIX)
         ↓
-   Your Personal Source address (self-custody)
+   Your Personal Source  +  LockFeeder.consume
 ```
 
-Demo rate: `DEMO_PIX_PER_USD` (labeled model — production uses attested FX/stablecoin locks).  
-SMS cannot do this. A custodian app must not hold your seed while “onboarding.”
+Rate: `DEMO_PIX_PER_USD` (labeled). See `docs/LOCK-FEEDER.md`.
 
 ```ts
-const you = await One.Custody.forge("dale");
-const prepared = await One.Worldlight.usd(5, {
-  address: you.source.address,
-  localId: "dale",
-}, "wire-ref-abc");
-const { state, summary } = await One.Worldlight.illuminate({
-  prepared, state, bridgeVault, sequencer,
+const you = await One.Custody.forge("you");
+const rail = One.LockFeeder.createRail();
+One.LockFeeder.mintUsdc(rail, "0xYou", 5);
+const receipt = await One.LockFeeder.lockUsdc({
+  rail, locker: "0xYou", humanUsd: 5, pixelRecipient: you.source.address,
 });
+const feeder = One.LockFeeder.createState();
+const prepared = await One.LockFeeder.feed({ receipt, ownerLocalId: "you", feeder, rail });
+const { state } = await One.Worldlight.illuminate({ prepared, state, bridgeVault, sequencer });
+One.LockFeeder.consume(feeder, receipt.lockDigest);
 ```
 
 ## 2. “I want mcflamingo.com on the ledger”
@@ -57,4 +58,5 @@ Treasury ref (IBAN/account digest) + org name
 
 ## Custody
 
-Ingress never takes user seeds. Bridge vault is escrow for shine-in PIX only.
+Ingress never takes user seeds. Bridge vault is escrow for shine-in PIX only.  
+Feeder verifies locks; it does not custody Pixel Sources.

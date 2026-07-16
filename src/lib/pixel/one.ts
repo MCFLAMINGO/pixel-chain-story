@@ -32,6 +32,7 @@ import { energyTruthForIlluminate, formatEnergyTruth, datacenterRebuke } from ".
 import { Uptake } from "./uptake";
 import { Custody, SELF_CUSTODY_AXIOM } from "./custody";
 import { Worldlight } from "./worldlight";
+import { LockFeeder } from "./lock-feeder";
 import type { ReadableMeta, TxOutput } from "./transaction";
 
 /** The three names of the one. */
@@ -135,6 +136,8 @@ export const One = {
   Custody,
   /** How $5 / domains / treasuries / apps enter the light. */
   Worldlight,
+  /** Live USDC / bank-wire lock feeder → Worldlight shineIn. */
+  LockFeeder,
   /** Primitive → advanced on-ramps (bridges never hold keys). */
   Uptake,
   /** Waste refused — labeled energy/water models; rebuke hyperscale thirst. */
