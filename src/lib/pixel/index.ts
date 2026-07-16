@@ -20,6 +20,7 @@ export * from "./economics";
 export * from "./sovereignty";
 export * from "./bridge";
 export * from "./siso";
+export * from "./access";
 export * from "./chain";
 export * from "./rpc";
 export * from "./benchmark";

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { AccessDemo } from "@/components/pixel/AccessDemo";
 import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
 import { LedgerField } from "@/components/pixel/LedgerField";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
@@ -101,6 +102,8 @@ function Index() {
             <RealityField blocks={blocks} pendingCount={pixel.pending} />
           </div>
         </section>
+
+        <AccessDemo />
 
         <TransferDeck
           aliceBal={pixel.aliceBal}
