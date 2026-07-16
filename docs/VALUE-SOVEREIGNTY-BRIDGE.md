@@ -17,10 +17,10 @@ Pixel Ledger copies the **math**, not the energy burn:
 1. **Scarce settlement asset** — hard cap, transparent emission (`economics.ts`)
 2. **Utility** — fees / priority to illuminate transfers
 3. **Security budget** — light rewards pay sovereign sequencers
-4. **Bridge fuel** — lock/burn PIX to shine attestations onto other chains
+4. **Bridge fuel** — PIX locked/escrowed to shine attestations onto other chains
 5. **Energy asymmetry** — security without hyperscaler power bills
 
-Sinks (deflationary pressure later): revelation fees, bridge locks/burns.
+**Burning is not necessary.** Prefer fees → sequencers and bridge **locks** (releasable). Burn is an optional monetary dial, never a protocol requirement.
 
 ## 2. Sovereignty (ICP-like: no AWS/Cloudflare kill switch)
 
