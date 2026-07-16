@@ -1,25 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import {
-  createGenesis,
-  mineBlock,
-  verifyChain,
-  type PixelBlock,
-} from "@/lib/pixel-chain";
+import { useState } from "react";
+import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
+import { LedgerField } from "@/components/pixel/LedgerField";
+import { OpticalPanel } from "@/components/pixel/OpticalPanel";
+import { RealityField } from "@/components/pixel/RealityField";
+import { TransferDeck } from "@/components/pixel/TransferDeck";
+import { usePixelChain } from "@/hooks/use-pixel-chain";
+import { EXPRESSION_AXIOM, estimatePoLSCost } from "@/lib/pixel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pixel Chain — a blockchain drawn as a picture" },
+      { title: "PIXEL — light renders reality" },
       {
         name: "description",
         content:
-          "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture.",
+          "Quantum-resistant ledger where light reveals proximity and color is absent without it. Abstract Expressionism as information transfer. Executable — not theory.",
       },
-      { property: "og:title", content: "Pixel Chain — a blockchain drawn as a picture" },
+      { property: "og:title", content: "PIXEL — light renders reality" },
       {
         property: "og:description",
-        content: "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture.",
+        content:
+          "PoLS settlement, Lumen programs, optical keys, and a ledger that paints like the Abstract Expressionists saw the matrix.",
       },
     ],
   }),
@@ -27,115 +29,138 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [chain, setChain] = useState<PixelBlock[]>(() => {
-    const g = createGenesis();
-    let c = [g];
-    // Pre-mine a small starter chain so the picture has something to show.
-    for (let i = 0; i < 63; i++) {
-      c = [...c, mineBlock(c[c.length - 1], Math.floor(Math.random() * 256))];
-    }
-    return c;
-  });
-  const [tampered, setTampered] = useState(false);
-
-  const valid = useMemo(() => verifyChain(chain), [chain]);
-  const cols = 16;
-
-  const addBlock = () => {
-    const data = Math.floor(Math.random() * 256);
-    setChain((c) => [...c, mineBlock(c[c.length - 1], data)]);
-    setTampered(false);
-  };
-
-  const tamper = () => {
-    if (chain.length < 2) return;
-    const i = Math.floor(chain.length / 2);
-    const next = chain.map((b, idx) =>
-      idx === i ? { ...b, color: { r: 255, g: 0, b: 128 } } : b,
-    );
-    setChain(next);
-    setTampered(true);
-  };
-
-  const reset = () => {
-    const g = createGenesis();
-    let c = [g];
-    for (let i = 0; i < 63; i++) {
-      c = [...c, mineBlock(c[c.length - 1], Math.floor(Math.random() * 256))];
-    }
-    setChain(c);
-    setTampered(false);
-  };
+  const pixel = usePixelChain();
+  const [amount, setAmount] = useState("250");
+  const [memo, setMemo] = useState("For a lighter world");
+  const energy = estimatePoLSCost();
+  const blocks = pixel.chain?.blocks ?? [];
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-2xl px-6 py-16">
-        <h1 className="text-3xl font-semibold tracking-tight">Pixel Chain</h1>
-        <p className="mt-3 text-muted-foreground">
-          A tiny blockchain where every block is a single pixel. Each pixel's
-          color is derived from its data plus the previous pixel's hash, so the
-          whole picture is the ledger.
-        </p>
-
-        <div className="mt-8 rounded-lg border border-border bg-card p-6">
-          <div
-            className="grid gap-[2px]"
-            style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-          >
-            {chain.map((b) => (
-              <div
-                key={b.index}
-                title={`#${b.index} data=${b.data} hash=${b.hash}`}
-                className="aspect-square rounded-[2px]"
-                style={{
-                  backgroundColor: `rgb(${b.color.r}, ${b.color.g}, ${b.color.b})`,
-                }}
-              />
-            ))}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
-              onClick={addBlock}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              Mine pixel
-            </button>
-            <button
-              onClick={tamper}
-              className="rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
-            >
-              Tamper with a pixel
-            </button>
-            <button
-              onClick={reset}
-              className="rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
-            >
-              Reset
-            </button>
-            <span
-              className={`ml-auto rounded-full px-3 py-1 text-xs font-medium ${
-                valid
-                  ? "bg-secondary text-secondary-foreground"
-                  : "bg-destructive text-destructive-foreground"
-              }`}
-            >
-              {valid ? "Chain valid" : "Chain broken"}
-            </span>
-          </div>
-
-          {tampered && !valid && (
-            <p className="mt-4 text-sm text-muted-foreground">
-              A pixel was edited by hand. Its color no longer matches its hash,
-              so verification fails — the picture itself is the proof.
-            </p>
+    <main className="min-h-screen overflow-x-hidden text-foreground">
+      <section className="pixel-hero-light relative min-h-[100svh]">
+        <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden>
+          {blocks.length > 0 ? (
+            <LedgerField
+              blocks={blocks}
+              pendingCount={pixel.pending}
+              className="h-full min-h-[100svh] w-full [&>div]:min-h-[100svh]"
+            />
+          ) : (
+            <div className="h-full w-full bg-[radial-gradient(circle_at_40%_30%,oklch(0.2_0.03_145),oklch(0.1_0.02_145))]" />
           )}
         </div>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
 
-        <p className="mt-8 text-sm text-muted-foreground">
-          Length: {chain.length} blocks · Tip hash:{" "}
-          <code className="font-mono">{chain[chain.length - 1].hash}</code>
-        </p>
+        <div className="relative mx-auto flex min-h-[100svh] max-w-5xl flex-col justify-end px-6 pb-16 pt-24 md:pb-24">
+          <div className="pixel-rise max-w-2xl">
+            <p className="font-pixel text-xs font-semibold tracking-[0.4em] text-primary uppercase">
+              Reality rendering protocol
+            </p>
+            <h1 className="font-pixel mt-5 text-[clamp(4.5rem,18vw,9.5rem)] leading-[0.85] font-extrabold tracking-tight">
+              PIXEL
+            </h1>
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/90 md:text-xl">
+              The Abstract Expressionists had the key: information moves as field and gesture
+              through void. Light reveals proximity. Color is absent without it.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <a
+                href="#field"
+                className="font-pixel inline-flex rounded-md bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              >
+                Enter the field
+              </a>
+              <a
+                href="#console"
+                className="font-pixel text-sm font-semibold underline decoration-primary/40 underline-offset-4"
+              >
+                Execute Lumen
+              </a>
+            </div>
+            <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
+              {EXPRESSION_AXIOM}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-5xl space-y-28 px-6 py-24">
+        <section id="field" className="pixel-rise">
+          <p className="font-pixel text-xs font-semibold tracking-[0.28em] text-primary uppercase">
+            Color-field / action / zip
+          </p>
+          <h2 className="font-pixel mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+            They saw the matrix. We execute it.
+          </h2>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Rothko: the color <em>is</em> the message. Pollock: each revelation is a drip on the
+            canvas of time. Newman: light zips through void. Click a lit pixel — proximity appears.
+            Unlit remains colorless.
+          </p>
+          <div className="mt-8">
+            <RealityField blocks={blocks} pendingCount={pixel.pending} />
+          </div>
+        </section>
+
+        <TransferDeck
+          aliceBal={pixel.aliceBal}
+          bobBal={pixel.bobBal}
+          aliceAddress={pixel.alice?.address}
+          bobAddress={pixel.bob?.address}
+          amount={amount}
+          memo={memo}
+          busy={pixel.busy}
+          pending={pixel.pending}
+          revealing={pixel.revealing}
+          phase={pixel.phase}
+          error={pixel.error}
+          lastTx={pixel.lastTx}
+          history={pixel.history}
+          onAmount={setAmount}
+          onMemo={setMemo}
+          onPropose={() => pixel.propose(Math.floor(Number(amount)), memo)}
+          onReveal={() => pixel.shineLight()}
+        />
+
+        {pixel.chain && pixel.alice && pixel.bob && (
+          <ExecutionConsole
+            chain={pixel.chain}
+            setChain={(c) => {
+              void pixel.applyChain(c, "Lumen execution painted the field");
+            }}
+            alice={pixel.alice}
+            bob={pixel.bob}
+          />
+        )}
+
+        <OpticalPanel
+          pattern={pixel.optical}
+          ok={pixel.opticalOk}
+          busy={pixel.busy}
+          onProject={() => pixel.projectKey()}
+          onCapture={() => pixel.captureKey()}
+        />
+
+        <section className="pixel-rise border-t border-border pt-16">
+          <h2 className="font-pixel text-3xl font-bold tracking-tight">Why Ethereum should care</h2>
+          <ul className="mt-6 max-w-2xl list-disc space-y-3 pl-5 text-muted-foreground">
+            <li>
+              Post-quantum signatures now (hash-OTS), crypto-agile to ML-DSA — aligned with Ethereum
+              PQ research.
+            </li>
+            <li>
+              PoLS sequencers are PBS-familiar: one light proof, no hash-power arms race (
+              {energy.relativeToPoW}).
+            </li>
+            <li>
+              JSON-RPC + Lumen execution: state transitions you can run, measure, and verify
+              in-browser.
+            </li>
+            <li>
+              Human-readable, privacy-veiled transfers — settlement first, spectacle never required.
+            </li>
+          </ul>
+        </section>
       </div>
     </main>
   );
