@@ -16,10 +16,10 @@ export const Route = createFileRoute("/")({
         content:
           "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture.",
       },
-      { property: "og:title", content: "Pixel Chain" },
+      { property: "og:title", content: "Pixel Chain — a blockchain drawn as a picture" },
       {
         property: "og:description",
-        content: "A blockchain rendered as a picture — every block is a pixel.",
+        content: "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture.",
       },
     ],
   }),

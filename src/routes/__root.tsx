@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Pixel Chain — a blockchain drawn as a picture" },
+      { name: "description", content: "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Pixel Chain — a blockchain drawn as a picture" },
+      { property: "og:description", content: "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Pixel Chain — a blockchain drawn as a picture" },
+      { name: "twitter:description", content: "A minimal proof-of-concept where every block in the chain is a single pixel. Tampering with any pixel breaks the picture." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f94bfe02-5eec-4866-a323-e32b56816b24" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f94bfe02-5eec-4866-a323-e32b56816b24" },
     ],
     links: [
       {
