@@ -62,12 +62,7 @@ export const Source = {
 
 /** WORD — the body in the world: settlement, pixel, artifact */
 export const Word = {
-  async speak(
-    state: PixelChainState,
-    from: LightKeypair,
-    outputs: TxOutput[],
-    meta: ReadableMeta,
-  ) {
+  async speak(state: PixelChainState, from: LightKeypair, outputs: TxOutput[], meta: ReadableMeta) {
     // Spoken but not yet color — superposition
     return proposeTransfer(state, from, outputs, meta);
   },

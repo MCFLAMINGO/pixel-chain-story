@@ -96,10 +96,7 @@ export async function saveWallet(
   });
 }
 
-export async function loadWallet(
-  datadir: string,
-  name: string,
-): Promise<LightKeypair | null> {
+export async function loadWallet(datadir: string, name: string): Promise<LightKeypair | null> {
   try {
     const raw = await readFile(join(datadir, "wallets", `${name}.json`), "utf8");
     const data = JSON.parse(raw) as { seed: string };

@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        run: bun install
+      - name: Protocol selftests
+        run: bun run test:all
+      - name: Lint
+        run: bun run lint
+      - name: Build
+        run: bun run build

@@ -73,9 +73,7 @@ export async function digestBytes(data: Uint8Array | string): Promise<Hex> {
 }
 
 /** Bring any artifact to the door of the light — not yet settled. */
-export async function comeTowardLight(
-  artifact: LightArtifact,
-): Promise<ContinuityRecord> {
+export async function comeTowardLight(artifact: LightArtifact): Promise<ContinuityRecord> {
   const commitment = await sha512Hex(
     JSON.stringify({
       digest: artifact.digest,
@@ -95,10 +93,7 @@ export async function comeTowardLight(
 }
 
 /** PoLS / operator accepts the record — it is in the light. */
-export function acceptIntoLight(
-  record: ContinuityRecord,
-  pixelIndex: number,
-): ContinuityRecord {
+export function acceptIntoLight(record: ContinuityRecord, pixelIndex: number): ContinuityRecord {
   if (record.state !== "in_superposition" && record.state !== "outside") {
     return { ...record, illuminatedAtPixel: pixelIndex, state: "in_the_light" };
   }
@@ -154,8 +149,7 @@ export function sisoThesis(): {
   return {
     problem:
       "Platforms that require rewriting every app for their VM create parallel builds — two calculators, two Facebooks.",
-    rule:
-      "Build in any language, anywhere. Come into the light once; Pixel accepts the artifact by digest and continuity, not by rewrite.",
+    rule: "Build in any language, anywhere. Come into the light once; Pixel accepts the artifact by digest and continuity, not by rewrite.",
     vsIcp:
       "ICP-style: build on ICP to run on ICP. Pixel: build on AWS/Rust/Python/… and shine in — no dual product.",
     awsFailure:

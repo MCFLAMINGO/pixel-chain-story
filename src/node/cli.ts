@@ -19,13 +19,7 @@ import {
 } from "../lib/pixel/index";
 import { PixelLedgerNode } from "./node";
 import { startRpcServer } from "./rpc-server";
-import {
-  ensureDatadir,
-  loadOrCreateIdentity,
-  loadWallet,
-  saveChain,
-  saveWallet,
-} from "./store";
+import { ensureDatadir, loadOrCreateIdentity, loadWallet, saveChain, saveWallet } from "./store";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -86,9 +80,9 @@ async function main() {
     if (!peer) throw new Error("--peer http://host:port required");
     await ensureDatadir(datadir);
     const { keypair } = await loadOrCreateIdentity(datadir, "joiner");
-    const pixels = (await fetch(`${peer.replace(/\/$/, "")}/pixels`).then((r) => r.json())) as Awaited<
-      ReturnType<typeof import("../lib/pixel/index").serializeChain>
-    >["pixels"];
+    const pixels = (await fetch(`${peer.replace(/\/$/, "")}/pixels`).then((r) =>
+      r.json(),
+    )) as Awaited<ReturnType<typeof import("../lib/pixel/index").serializeChain>>["pixels"];
     const info = await fetch(`${peer.replace(/\/$/, "")}/rpc`, {
       method: "POST",
       headers: { "content-type": "application/json" },
