@@ -142,23 +142,24 @@ function Index() {
         />
 
         <section className="pixel-rise border-t border-border pt-16">
-          <h2 className="font-pixel text-3xl font-bold tracking-tight">Why Ethereum should care</h2>
+          <h2 className="font-pixel text-3xl font-bold tracking-tight">
+            Scarcity · Sovereignty · Shine
+          </h2>
           <ul className="mt-6 max-w-2xl list-disc space-y-3 pl-5 text-muted-foreground">
             <li>
-              Post-quantum signatures now (hash-OTS), crypto-agile to ML-DSA — aligned with Ethereum
-              PQ research.
+              <span className="text-foreground">21,000,000 PIX</span> hard cap — Bitcoin’s scarcity
+              math; issuance by illuminating pixels, not burning coal ({energy.model}).
             </li>
             <li>
-              PoLS sequencers are PBS-familiar: one light proof, no hash-power arms race (
-              {energy.relativeToPoW}).
+              <span className="text-foreground">Sovereign nodes</span> — diversity caps so
+              AWS/Cloudflare/single-nation majorities cannot be the kill switch.
             </li>
             <li>
-              JSON-RPC + Lumen execution: state transitions you can run, measure, and verify
-              in-browser.
+              <span className="text-foreground">Agnostic bridges</span> — Universal Light
+              Attestations shine onto Ethereum, Bitcoin, Cosmos, Solana, ICP… without becoming
+              anyone’s L2.
             </li>
-            <li>
-              Human-readable, privacy-veiled transfers — settlement first, spectacle never required.
-            </li>
+            <li>Post-quantum hash-OTS · Lumen · JSON-RPC · optical keys.</li>
           </ul>
         </section>
       </div>
