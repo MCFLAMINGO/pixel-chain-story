@@ -26,18 +26,20 @@ Fees go to sequencers. Bridge PIX is locked and releasable — never destroyed.
 
 The ledger protocol **must not depend** on any single cloud or CDN.
 
-Enforced ideals (`sovereignty.ts`):
+Policy in code (`sovereignty.ts`) — **enforced when a ≥7-provider registry is declared** (`setProviderRegistry` / Gate G):
 
 - ≥ 7 independent node providers in an active sequencer set
 - No country > 34% of sequencers
 - Cloud-hosted sequencers ≤ 34%; single vendor ≤ 20%
 - Majority-cloud quorums rejected by honest peers
-- **Multiple light subnets** checkpoint each other
-- Light clients dial **many peers** — there is no required `api.*` hostname
+- **Multiple light subnets** checkpoint each other *(roadmap — Gate J)*
+- Light clients dial **many peers** — there is no required `api.*` hostname *(Gate F/G)*
 
 Marketing websites may sit on Cloudflare. **Pixel Ledger nodes must not need to.**
 
-Home / colo / minority-cloud / mobile providers are first-class. Optical and analog key paths survive network partitions.
+Home / colo / minority-cloud / mobile providers are first-class. Optical paths are codec + simulated capture today; real capture is Gate H.
+
+See [`PATH.md`](./PATH.md) for when “sovereignty regime” becomes an earned claim.
 
 ## 3. Agnostic bridging (“shine on all protocols”)
 

@@ -1,6 +1,8 @@
 # How to help build Pixel Ledger
 
-We want **runnable truth**, not renamed old tech. Read [`INVENT.md`](./INVENT.md) and [`CUSTODY.md`](./CUSTODY.md) before you open a PR.
+We want **runnable truth**, not renamed old tech. Read [`INVENT.md`](./INVENT.md), [`CUSTODY.md`](./CUSTODY.md), and [`PATH.md`](./PATH.md) before you open a PR.
+
+Respect is gated: ship evidence for the next PATH gate; do not inflate claims past `pix_protocolInfo.gates`.
 
 ## 60-second start
 
@@ -19,7 +21,7 @@ Open a PR against `main`. Keep the branch green: `test:all` + `lint` + `build`.
 
 ### 1. Protocol / TypeScript (core)
 
-Highest leverage. Work the [`ROADMAP.md`](./ROADMAP.md) “Next” list in order:
+Highest leverage. Work [`PATH.md`](./PATH.md) / [`ROADMAP.md`](./ROADMAP.md) gates in order (B → C → F for node work):
 
 | Task | Where |
 | --- | --- |

@@ -102,4 +102,5 @@ HTTP:
 - Audited on-chain bridge verifier — `ULAVerifier.sol` is an explicit stub
 - Production gossip (no peer auth, fragile catch-up)
 
-Frame this honestly: a coherent educational / lab prototype with real running crypto and UTXO settlement — not a finished L1, bridge, or sovereignty regime.
+Frame this honestly: a coherent lab prototype with real running crypto and UTXO settlement — **Gate A** on the path to an L1 / bridge / sovereignty regime.  
+Destination and claim unlocks: [`PATH.md`](./PATH.md). Do not claim Gates B–J until their evidence exists.

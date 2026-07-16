@@ -31,10 +31,11 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 
 | Doc | Why |
 | --- | --- |
+| [`docs/PATH.md`](docs/PATH.md) | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | **How to help** — lanes, checklist, what we reject |
 | [`docs/SPEC.md`](docs/SPEC.md) | Normative behavior |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Honest risks |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What earns respect next |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Checklist tied to PATH gates |
 | [`docs/ONE.md`](docs/ONE.md) | Simple API |
 | [`docs/INVENT.md`](docs/INVENT.md) | Invent, don’t rename |
 | [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) | Day one without $21M myth |
@@ -49,7 +50,7 @@ bun install && bun run test:all
 | Path | Meaning | Start |
 | --- | --- | --- |
 | **On** | Apps, Lumen, Kindling, agents | [`docs/BUILDERS.md`](docs/BUILDERS.md) · `/lab` |
-| **For** | Protocol, crypto, nodes, locks | [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
+| **For** | Protocol, crypto, nodes, locks | [`docs/PATH.md`](docs/PATH.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
 | **Into (SISO)** | Mirror an existing app — no rewrite | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) |
 
 ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
@@ -58,4 +59,5 @@ ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
 
 ## Status
 
-Prototype ledger with real tests. Not a finished global network. See roadmap.
+**Gate A** lab: real UTXO + PoLS + PQ-class OTS + tests. Not a finished global network.  
+Claims escalate only with PATH gates — see [`docs/PATH.md`](docs/PATH.md). `pix_protocolInfo.gates` tells you what is earned.

@@ -121,7 +121,9 @@ export async function handlePixelRpc(
       case "pix_protocolInfo":
         return ok(id, {
           name: "Pixel Ledger",
-          status: "local multi-node prototype — not a global mainnet",
+          status: "Gate A lab prototype — path to L1/bridge/sovereignty in docs/PATH.md",
+          /** Earned claim badges — only append when PATH gate evidence exists. */
+          gates: ["A"],
           unit: "pixel (not block)",
           consensus: "Proof of Light Sequence (PoLS) — sequential tip extension, not BFT",
           signatures: "PIX-HASH-OTS-128 Merkle-window Lamport (one-time leaves; QR-class hash)",
@@ -138,6 +140,7 @@ export async function handlePixelRpc(
             "Diversity policy enforced when ≥7 providers are registered; single-node labs skip",
           bridge: "ULA packages in TS; on-chain ULAVerifier.sol is an explicit stub",
           optical: "luminance codec + simulated capture — no getUserMedia yet",
+          path: "docs/PATH.md",
           ethereumAnalogues: {
             sequencer: "PBS / based sequencing (single light proof) — analogy only",
             pendingPool: "mempools — held as superposition ghosts",
