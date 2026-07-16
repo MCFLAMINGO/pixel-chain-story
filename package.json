@@ -13,6 +13,7 @@
     "test:pixel": "bun scripts/pixel-selftest.ts",
     "test:l1": "bun scripts/l1-selftest.ts",
     "test:scale": "bun scripts/scale-thesis-selftest.ts",
+    "test:siso": "bun scripts/siso-selftest.ts",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {

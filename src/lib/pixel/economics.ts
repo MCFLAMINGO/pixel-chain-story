@@ -131,9 +131,8 @@ export function valueThesis(): {
     issuance:
       "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS).",
     sinks: [
-      "Optional revelation fees paid to sequencers (preferred over burn)",
-      "Bridge collateral — PIX locked/escrowed for shineOut (unlockable), not destroyed",
-      "Burn is OPTIONAL and never required for security, bridging, or developer use",
+      "Revelation fees paid to sequencers (anti-spam + security budget)",
+      "Bridge collateral — PIX locked/escrowed for shineOut, then released",
     ],
     whyHold: [
       "Scarce settlement & bridge collateral",

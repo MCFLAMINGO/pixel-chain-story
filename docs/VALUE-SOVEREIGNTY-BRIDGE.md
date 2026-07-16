@@ -3,7 +3,7 @@
 ## 1. Value structure (why PIX is scarce)
 
 Bitcoin’s 21,000,000 cap works because it is **knowable, finite, and tied to security**.
-Pixel Ledger copies the **math**, not the energy burn:
+Pixel Ledger copies the **math**, not Proof-of-Work power plants:
 
 | Parameter       | Bitcoin        | Pixel Ledger                   |
 | --------------- | -------------- | ------------------------------ |
@@ -20,7 +20,7 @@ Pixel Ledger copies the **math**, not the energy burn:
 4. **Bridge fuel** — PIX locked/escrowed to shine attestations onto other chains
 5. **Energy asymmetry** — security without hyperscaler power bills
 
-**Burning is not necessary.** Prefer fees → sequencers and bridge **locks** (releasable). Burn is an optional monetary dial, never a protocol requirement.
+Fees go to sequencers. Bridge PIX is locked and releasable — never destroyed.
 
 ## 2. Sovereignty (ICP-like: no AWS/Cloudflare kill switch)
 
@@ -53,10 +53,13 @@ It emits **Universal Light Attestations (ULA)**:
 
 | Direction    | Meaning                                                                  |
 | ------------ | ------------------------------------------------------------------------ |
-| **shineOut** | Lock/burn PIX → attest → unlock on ETH / BTC / Cosmos / Solana / ICP / … |
+| **shineOut** | Lock/escrow PIX → attest → unlock on ETH / BTC / Cosmos / Solana / ICP / … |
 | **shineIn**  | Lock on foreign chain → commitment on Pixel → release PIX                |
 
 Targets are peers: Ethereum, Bitcoin, Cosmos, Solana, Polkadot, ICP, other.
+
+**Apps do not need a second Facebook.** Build on AWS (or anywhere); come into the
+light via SISO. See `docs/CONTINUITY-SISO.md`.
 
 ## Commands
 

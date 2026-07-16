@@ -148,7 +148,7 @@ function Index() {
           <ul className="mt-6 max-w-2xl list-disc space-y-3 pl-5 text-muted-foreground">
             <li>
               <span className="text-foreground">21,000,000 PIX</span> hard cap — Bitcoin’s scarcity
-              math; issuance by illuminating pixels, not burning coal ({energy.model}).
+              math; issuance by illuminating pixels, not wasting energy ({energy.model}).
             </li>
             <li>
               <span className="text-foreground">Sovereign nodes</span> — diversity caps so
@@ -159,7 +159,10 @@ function Index() {
               Attestations shine onto Ethereum, Bitcoin, Cosmos, Solana, ICP… without becoming
               anyone’s L2.
             </li>
-            <li>Post-quantum hash-OTS · Lumen · JSON-RPC · optical keys.</li>
+            <li>
+              <span className="text-foreground">No second Facebook</span> — build on AWS in any
+              language; come into the light via SISO. If AWS dies, continuity holds.
+            </li>
           </ul>
         </section>
       </div>

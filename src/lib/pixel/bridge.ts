@@ -11,8 +11,11 @@
  * script+covenant, etc.). Pixel never depends on their VM.
  *
  * Flows:
- *   shineOut  — lock/burn PIX on Pixel → attest → mint/unlock on chain X
+ *   shineOut  — lock/escrow PIX on Pixel → attest → mint/unlock on chain X
  *   shineIn   — lock asset on chain X → post commitment → release on Pixel
+ *
+ * For apps (not just value): see siso.ts — Come Into the Light, any language,
+ * no parallel rewrite / second Facebook.
  */
 
 import { sha512Hex, type Hex } from "./crypto";
@@ -134,12 +137,12 @@ export function bridgeThesis(): {
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
     shineOut:
-      "Lock/escrow PIX (default) → illuminate bridge intent → foreign chain verifies ULA → mint/unlock. Burn is optional, not required.",
+      "Lock/escrow PIX → illuminate bridge intent → foreign chain verifies ULA → mint/unlock. Locked PIX is releasable.",
     shineIn:
-      "Lock on foreign chain → post commitment hash into a Pixel tx → illuminate → release PIX or credit.",
+      "Lock on foreign chain → commitment on Pixel → illuminate → release. Apps shine in via SISO without rewriting for a Pixel VM.",
     targets: ["ethereum", "bitcoin", "cosmos", "solana", "polkadot", "icp", "other"],
     neutrality:
-      "No privileged hub chain. Ethereum is a peer target, not the parent. Bitcoin can verify hash commitments; Cosmos/ICP/Solana verify via their lightest verifier modules.",
+      "No privileged hub chain. No parallel-build requirement. Ethereum/Bitcoin/Cosmos/ICP are peers for value; any host is a peer for app continuity.",
   };
 }
 
