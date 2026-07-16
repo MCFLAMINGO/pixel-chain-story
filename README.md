@@ -27,11 +27,21 @@ bun run pixel node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://127.0
 
 | Doc | Why |
 | --- | --- |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | **How to help** — lanes, checklist, what we reject |
 | [`docs/SPEC.md`](docs/SPEC.md) | Normative behavior |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Honest risks |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What earns respect next |
 | [`docs/ONE.md`](docs/ONE.md) | Simple API |
+| [`docs/INVENT.md`](docs/INVENT.md) | Invent, don’t rename |
 | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | No parallel rewrite |
+
+## Help build
+
+```bash
+bun install && bun run test:all
+```
+
+Then pick a lane in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) (protocol, crypto, Solidity, lock feeder, field pilot, design, or run a sovereign node). Open a small PR with a selftest.
 
 ## Status
 
