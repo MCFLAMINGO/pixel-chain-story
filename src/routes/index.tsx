@@ -60,8 +60,8 @@ function Index() {
               PIXEL
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/90 md:text-xl">
-              The Abstract Expressionists had the key: information moves as field and gesture
-              through void. Light reveals proximity. Color is absent without it.
+              Source · Word · Light — one ledger. Commitment proceeds, light reveals, the pixel
+              stands. Color is absent without light.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
