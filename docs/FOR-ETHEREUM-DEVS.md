@@ -1,36 +1,42 @@
 # Pixel for Ethereum developers
 
-Pixel is an executable post-quantum UTXO chain with Proof of Light Sequence.
-It is designed so you can **run**, **RPC-query**, and **benchmark** it today —
-not wait for a whitepaper cycle.
+Pixel is an executable post-quantum UTXO ledger with Proof of Light Sequence.  
+**Run it today** — then pick: build on it, harden it, or mirror your existing stack in (SISO).
+
+Full builder map: [`BUILDERS.md`](./BUILDERS.md).
 
 ## Why look
 
-- **PQ signatures now** — hash-based OTS; interface-ready for ML-DSA
-- **Sequencer model you’ll recognize** — PoLS ≈ PBS without hashpower
-- **JSON-RPC** — `pix_protocolInfo`, `pix_verifyChain`, `pix_getBalance`, …
-- **Lumen** — domain language where `ghost → shine → collapse` is a state transition
-- **Energy** — orders of magnitude below PoW; phone-verifiable proofs
+- **PQ-class signatures now** — hash-OTS; swap path to ML-DSA behind the same API  
+- **Sequencer model you’ll recognize** — PoLS ≈ ordered reveal without hashpower  
+- **JSON-RPC** — `pix_protocolInfo`, `pix_verifyChain`, `pix_getBalance`, …  
+- **USDC lock surface** — `contracts/PixelUsdcLock.sol` → `One.LockFeeder`  
+- **ULA out** — shine attestations to ETH without becoming an L2  
+- **SISO** — keep your Solidity/TS app; shine continuity in — no dual product  
 
 ## Try in 30 seconds
 
 ```bash
-bun run test:pixel
+bun install
+bun run test:all
 ```
 
-You should see a Lumen `send` ray move 777 PIX, RPC methods succeed, and a
-benchmark table with real `performance.now()` timings.
+You should see settlement, Kindling, lock feeder, and bootstrap selftests pass.
+
+## Three 1-hour projects
+
+1. **Foundry** — test `PixelUsdcLock` + `MockUSDC`; emit `Locked` → TypeScript receipt  
+2. **ULA** — freeze a `createAttestation()` fixture; verify in Solidity (replace stub)  
+3. **Mirror** — take any existing dapp frontend; `comeTowardLight` with digest + IPFS mirror  
 
 ## Aesthetic is not marketing
 
-The Abstract Expressionist framing is a **rendering thesis**: information
-transfers as chromatic field events through void. Light reveals proximity;
-without light, color is absent. That maps cleanly onto commitment → revelation
-→ finality — the same arc as pending → inclusion → finalized.
+Abstract Expressionist framing = rendering thesis: commitment → light → color.  
+Maps to pending → inclusion → finality.
 
 ## Next hooks for ETH ecosystem
 
-- Restaked sequencer quorums (Eigen-style) for PoLS committees
-- Blob/DA anchoring of Pixel light proofs onto L1 Ethereum
-- Account-abstraction wallets that display human-readable revelation receipts
-- PQ migration lab: swap PIX-HASH-OTS for Dilithium behind the same tx ABI
+- Restaked sequencer quorums for PoLS committees  
+- Blob/DA anchoring of Pixel light proofs on L1  
+- AA wallets that show human Kindling receipts (no gas theater)  
+- PQ migration lab: OTS → Dilithium/ML-DSA behind the same tx surface  
