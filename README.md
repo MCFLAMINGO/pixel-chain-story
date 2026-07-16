@@ -10,10 +10,11 @@ Full playbook: [`docs/QUICKSTART.md`](docs/QUICKSTART.md)
 
 ```bash
 bun install
-bun run dev                    # UI: Worldlight / Kindling
-bun run test:all               # prove protocol
 bun run pixel -- init --datadir ./data/a
-bun run pixel -- wallet from-node sequencer --datadir ./data/a   # you hold genesis 50 PIX
+bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
+bun run dev                    # site = live field at /  (add ?rpc=http://127.0.0.1:8545)
+# /lab = Kindling / Worldlight for builders
+bun run test:all
 ```
 
 ## Node (local)

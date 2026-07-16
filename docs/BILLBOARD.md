@@ -1,57 +1,31 @@
-# Billboard — watch the picture fill in
+# The site is the billboard
 
-Yes. The ledger is meant to be seen as light, not only as JSON.
-
-## Times Square (or any screen)
-
-1. Run a public Pixel node that people illuminate against.  
-2. Point the billboard player at a fullscreen browser URL:
+The public face of Pixel is **the live field** — not a marketing homepage.
 
 ```
-https://your-host/billboard?rpc=https://your-node.example
+/           → cinema zoom from genesis (record this from day one)
+/lab        → Kindling, Worldlight, builders
+/?rpc=URL   → feed a canonical node (what Times Square points at later)
 ```
 
-Local demo:
+## Strategy
+
+1. **Mint genesis** on a node you keep alive (`pixel init` + `pixel node`).  
+2. **Point the site** at that node: `VITE_PIXEL_RPC=https://your-node` or `/?rpc=…`.  
+3. **Record from frame one** — genesis fills the screen; every new light pulls the camera back.  
+4. **When traction exists**, rent Times Square (or any screen) and aim it at the **same URL**. No second product.
+
+## Local
 
 ```bash
 bun run pixel -- init --datadir ./data/a
 bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
 bun run dev
-# open http://localhost:5173/billboard?rpc=http://127.0.0.1:8545
+# http://localhost:5173/?rpc=http://127.0.0.1:8545
 ```
 
-Without `?rpc=`, `/billboard` shows the local browser genesis field (good for a dry-run of the look).
+Without `rpc`, the browser paints its own local genesis (fine for look-dev; use a durable node for the “official” recording).
 
-## What the crowd sees
+## Deploy
 
-- **Cinema zoom** — genesis is one large lit square; as pixels `#1`, `#2`, … arrive the grid densifies (zoom out)  
-- Void until light; each new illumination adds a cell  
-- Tip index + lit count  
-- Brand: **PIXEL**
-
-Privacy: the board shows the **public skeleton** (that light happened). Veiled amounts stay veiled — same as the privacy model elsewhere.
-
-## Mint genesis (paint pixel #0)
-
-```bash
-bun install
-bun run pixel -- init --datadir ./data/a
-```
-
-That **is** minting genesis: first illumination, **50 PIX** to your sequencer key, pixel `#0` on the canvas.
-
-```bash
-bun run pixel -- wallet from-node sequencer --datadir ./data/a   # hold those 50 PIX
-bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
-bun run dev
-# Billboard zoomed on genesis:
-#   http://localhost:5173/billboard?rpc=http://127.0.0.1:8545
-```
-
-Next sends illuminate `#1`, `#2`, … — the board pulls back as the field grows.
-
-## Ops notes
-
-- Prefer a dedicated feed URL with CORS open to the billboard origin.  
-- 16:9 / full-bleed; no UI chrome.  
-- Refresh is ~2s polling of `GET /pixels` + `/health`.
+Set `VITE_PIXEL_RPC` to your public node’s HTTP origin so visitors see the **same** mosaic you’ll eventually put on the square.
