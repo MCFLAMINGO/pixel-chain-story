@@ -1,41 +1,18 @@
-# Access — Bangladesh · Kansas · everyone
+# Access — uptake bridges (not spend authority)
 
-A peasant and a farmer should not need wallets, hex, or broadband.
+A peasant and a farmer enter through whatever signal they have.  
+**They always self-custody.** Bridges invite Kindling; they never hold Source keys.
+
+## Ladder
+
+1. **Signal** — SMS / USSD / voice: balance, status, Kindling invite  
+2. **Presence** — Kindling: two lights + your Personal Source signs  
+3. **Sovereign** — optical vault + optional own node  
+
+See `docs/CUSTODY.md`, `docs/KINDLING.md`, `docs/INVENT.md`.
 
 ## Principle
 
-**People speak intents. Gateways speak Pixel.**  
-The ledger stays one. Access forms are many.
+**People speak invites. Kindling spends. Source stays theirs.**
 
-## Forms
-
-| Form | Who | How |
-| --- | --- | --- |
-| SMS | Feature phones | `BALANCE` / `SEND rina 5` |
-| USSD | Any GSM, no data | Numbered menus → same intents |
-| Shared phone | Village / family Android | Big buttons, name+PIN |
-| Helper | Co-op desk, extension agent | Human helps; user confirms |
-| Paper + light | Offline / low literacy | Receive codes, optical ceremony |
-| Offline queue | Spotty coverage | Save intent; sync later |
-| Smartphone app | Anyone | Send / Receive / Balance only |
-
-## Local directory
-
-Users know **phone numbers and names**, not `pix1…` addresses.  
-A co-op / SIM / village directory maps `rina` → ledger address.  
-Helpers and gateways hold that map; peasants never see it.
-
-## Locales
-
-First-class reply copy: English, Bangla (`bn`), Hindi, Spanish, Swahili, plus numeric `und`.
-
-## What we never require
-
-- Always-on internet  
-- English fluency  
-- Understanding “gas”, “seed phrase”, or block explorers  
-- Owning a personal smartphone  
-
-## Code
-
-`src/lib/pixel/access.ts` — `parseAccessText` + `handleAccessIntent`.
+SMS `SEND rina 5` → `KINDLING_REQUIRED` + invite — not a ledger debit.

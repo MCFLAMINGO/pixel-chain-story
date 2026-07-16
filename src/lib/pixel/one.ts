@@ -14,16 +14,8 @@
  * This is the whole ledger, said simply.
  */
 
-import {
-  createGenesis,
-  proposeTransfer,
-  sequenceBlock,
-  type LightKeypair,
-  type PixelChainState,
-  type ReadableMeta,
-  type TxOutput,
-} from "./chain";
-import { generateLightKeypair } from "./crypto";
+import { createGenesis, proposeTransfer, sequenceBlock, type PixelChainState } from "./chain";
+import { generateLightKeypair, type LightKeypair } from "./crypto";
 import { PIX_HARD_CAP, lightReward } from "./economics";
 import {
   acceptIntoLight,
@@ -34,6 +26,12 @@ import {
   type LightArtifact,
 } from "./siso";
 import { ABSENT_COLOR, isColorAbsent, revealProximity } from "./light-color";
+import { Access } from "./access";
+import { Kindling } from "./kindling";
+import { energyTruthForIlluminate, formatEnergyTruth, datacenterRebuke } from "./energy-truth";
+import { Uptake } from "./uptake";
+import { Custody, SELF_CUSTODY_AXIOM } from "./custody";
+import type { ReadableMeta, TxOutput } from "./transaction";
 
 /** The three names of the one. */
 export const Names = ["Source", "Word", "Light"] as const;
@@ -128,5 +126,20 @@ export const One = {
   Source,
   Word,
   Light,
+  /** Messaging doors — balance/status/invites only (never spend authority). */
+  Access,
+  /** People spend path — mutual light Presence Seals. */
+  Kindling,
+  /** Optical Personal Source — self-custody for everyone. */
+  Custody,
+  /** Primitive → advanced on-ramps (bridges never hold keys). */
+  Uptake,
+  /** Waste refused — labeled energy/water models; rebuke hyperscale thirst. */
+  Energy: {
+    truth: energyTruthForIlluminate,
+    format: formatEnergyTruth,
+    rebuke: datacenterRebuke,
+  },
+  law: { selfCustody: SELF_CUSTODY_AXIOM },
   reveal,
 } as const;

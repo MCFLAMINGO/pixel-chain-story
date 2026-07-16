@@ -11,11 +11,14 @@ Engineers respect **runnable truth**, not vision decks. Do these in order.
 - [x] SISO continuity model
 - [x] Spec + threat model drafts
 - [x] CI running all selftests
+- [x] Access intents — SMS/USSD/helper/offline + BD/KS personas (`One.Access`)
+- [x] Kindling Presence Seals + Energy Truth + self-custody Personal Source (`One.Kindling` / `One.Custody`)
+- [x] Uptake ladder — signal bridges invite only; never hold keys
 
 ## Next (respect unlock)
 
 1. **Two-terminal networked demo** — `pixel init` / `pixel node` / `pixel join` always works; publish latency numbers  
-2. **SMS/USSD gateway pilot** — real aggregator → `handleAccessIntent` → illuminate (Bangladesh + rural US)  
+2. **Live SMS/USSD gateway pilot** — real aggregator → `One.Access.handle` → illuminate (Bangladesh + rural US)  
 3. **Crypto upgrade path** — ML-DSA behind the same `sign/verify` interface; vectors checked in CI  
 4. **Foreign verifier** — Solidity (and one Move/CosmWasm) that verifies a frozen ULA fixture  
 5. **Headers-first sync** — light clients don’t download full history  

@@ -21,3 +21,5 @@ const { state: next, summary } = await One.reveal({ ... });
 ```
 
 That single `reveal` is the trinity acting as one: Source commits, Light shines, Word stands.
+
+People enter through **`One.Access`** (signal bridges — invite only) and spend through **`One.Kindling`** with **`One.Custody`** Personal Sources. Self-custody is law. SMS never spends. Energy Truth rebukes hyperscale waste.
