@@ -24,12 +24,31 @@ Without `?rpc=`, `/billboard` shows the local browser genesis field (good for a 
 
 ## What the crowd sees
 
-- Void until light  
-- Each illuminated pixel colors in  
+- **Cinema zoom** — genesis is one large lit square; as pixels `#1`, `#2`, … arrive the grid densifies (zoom out)  
+- Void until light; each new illumination adds a cell  
 - Tip index + lit count  
 - Brand: **PIXEL**
 
 Privacy: the board shows the **public skeleton** (that light happened). Veiled amounts stay veiled — same as the privacy model elsewhere.
+
+## Mint genesis (paint pixel #0)
+
+```bash
+bun install
+bun run pixel -- init --datadir ./data/a
+```
+
+That **is** minting genesis: first illumination, **50 PIX** to your sequencer key, pixel `#0` on the canvas.
+
+```bash
+bun run pixel -- wallet from-node sequencer --datadir ./data/a   # hold those 50 PIX
+bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
+bun run dev
+# Billboard zoomed on genesis:
+#   http://localhost:5173/billboard?rpc=http://127.0.0.1:8545
+```
+
+Next sends illuminate `#1`, `#2`, … — the board pulls back as the field grows.
 
 ## Ops notes
 

@@ -73,7 +73,8 @@ function BillboardPage() {
         <LedgerField
           pixels={pixels}
           pendingCount={pendingCount}
-          className="h-full min-h-[100svh] w-full [&>div]:min-h-[100svh]"
+          fit="cinema"
+          className="h-full min-h-[100svh] w-full"
         />
       </div>
 
@@ -102,8 +103,8 @@ function BillboardPage() {
 
       <footer className="absolute inset-x-0 bottom-0 px-8 pb-8 md:px-14 md:pb-12">
         <p className="font-pixel max-w-xl text-sm text-foreground/80 md:text-lg">
-          Color is absent without light. Watch the picture of settlement fill in — verifiable
-          pixels, not a private dashboard.
+          Genesis fills the frame. As more light arrives, the camera pulls back — the mosaic of
+          humanity. Color is absent without light.
         </p>
       </footer>
     </main>
