@@ -8,8 +8,10 @@ We want **runnable truth**, not renamed old tech. Read [`INVENT.md`](./INVENT.md
 git clone <this-repo>
 bun install
 bun run test:all
-bun run dev          # UI: Worldlight, Kindling, Access
+bun run dev          # / = live field · /lab = Kindling / Worldlight
 ```
+
+Builder map (on / for / into): [`BUILDERS.md`](./BUILDERS.md).
 
 Open a PR against `main`. Keep the branch green: `test:all` + `lint` + `build`.
 

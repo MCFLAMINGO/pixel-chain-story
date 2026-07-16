@@ -40,13 +40,21 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 | [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) | Day one without $21M myth |
 | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | No parallel rewrite |
 
-## Help build
+## Builders — on / for / into Pixel
 
 ```bash
 bun install && bun run test:all
 ```
 
-Then pick a lane in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) (protocol, crypto, Solidity, lock feeder, field pilot, design, or run a sovereign node). Open a small PR with a selftest.
+| Path | Meaning | Start |
+| --- | --- | --- |
+| **On** | Apps, Lumen, Kindling, agents | [`docs/BUILDERS.md`](docs/BUILDERS.md) · `/lab` |
+| **For** | Protocol, crypto, nodes, locks | [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
+| **Into (SISO)** | Mirror an existing app — no rewrite | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) |
+
+ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
+
+**Invite:** *Runnable PQ-class light settlement. Keep your stack; shine in. `bun run test:all` then pick a door in `docs/BUILDERS.md`.*
 
 ## Status
 
