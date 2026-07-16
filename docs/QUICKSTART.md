@@ -16,7 +16,8 @@ Open the site:
 | **Worldlight** | Lock $5 USDC (local rail) or bank wire → PIX on a Personal Source |
 | **Kindling** | Offer → accept → meet in light → unlock & settle |
 | **Access** | SMS/USSD **invites only** (cannot spend) |
-| **`/billboard`** | Full-screen field — Times Square style; add `?rpc=http://127.0.0.1:8545` for a live node |
+| **`/`** | **The site** — cinema billboard from genesis; `?rpc=http://127.0.0.1:8545` for live node |
+| **`/lab`** | Builder surfaces (Kindling, Worldlight, …) |
 
 ## B. You are the sequencer (CLI)
 
