@@ -1,59 +1,48 @@
-# Pixel — Light Protocol Blockchain
+# Pixel — Light renders reality
 
-Pixel is a Bitcoin-like, quantum-resistant Layer 1 where **light is the backbone** of consensus, keys, and verification — not a visual gimmick. Transfers are real UTXO movements with final balances. Looking at the ledger paints a picture of pixels; each block is one pixel in that image.
+**Axiom:** Pixel proximity is revealed by light. Color is absent without it.
 
-## Do you need a new coding language?
+## The Abstract Expressionist key
 
-**No.** You need a new *protocol*, built with ordinary TypeScript (and later Rust for production nodes).
+The Abstract Expressionists were not decorating canvases — they were probing how
+reality transfers information. Color-fields, gesture, and void were their
+instruments for describing a matrix they could feel but not yet name.
 
-| Everyday idea | Protocol reality |
-|---|---|
-| Something is both true and false until light reveals it | Transaction **commitment** in *superposition* until PoLS revelation |
-| Phone screen shines a picture that holds the key | **Optical encoding** — luminance grid embeds key bytes |
-| Flashlight / camera / two screens together | Capture + decode the optical pattern (analog bridge) |
-| Save energy vs Bitcoin mining | **Proof of Light Sequence** — one signature per block, no hash grinding |
-| Humanity-first ledger | Human-readable metadata signed into every transfer |
+| AbEx insight                | Pixel execution                                             |
+| --------------------------- | ----------------------------------------------------------- |
+| Color-field (Rothko)        | A lit pixel _is_ the message — no icon middleman            |
+| Action painting (Pollock)   | Each PoLS reveal drips another event onto the ledger field  |
+| Zip / void (Newman)         | Light cuts presence through absence; unlit = no color       |
+| Observer completes the work | Proximity & meaning appear only under illumination          |
+| Immersion / scale           | The chain is a field you stand inside, not a table you skim |
 
-## Core properties
+This is the belief Pixel executes: **information transfer and reality rendering
+are the same event when light meets the void.**
 
-1. **Real transactions** — UTXO model; amounts move; balances update; double-spends rejected.
-2. **Quantum-resistant signatures** — hash-based one-time signatures (SHA-512 Lamport-style). Crypto-agile: swap for NIST ML-DSA / SLH-DSA later without changing the tx format.
-3. **Proof of Light Sequence (PoLS)** — sequencers rotate deterministically; each block carries a light proof (beacon + signature). Far cheaper than Proof of Work.
-4. **Optical / analog channel** — screen-projected patterns carry key material; camera or a second screen can read them back.
-5. **Pixel ledger** — block colors are hash-derived; the chain *is* a picture; tampering breaks both the math and the image.
+## What runs (not theory)
 
-## Lifecycle of a transfer
+1. **UTXO settlements** — balances move; double-spends fail
+2. **Proof of Light Sequence** — energy-cheap finality (no PoW farms)
+3. **Hash-based quantum-resistant signatures** — PIX-HASH-OTS-128
+4. **Lumen** — light-native coding structure (`ghost`, `shine`, `collapse`, `veil`, `paint`)
+5. **JSON-RPC** — `pix_*` methods Ethereum-familiar tooling can call
+6. **Optical keys** — screen luminance carries secrets; camera recovers them
+7. **Infinite light→color** — incident, reflected, transmitted, emitted, polarized, interfered, temporal, diffracted, ambient, proximity
 
-1. **Propose** — wallet builds a UTXO tx with readable metadata (`description`, `reference`). State = `superposition`.
-2. **Sign** — hash-based light signature covers commitment + body.
-3. **Sequence (shine light)** — elected sequencer publishes a PoLS light proof; tx collapses to `final`.
-4. **Verify** — any phone checks signatures, sequence, merkle root, and pixel colors.
+## Commands
+
+```bash
+bun run test:pixel    # Lumen settlement + RPC + benchmarks
+bun run dev           # immersive field + execution console
+```
 
 ## Code map
 
-| Path | Role |
-|---|---|
-| `src/lib/pixel/crypto.ts` | SHA-512, addresses, hash-based OTS |
-| `src/lib/pixel/optical.ts` | Screen-light encode / camera decode |
-| `src/lib/pixel/transaction.ts` | UTXO txs, readable metadata, reveal |
-| `src/lib/pixel/pol.ts` | Proof of Light Sequence |
-| `src/lib/pixel/chain.ts` | Chain, balances, sequencing, verify |
-| `scripts/pixel-selftest.ts` | End-to-end real transfer test |
-
-## Run the self-test
-
-```bash
-bun scripts/pixel-selftest.ts
-```
-
-## What this MVP is / is not
-
-**Is:** a working single-node protocol demo with real balance updates, quantum-resistant hash signatures, optical key projection, and energy-light consensus.
-
-**Is not yet:** a multi-peer network, production NIST PQC (Dilithium) wiring, ZK privacy pool, or app-store mobile release. Those layer on the same interfaces.
-
-## Design principle
-
-> If a computer had a mind of its own, it could shine light from its screen — and the picture that was projected could hold the key.
-
-That is not poetry layered on fake tech. It is an optical byte channel plus a revelation consensus. Performance theater is optional; settlement is mandatory.
+| Path                                    | Role                                                  |
+| --------------------------------------- | ----------------------------------------------------- |
+| `src/lib/pixel/light-color.ts`          | Light forms → spectrum → color; absence without light |
+| `src/lib/pixel/expression.ts`           | AbEx field / gesture / zip mapping                    |
+| `src/lib/pixel/chain.ts`                | UTXO + PoLS + illuminated pixels                      |
+| `src/lumen/`                            | Light-native language + runtime                       |
+| `src/lib/pixel/rpc.ts`                  | JSON-RPC surface                                      |
+| `src/components/pixel/RealityField.tsx` | Immersive rendering                                   |

@@ -1,15 +1,15 @@
 /**
- * Pixel — quantum-resistant, energy-saving blockchain
- * with light (digital + optical) as its backbone.
- *
- * You do NOT need a new programming language. You need a Light Protocol:
- * commitments stay in superposition until PoLS "shines light" and collapses
- * them into real, final UTXO transfers. Phone screens can project optical
- * patterns that hold key material — the picture is the key channel.
+ * Pixel — executable quantum-resistant L1.
+ * Light reveals proximity; color is absent without it.
+ * Abstract Expressionism is the transfer grammar.
  */
 
 export * from "./crypto";
 export * from "./optical";
 export * from "./transaction";
 export * from "./pol";
+export * from "./light-color";
+export * from "./expression";
 export * from "./chain";
+export * from "./rpc";
+export * from "./benchmark";

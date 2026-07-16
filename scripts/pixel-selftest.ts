@@ -1,86 +1,153 @@
 /**
- * Runnable self-test for Pixel Light Protocol.
- * Usage: bun scripts/pixel-selftest.ts
+ * Executable proof — not theory.
+ * Usage: bun run test:pixel
  */
 
 import {
+  ABSENT_COLOR,
   balanceOf,
+  composePixelColor,
   createDemoWallet,
   createGenesis,
-  encodeHexAsLight,
-  estimatePoLSCost,
-  hexToBytes,
-  humanSummary,
-  proposeTransfer,
-  sequenceBlock,
-  simulateCameraCapture,
-  verifyCapturedPattern,
+  handlePixelRpc,
+  isColorAbsent,
+  runPixelBenchmarks,
   verifyChain,
-  bytesToHex,
 } from "../src/lib/pixel/index";
+import { TRANSFER_LUMEN, createHost, runLumenSource } from "../src/lumen/index";
 
 async function main() {
-  console.log("Pixel Light Protocol — self test\n");
+  console.log("═══ PIXEL EXECUTION PROOF ═══\n");
 
   const alice = await createDemoWallet("Alice");
   const bob = await createDemoWallet("Bob");
-  console.log("Alice:", alice.address);
-  console.log("Bob:  ", bob.address);
-
   let chain = await createGenesis(alice);
-  console.log("Genesis balance Alice:", balanceOf(chain, alice.address));
 
-  const { state: afterPropose, tx } = await proposeTransfer(
-    chain,
-    alice,
-    [{ amount: 2500, address: bob.address }],
+  // 1) Lumen program settles real balances
+  console.log("▸ Lumen ray `send` executing…");
+  const host = createHost(chain, { alice, bob });
+  const beforeA = balanceOf(host.chain, alice.address);
+  const beforeB = balanceOf(host.chain, bob.address);
+
+  const result = await runLumenSource(
+    TRANSFER_LUMEN,
+    "send",
     {
-      description: "Support for clean energy tools",
-      reference: "HUMANITY-001",
-      recipientLabel: "@bob",
+      from: { kind: "string", value: "alice" },
+      to: { kind: "string", value: "bob" },
+      amount: { kind: "number", value: 777 },
+      memo: { kind: "string", value: "Ethereum-grade executable settlement" },
     },
+    host,
   );
-  chain = afterPropose;
-  console.log("Pending:", humanSummary(tx, alice.address));
-  console.log("State:", tx.state);
+  chain = result.host.chain;
 
-  chain = await sequenceBlock(chain);
-  const revealed = chain.blocks[chain.blocks.length - 1].transactions[0];
-  console.log("After light:", humanSummary(revealed, alice.address));
-  console.log("Alice:", balanceOf(chain, alice.address), "Bob:", balanceOf(chain, bob.address));
+  const afterA = balanceOf(chain, alice.address);
+  const afterB = balanceOf(chain, bob.address);
+  console.log("  logs:");
+  for (const line of result.logs) console.log("   ·", line);
+  console.log("  result:", JSON.stringify(result.value));
+  console.log(`  Alice ${beforeA} → ${afterA}`);
+  console.log(`  Bob   ${beforeB} → ${afterB}`);
 
-  const valid = await verifyChain(chain);
-  console.log("Chain valid:", valid);
+  if (afterB - beforeB !== 777) {
+    throw new Error(`FAIL: Bob did not receive 777 (got ${afterB - beforeB})`);
+  }
+  if (beforeA - afterA !== 777) {
+    throw new Error(`FAIL: Alice did not spend 777`);
+  }
+  if (result.value.kind !== "settled") {
+    throw new Error(`FAIL: expected settled value, got ${result.value.kind}`);
+  }
+  console.log("  ✓ Lumen settled real UTXO transfer\n");
 
-  const seedBytes = hexToBytes(alice.seed);
-  const payload = new Uint8Array(32);
-  payload.set(seedBytes.slice(0, 32));
-  const pattern = await encodeHexAsLight(bytesToHex(payload));
-  const captured = simulateCameraCapture(pattern, 0);
-  const optical = await verifyCapturedPattern(captured, pattern.checksum);
-  console.log("Optical key round-trip:", optical.ok);
-  console.log(
-    "Projected payload matches:",
-    optical.payload && bytesToHex(optical.payload) === pattern.payloadHex,
+  // 2) Optical maze key via Lumen
+  console.log("▸ Lumen ray `read_key` (optical round-trip)…");
+  const keyHost = createHost(chain, { alice, bob });
+  const keyRes = await runLumenSource(
+    TRANSFER_LUMEN,
+    "read_key",
+    { secret: { kind: "string", value: alice.seed } },
+    keyHost,
   );
+  if (keyRes.value.kind !== "string") throw new Error("optical recover failed");
+  console.log("  ✓ optical key recovered via Lumen\n");
 
-  const cost = estimatePoLSCost();
-  console.log("\nEnergy model:", cost.model);
-  console.log(cost.relativeToPoW);
-  console.log(cost.note);
+  // 3) JSON-RPC surface
+  console.log("▸ JSON-RPC methods…");
+  const ctx = {
+    chain,
+    networkId: 0x5049, // "PI"
+    clientVersion: "Pixel/0.1.0-lumen",
+  };
+  const methods = [
+    "pix_protocolInfo",
+    "pix_blockNumber",
+    "pix_verifyChain",
+    "pix_getEnergyProfile",
+    "web3_clientVersion",
+  ];
+  for (const method of methods) {
+    const res = await handlePixelRpc(ctx, {
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      params: [],
+    });
+    if ("error" in res) throw new Error(`${method}: ${res.error.message}`);
+    console.log(`  ✓ ${method}`);
+  }
+  const bal = await handlePixelRpc(ctx, {
+    jsonrpc: "2.0",
+    id: 2,
+    method: "pix_getBalance",
+    params: [bob.address],
+  });
+  if ("error" in bal || bal.result !== 777) {
+    throw new Error("pix_getBalance mismatch");
+  }
+  console.log("  ✓ pix_getBalance = 777\n");
 
-  if (!valid || !optical.ok) {
-    console.error("\nFAIL");
-    process.exit(1);
+  // 4) Axiom: color absent without light; lit blocks have color + proximity
+  console.log("▸ Light axiom…");
+  const dark = await composePixelColor({
+    index: 0,
+    hash: "ab".repeat(64),
+    prevHash: "00".repeat(64),
+    merkleRoot: "cd".repeat(64),
+    beacon: "ef".repeat(64),
+    sequence: 0,
+    timestamp: Date.now(),
+    transactions: [],
+    illuminated: false,
+  });
+  if (!isColorAbsent(dark.color) || dark.spectrum.illumination !== 0) {
+    throw new Error("FAIL: unlit pixel must have absent color");
   }
-  if (balanceOf(chain, bob.address) !== 2500) {
-    console.error("\nFAIL: bob balance incorrect");
-    process.exit(1);
+  for (const b of chain.blocks) {
+    if (!b.illuminated) throw new Error("on-chain block must be illuminated");
+    if (isColorAbsent(b.color)) throw new Error("lit block must have color");
   }
-  console.log("\nPASS — real UTXO transfer finalized by Proof of Light Sequence");
+  console.log("  ✓ void without light; color only under illumination");
+  console.log("  ✓ ABSENT_COLOR is", ABSENT_COLOR);
+
+  // 5) Chain validity
+  if (!(await verifyChain(chain))) throw new Error("chain invalid");
+  console.log("▸ verifyChain ✓\n");
+
+  // 6) Benchmarks
+  console.log("▸ Benchmarks (reproducible)…");
+  const benches = await runPixelBenchmarks();
+  for (const row of benches) {
+    console.log(
+      `  ${row.op.padEnd(32)} avg ${String(row.avgMs).padStart(7)}ms  p95 ${String(row.p95Ms).padStart(7)}ms  (${row.note})`,
+    );
+  }
+
+  console.log("\n═══ PASS — executable protocol, not a whitepaper ═══");
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error("\nFAIL:", err);
   process.exit(1);
 });

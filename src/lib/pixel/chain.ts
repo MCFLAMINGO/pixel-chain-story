@@ -4,6 +4,7 @@
  */
 
 import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
+import { ABSENT_COLOR, composePixelColor, revealProximity, type PixelColor } from "./light-color";
 import {
   createLightProof,
   merkleRoot,
@@ -23,12 +24,6 @@ import {
   type Utxo,
 } from "./transaction";
 
-export interface PixelColor {
-  r: number;
-  g: number;
-  b: number;
-}
-
 export interface PixelBlock {
   index: number;
   prevHash: Hex;
@@ -38,7 +33,11 @@ export interface PixelBlock {
   transactions: Transaction[];
   timestamp: number;
   hash: Hex;
+  /** Present only because light revealed this block. Absent ⇒ void. */
   color: PixelColor;
+  illuminated: boolean;
+  /** Neighbor indices disclosed by this block's light cone. */
+  proximity: number[];
 }
 
 export interface PixelChainState {
@@ -52,13 +51,38 @@ function utxoKey(txid: string, vout: number): string {
   return `${txid}:${vout}`;
 }
 
-async function blockColor(index: number, hash: Hex, merkle: Hex): Promise<PixelColor> {
-  const mix = await sha512Hex(`pixel|${index}|${hash}|${merkle}`);
-  return {
-    r: parseInt(mix.slice(0, 2), 16),
-    g: parseInt(mix.slice(2, 4), 16),
-    b: parseInt(mix.slice(4, 6), 16),
-  };
+async function colorFromLight(scene: {
+  index: number;
+  hash: Hex;
+  prevHash: Hex;
+  merkleRoot: Hex;
+  beacon: Hex;
+  sequence: number;
+  timestamp: number;
+  transactions: Transaction[];
+  /** If provided (verify path), reuse stored cone for consensus stability. */
+  proximity?: number[];
+}): Promise<{ color: PixelColor; proximity: number[] }> {
+  // Color exists only under light. On-chain blocks are illuminated by PoLS.
+  const proximity = scene.proximity ?? revealProximity(scene.index, 2);
+  const { color } = await composePixelColor({
+    index: scene.index,
+    hash: scene.hash,
+    prevHash: scene.prevHash,
+    merkleRoot: scene.merkleRoot,
+    beacon: scene.beacon,
+    sequence: scene.sequence,
+    timestamp: scene.timestamp,
+    transactions: scene.transactions,
+    illuminated: true,
+    litNeighbors: proximity,
+  });
+  return { color, proximity };
+}
+
+/** Superposition / unlit placeholder — proximity hidden, color absent. */
+export function unlitPixel(): { color: PixelColor; illuminated: false; proximity: [] } {
+  return { color: { ...ABSENT_COLOR }, illuminated: false, proximity: [] };
 }
 
 async function hashBlock(header: {
@@ -103,7 +127,16 @@ export async function createGenesis(sequencer: LightKeypair): Promise<PixelChain
     timestamp,
     beacon: proof.beacon,
   });
-  const color = await blockColor(0, hash, root);
+  const { color, proximity } = await colorFromLight({
+    index: 0,
+    hash,
+    prevHash,
+    merkleRoot: root,
+    beacon: proof.beacon,
+    sequence: 0,
+    timestamp,
+    transactions: [revealed],
+  });
   const genesis: PixelBlock = {
     index: 0,
     prevHash,
@@ -114,6 +147,8 @@ export async function createGenesis(sequencer: LightKeypair): Promise<PixelChain
     timestamp,
     hash,
     color,
+    illuminated: true,
+    proximity,
   };
 
   const utxos = new Map<string, Utxo>();
@@ -240,10 +275,20 @@ export async function sequenceBlock(state: PixelChainState): Promise<PixelChainS
     timestamp,
     beacon: proof.beacon,
   });
-  const color = await blockColor(tip.index + 1, hash, root);
+  const nextIndex = tip.index + 1;
+  const { color, proximity } = await colorFromLight({
+    index: nextIndex,
+    hash,
+    prevHash: tip.hash,
+    merkleRoot: root,
+    beacon: proof.beacon,
+    sequence,
+    timestamp,
+    transactions: revealed,
+  });
 
   const block: PixelBlock = {
-    index: tip.index + 1,
+    index: nextIndex,
     prevHash: tip.hash,
     merkleRoot: root,
     sequence,
@@ -252,6 +297,8 @@ export async function sequenceBlock(state: PixelChainState): Promise<PixelChainS
     timestamp,
     hash,
     color,
+    illuminated: true,
+    proximity,
   };
 
   const utxos = new Map(state.utxos);
@@ -305,10 +352,22 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     });
     if (hash !== block.hash) return false;
 
-    const color = await blockColor(block.index, block.hash, block.merkleRoot);
+    if (!block.illuminated) return false; // on-chain ⇒ must have been lit
+    const { color, proximity } = await colorFromLight({
+      index: block.index,
+      hash: block.hash,
+      prevHash: block.prevHash,
+      merkleRoot: block.merkleRoot,
+      beacon: block.lightProof.beacon,
+      sequence: block.sequence,
+      timestamp: block.timestamp,
+      transactions: block.transactions,
+      proximity: block.proximity,
+    });
     if (color.r !== block.color.r || color.g !== block.color.g || color.b !== block.color.b) {
       return false;
     }
+    if (proximity.join(",") !== block.proximity.join(",")) return false;
 
     for (const tx of block.transactions) {
       if (tx.state !== "final" && tx.state !== "revealed") return false;

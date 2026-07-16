@@ -13,6 +13,7 @@ import {
 } from "./crypto";
 
 export type TxState = "superposition" | "revealed" | "final";
+export type PrivacyLevel = "public" | "private" | "selective";
 
 export interface TxOutput {
   amount: number;
@@ -40,6 +41,8 @@ export interface Transaction {
   /** Hash commitment while in superposition — both pending until light. */
   commitment: Hex;
   state: TxState;
+  /** Privacy veil — private hides amounts from public views until selective reveal. */
+  privacy: PrivacyLevel;
   timestamp: number;
   lightSequence?: number;
   revealedAt?: number;
@@ -86,6 +89,7 @@ export async function createTransaction(params: {
     metadata: params.metadata,
     commitment,
     state: "superposition",
+    privacy: "public",
     timestamp,
   };
 }
@@ -132,7 +136,11 @@ export function finalizeTransaction(tx: Transaction): Transaction {
   return { ...tx, state: "final" };
 }
 
-export function humanSummary(tx: Transaction, senderAddress?: string): string {
+export function humanSummary(
+  tx: Transaction,
+  senderAddress?: string,
+  viewer: "party" | "public" = "party",
+): string {
   // Exclude change outputs returning to the sender.
   const external = senderAddress
     ? tx.outputs.filter((o) => o.address !== senderAddress)
@@ -148,7 +156,10 @@ export function humanSummary(tx: Transaction, senderAddress?: string): string {
       : tx.state === "revealed"
         ? "Light has revealed this transfer"
         : "Final on Pixel";
-  return `${phase}. Send ${total} PIX to ${to} — ${tx.metadata.description}`;
+  const amountLabel = tx.privacy !== "public" && viewer === "public" ? "✱✱✱" : String(total);
+  const memo =
+    tx.privacy === "private" && viewer === "public" ? "[veiled]" : tx.metadata.description;
+  return `${phase}. Send ${amountLabel} PIX to ${to} — ${memo}`;
 }
 
 export async function createDemoWallet(label: string): Promise<LightKeypair & { label: string }> {

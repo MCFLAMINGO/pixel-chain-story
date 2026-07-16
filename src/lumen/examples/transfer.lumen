@@ -1,0 +1,23 @@
+// Pixel transfer ceremony — written in Lumen, the light-native structure.
+// Ghost = both true and false until light. Collapse = one real settlement.
+
+module Transfer
+
+ray send(from, to, amount, memo):
+  ghost tx = commit(from, to, amount, memo)
+  veil tx private
+  when light:
+    shine tx via sequence
+    collapse tx
+    paint tx
+  return tx
+
+ray open_key(secret):
+  let picture = maze(secret)
+  shine picture via screen
+  return picture
+
+ray read_key(secret):
+  let picture = project(secret)
+  let key = recover(picture)
+  return key

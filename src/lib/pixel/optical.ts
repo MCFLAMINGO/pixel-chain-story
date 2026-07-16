@@ -130,3 +130,32 @@ export function simulateCameraCapture(pattern: OpticalPattern, noise = 0): numbe
 export async function opticalBeacon(sequence: number, prevHash: Hex): Promise<Hex> {
   return sha512Hex(`light-beacon|${sequence}|${prevHash}`);
 }
+
+/**
+ * Archaeological maze card — same payload, but the outer ring is a path-like
+ * pattern. Light "finds the path" when the seal aligns; wrong angle fails decode.
+ */
+export async function encodeMazeCard(payload: Uint8Array): Promise<OpticalPattern> {
+  const base = await encodeOpticalPattern(payload);
+  const cells = [...base.cells];
+  // Etch a spiral path into the outer maze region (cells 96+).
+  for (let i = 96; i < cells.length; i++) {
+    const ring = Math.floor(i / 16) % 2;
+    const path = (i + ring * 7) % 5 === 0;
+    cells[i] = path ? Math.min(255, cells[i] | 0xc0) : cells[i] & 0x3f;
+  }
+  return { ...base, cells };
+}
+
+/** Two open screens: A projects, B samples — peer optical handshake. */
+export async function screenToScreenExchange(pattern: OpticalPattern): Promise<{
+  recovered: boolean;
+  payloadHex: Hex | null;
+}> {
+  const captured = simulateCameraCapture(pattern, 0);
+  const result = await verifyCapturedPattern(captured, pattern.checksum);
+  return {
+    recovered: result.ok,
+    payloadHex: result.ok ? pattern.payloadHex : null,
+  };
+}
