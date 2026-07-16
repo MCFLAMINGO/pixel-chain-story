@@ -26,10 +26,15 @@ import {
 } from "./siso";
 import { createAttestation, type BridgeMessage, type ForeignChain } from "./bridge";
 import { proposeTransfer, sequenceBlock, type LedgerPixel, type PixelChainState } from "./chain";
+import { BOOTSTRAP_INGRESS_PIX_PER_USD } from "./bootstrap";
+
 export type IngressKind = "usd_value" | "domain" | "treasury" | "application" | "site";
 
-/** Labeled demo rate — not an oracle. Production uses attested FX / stablecoin locks. */
-export const DEMO_PIX_PER_USD = 1;
+/**
+ * @deprecated Use BOOTSTRAP_INGRESS_PIX_PER_USD — bridge quote, NOT a dollar peg / FDV.
+ * Never multiply by 21M and call it market cap.
+ */
+export const DEMO_PIX_PER_USD = BOOTSTRAP_INGRESS_PIX_PER_USD;
 
 export interface ForeignValueLock {
   /** e.g. USD, USDC, EUR */
@@ -115,7 +120,7 @@ export async function prepareIngress(req: IngressRequest): Promise<PreparedIngre
     }
     const lockDigest = await digestForeignLock(req.valueLock);
     digestSeed = lockDigest;
-    pixCredit = Math.floor(req.valueLock.amount * DEMO_PIX_PER_USD);
+    pixCredit = Math.floor(req.valueLock.amount * BOOTSTRAP_INGRESS_PIX_PER_USD);
     bridgeMessage = {
       direction: "shineIn",
       nonce: `wl-${Date.now()}`,
@@ -325,7 +330,7 @@ export function worldlightThesis(): {
   custody: string;
 } {
   return {
-    usd: "Lock USD/USDC (or wire attestation) off-Pixel → shineIn → PIX credited to your Personal Source. Bridge vault is escrow; you keep the keys.",
+    usd: "LockFeeder: USDC rail / PixelUsdcLock or bank-wire attestation → verified receipt → shineIn → PIX on your Personal Source.",
     domain:
       "mcflamingo.com shines in as a domain artifact (digest + mirrors). The site keeps running where it runs; Pixel holds continuity if the host dies.",
     treasury:
@@ -345,6 +350,7 @@ export const Worldlight = {
   application: ingressApplication,
   thesis: worldlightThesis,
   demoPixPerUsd: DEMO_PIX_PER_USD,
+  ingressPixPerUsd: BOOTSTRAP_INGRESS_PIX_PER_USD,
 } as const;
 
 /** Tip pixel helper for callers */

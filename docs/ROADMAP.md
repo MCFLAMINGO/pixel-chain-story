@@ -15,6 +15,7 @@ Engineers respect **runnable truth**, not vision decks. Do these in order.
 - [x] Kindling Presence Seals + Energy Truth + self-custody Personal Source (`One.Kindling` / `One.Custody`)
 - [x] Uptake ladder — signal bridges invite only; never hold keys
 - [x] Worldlight ingress — $USD / domain / treasury / app → light (`One.Worldlight`)
+- [x] Lock feeder — USDC rail + bank-wire attestor + `PixelUsdcLock.sol` (`One.LockFeeder`)
 
 ## Next (respect unlock)
 

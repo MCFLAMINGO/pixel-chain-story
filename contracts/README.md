@@ -1,10 +1,13 @@
-# Foreign verifiers
+# Foreign locks & verifiers
 
-Pixel Ledger shines **Universal Light Attestations** outward.  
-Other chains only verify — they never execute Pixel’s VM.
+Pixel Ledger shines **Universal Light Attestations** outward and accepts **foreign locks** inward.
 
-| File | Status |
+| File | Role |
 | --- | --- |
-| `ULAVerifier.sol` | Interface + wiring stub (not production crypto) |
+| `PixelUsdcLock.sol` | Lock USDC for a `pix1…` Personal Source; emit `Locked` for the feeder |
+| `MockUSDC.sol` | 6-decimal USDC stand-in for demos / Foundry |
+| `ULAVerifier.sol` | Shine-out verifier stub (not production crypto) |
 
-Next: fixture vectors from `createAttestation()` consumed by Foundry/Hardhat tests, then a real ML-DSA or hash-OTS verifier library.
+Off-chain twin: `src/lib/pixel/lock-feeder.ts` (`LocalUsdcRail` + `BankWireAttestor`) — same receipt pipeline CI executes.
+
+See `docs/LOCK-FEEDER.md`.
