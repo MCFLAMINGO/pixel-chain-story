@@ -128,8 +128,9 @@ export function valueThesis(): {
     baseUnits: PIX_BASE_UNITS,
     dualLayer: "PIX is scarce money/security; Light Credits are uncapped builder/agent fuel.",
     analogy:
-      "Same 21M hard-cap math as Bitcoin for PIX; 1 PIX = 1e8 units so micropayments never starve. Credits are ICP-style cycles for compute/SISO/MCP.",
-    issuance: "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS).",
+      "Same 21M hard-cap math as Bitcoin for PIX; 1 PIX = 1e8 units so micropayments never starve. Credits are builder fuel. 21M is scarcity — not a $21M IPO.",
+    issuance:
+      "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS). Day one = illuminate or shine in; no founder dump. See bootstrap.ts.",
     sinks: [
       "Revelation fees paid to sequencers (anti-spam + security budget)",
       "Bridge collateral — PIX locked/escrowed for shineOut, then released",

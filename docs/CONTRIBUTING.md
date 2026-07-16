@@ -92,7 +92,7 @@ Highest leverage. Work the [`ROADMAP.md`](./ROADMAP.md) “Next” list in order
 
 ## Talk track for recruiting
 
-> Build a light-settlement ledger: self-custody for everyone, Kindling instead of phishing SMS spends, Worldlight for dollars/sites/apps, and PoLS instead of hyperscale energy waste. Clone, `bun run test:all`, pick a roadmap item.
+> Build a light-settlement ledger: self-custody for everyone, Kindling instead of phishing SMS spends, Worldlight for dollars/sites/apps, and PoLS instead of hyperscale energy waste. Clone, `bun run test:all`, pick a roadmap item. Start by lighting cells — 21M is scarcity, not a $21M buy-in ([`BOOTSTRAP.md`](./BOOTSTRAP.md)).
 
 ## Questions
 

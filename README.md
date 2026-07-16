@@ -33,6 +33,7 @@ bun run pixel node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://127.0
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What earns respect next |
 | [`docs/ONE.md`](docs/ONE.md) | Simple API |
 | [`docs/INVENT.md`](docs/INVENT.md) | Invent, don’t rename |
+| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) | Day one without $21M myth |
 | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | No parallel rewrite |
 
 ## Help build

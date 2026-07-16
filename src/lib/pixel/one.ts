@@ -33,6 +33,7 @@ import { Uptake } from "./uptake";
 import { Custody, SELF_CUSTODY_AXIOM } from "./custody";
 import { Worldlight } from "./worldlight";
 import { LockFeeder } from "./lock-feeder";
+import { Bootstrap } from "./bootstrap";
 import type { ReadableMeta, TxOutput } from "./transaction";
 
 /** The three names of the one. */
@@ -147,5 +148,7 @@ export const One = {
     rebuke: datacenterRebuke,
   },
   law: { selfCustody: SELF_CUSTODY_AXIOM },
+  /** Day-one paths — hard cap ≠ dollar FDV; illuminate to start. */
+  Bootstrap,
   reveal,
 } as const;

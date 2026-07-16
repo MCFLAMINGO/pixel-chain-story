@@ -17,6 +17,7 @@ export * from "./light-color";
 export * from "./expression";
 export * from "./interactions";
 export * from "./economics";
+export * from "./bootstrap";
 export * from "./sovereignty";
 export * from "./bridge";
 export * from "./siso";
