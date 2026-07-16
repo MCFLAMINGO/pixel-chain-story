@@ -14,3 +14,5 @@ Remote scammers cannot stand in your light. Stolen halves expire. Gateways canno
 ## Law
 
 Self-custody is mandatory (`assertSelfCustody`). `gatewayHeldSeed: true` throws.
+
+**Honesty:** confluence today uses simulated optical capture (in-process luminance copy) and distinct `partyId`s. That is commitment integrity for the lab — not shipped physical anti-phishing. Seals are labeled `channel: "simulated"` until a real camera path exists.

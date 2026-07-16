@@ -6,12 +6,20 @@
  * and collapses pending transactions from superposition into reality.
  */
 
-import { sha512Hex, signLightFull, verifyLightFull, type Hex, type LightKeypair } from "./crypto";
+import {
+  addressFromPublicKey,
+  sha512Hex,
+  signLightFull,
+  verifyLightFull,
+  type Hex,
+  type LightKeypair,
+} from "./crypto";
 import { opticalBeacon } from "./optical";
 
 export interface LightProof {
   sequence: number;
   sequencerAddress: string;
+  /** Master Merkle-root public key (not a single OTS leaf). */
   sequencerPublicKey: Hex;
   beacon: Hex;
   prevHash: Hex;
@@ -56,6 +64,10 @@ export async function verifyLightProof(
   expectedSequencer: string,
 ): Promise<boolean> {
   if (proof.sequencerAddress !== expectedSequencer) return false;
+  // Bind address ↔ master public key (closes forged-pubkey-with-elected-address).
+  if ((await addressFromPublicKey(proof.sequencerPublicKey)) !== proof.sequencerAddress) {
+    return false;
+  }
   const expectedBeacon = await opticalBeacon(proof.sequence, proof.prevHash);
   if (expectedBeacon !== proof.beacon) return false;
   const message = `pols|${proof.sequence}|${proof.prevHash}|${proof.beacon}|${proof.sequencerAddress}`;

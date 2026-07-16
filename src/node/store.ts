@@ -6,8 +6,8 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import {
   deserializeChain,
-  generateLightKeypair,
   hexToBytes,
+  restoreLightKeypair,
   serializeChain,
   type LightKeypair,
   type PixelChainState,
@@ -19,6 +19,8 @@ export interface NodeIdentity {
   address: string;
   publicKey: string;
   label: string;
+  /** OTS Merkle leaf cursor — must advance with every signature. */
+  nextLeaf?: number;
 }
 
 export interface PeerBook {
@@ -69,18 +71,31 @@ export async function loadOrCreateIdentity(
   let identity = await loadIdentity(datadir);
   let keypair: LightKeypair;
   if (identity) {
-    keypair = await generateLightKeypair(hexToBytes(identity.seed));
+    keypair = await restoreLightKeypair(hexToBytes(identity.seed), identity.nextLeaf ?? 0);
   } else {
+    const { generateLightKeypair } = await import("../lib/pixel/index");
     keypair = await generateLightKeypair();
     identity = {
       seed: keypair.seed,
       address: keypair.address,
       publicKey: keypair.publicKey,
       label,
+      nextLeaf: keypair.nextLeaf,
     };
     await saveIdentity(datadir, identity);
   }
   return { identity, keypair };
+}
+
+/** Persist identity including OTS leaf cursor after signing. */
+export async function persistIdentityLeaf(
+  datadir: string,
+  identity: NodeIdentity,
+  keypair: LightKeypair,
+): Promise<NodeIdentity> {
+  const next = { ...identity, nextLeaf: keypair.nextLeaf };
+  await saveIdentity(datadir, next);
+  return next;
 }
 
 export async function saveWallet(
@@ -93,14 +108,15 @@ export async function saveWallet(
     seed: keypair.seed,
     address: keypair.address,
     publicKey: keypair.publicKey,
+    nextLeaf: keypair.nextLeaf,
   });
 }
 
 export async function loadWallet(datadir: string, name: string): Promise<LightKeypair | null> {
   try {
     const raw = await readFile(join(datadir, "wallets", `${name}.json`), "utf8");
-    const data = JSON.parse(raw) as { seed: string };
-    return generateLightKeypair(hexToBytes(data.seed));
+    const data = JSON.parse(raw) as { seed: string; nextLeaf?: number };
+    return restoreLightKeypair(hexToBytes(data.seed), data.nextLeaf ?? 0);
   } catch {
     return null;
   }

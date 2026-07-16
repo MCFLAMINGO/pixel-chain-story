@@ -46,6 +46,12 @@ export interface KindleHalf {
   pattern: OpticalPattern;
   createdAt: number;
   expiresAt: number;
+  /**
+   * Party / device id for this half. Confluence rejects identical partyIds so
+   * one process cannot trivially play both sides without spoofing ids.
+   * Real anti-phishing still needs two physical optical captures (not shipped).
+   */
+  partyId: string;
 }
 
 export interface PresenceSeal {
@@ -58,6 +64,11 @@ export interface PresenceSeal {
   expiresAt: number;
   /** Anti-scam: both parties bound the same human labels + amount */
   boundLabel: string;
+  /**
+   * `simulated` = in-process luminance copy (lab / selftest).
+   * `optical-capture` reserved for real camera path (not shipped).
+   */
+  channel: "simulated" | "optical-capture";
 }
 
 export type KindlingFail =
@@ -65,7 +76,8 @@ export type KindlingFail =
   | "role_mismatch"
   | "intent_mismatch"
   | "optical_corrupt"
-  | "seal_invalid";
+  | "seal_invalid"
+  | "same_party";
 
 async function intentCommitment(
   role: "offer" | "accept",
@@ -87,7 +99,10 @@ async function commitmentToPayload(commitment: Hex): Promise<Uint8Array> {
 }
 
 /** Offer half — sender kindles intent into light. */
-export async function kindleOffer(intent: KindleIntent): Promise<KindleHalf> {
+export async function kindleOffer(
+  intent: KindleIntent,
+  opts?: { partyId?: string },
+): Promise<KindleHalf> {
   if (intent.amount <= 0) throw new Error("Kindling amount must be positive");
   if (!intent.fromLocal.trim() || !intent.toLocal.trim()) {
     throw new Error("Kindling needs human names, not hex");
@@ -104,6 +119,7 @@ export async function kindleOffer(intent: KindleIntent): Promise<KindleHalf> {
     pattern,
     createdAt,
     expiresAt: createdAt + KINDLE_TTL_MS,
+    partyId: opts?.partyId ?? `offer-${bytesToHex(randomBytes(8))}`,
   };
 }
 
@@ -111,7 +127,10 @@ export async function kindleOffer(intent: KindleIntent): Promise<KindleHalf> {
  * Accept half — receiver stands in the light and answers the same intent.
  * The accept pattern is independent light that must match intent fields.
  */
-export async function kindleAccept(intent: KindleIntent): Promise<KindleHalf> {
+export async function kindleAccept(
+  intent: KindleIntent,
+  opts?: { partyId?: string },
+): Promise<KindleHalf> {
   if (intent.amount <= 0) throw new Error("Kindling amount must be positive");
   const nonce = bytesToHex(randomBytes(16));
   const commitment = await intentCommitment("accept", intent, nonce);
@@ -125,6 +144,7 @@ export async function kindleAccept(intent: KindleIntent): Promise<KindleHalf> {
     pattern,
     createdAt,
     expiresAt: createdAt + KINDLE_TTL_MS,
+    partyId: opts?.partyId ?? `accept-${bytesToHex(randomBytes(8))}`,
   };
 }
 
@@ -138,17 +158,25 @@ function intentsEqual(a: KindleIntent, b: KindleIntent): boolean {
 }
 
 /**
- * Confluence — two lights meet. Physical proximity is assumed by the capture
- * step (camera sees the other screen). Remote phishing has no second light.
+ * Confluence — two lights meet.
+ *
+ * Honesty: default path uses `simulateCameraCapture` (in-process luminance
+ * copy). That proves commitment integrity, not physical proximity. A remote
+ * attacker who can run both halves still can — unless partyIds differ and a
+ * future real camera capture path binds device evidence. Do not market this
+ * as shipped anti-phishing until `channel === "optical-capture"`.
  */
 export async function confluentSeal(
   offer: KindleHalf,
   accept: KindleHalf,
-  opts?: { now?: number; captureNoise?: number },
+  opts?: { now?: number; captureNoise?: number; allowSameParty?: boolean },
 ): Promise<{ ok: true; seal: PresenceSeal } | { ok: false; reason: KindlingFail }> {
   const now = opts?.now ?? Date.now();
   if (offer.role !== "offer" || accept.role !== "accept") {
     return { ok: false, reason: "role_mismatch" };
+  }
+  if (!opts?.allowSameParty && offer.partyId === accept.partyId) {
+    return { ok: false, reason: "same_party" };
   }
   if (now > offer.expiresAt || now > accept.expiresAt) {
     return { ok: false, reason: "expired" };
@@ -157,7 +185,7 @@ export async function confluentSeal(
     return { ok: false, reason: "intent_mismatch" };
   }
 
-  // Simulate / require optical integrity — corrupt light cannot seal.
+  // Prototype optical integrity — simulated capture, not getUserMedia.
   const capturedOffer = simulateCameraCapture(offer.pattern, opts?.captureNoise ?? 0);
   const capturedAccept = simulateCameraCapture(accept.pattern, opts?.captureNoise ?? 0);
   const vo = await verifyCapturedPattern(capturedOffer, offer.pattern.checksum);
@@ -186,6 +214,7 @@ export async function confluentSeal(
       createdAt: now,
       expiresAt: Math.min(offer.expiresAt, accept.expiresAt),
       boundLabel: `${offer.intent.fromLocal} → ${offer.intent.toLocal} · ${offer.intent.amount} PIX`,
+      channel: "simulated",
     },
   };
 }

@@ -121,27 +121,29 @@ export async function handlePixelRpc(
       case "pix_protocolInfo":
         return ok(id, {
           name: "Pixel Ledger",
+          status: "local multi-node prototype — not a global mainnet",
           unit: "pixel (not block)",
-          consensus: "Proof of Light Sequence (PoLS)",
-          signatures: "PIX-HASH-OTS-128 (hash-based, quantum-resistant)",
+          consensus: "Proof of Light Sequence (PoLS) — sequential tip extension, not BFT",
+          signatures: "PIX-HASH-OTS-128 Merkle-window Lamport (one-time leaves; QR-class hash)",
           hash: "SHA-512",
           model: "UTXO",
           language: "Lumen (light-native) + TypeScript host",
-          finality: "light-revelation (sequencer signature + beacon)",
+          finality: "light-revelation (sequencer signature + beacon); offline sequencer stalls tip",
           economics: {
             hardCap: 21_000_000,
             issuance: "light rewards per illuminated pixel (halving eras of 210,000)",
             analogy: "Bitcoin scarcity schedule; energy-cheap security",
           },
           sovereignty:
-            "Independent node providers; diversity caps on cloud/jurisdiction; no required CDN",
-          bridge: "Universal Light Attestations — agnostic shineOut/shineIn to any chain",
+            "Diversity policy enforced when ≥7 providers are registered; single-node labs skip",
+          bridge: "ULA packages in TS; on-chain ULAVerifier.sol is an explicit stub",
+          optical: "luminance codec + simulated capture — no getUserMedia yet",
           ethereumAnalogues: {
-            sequencer: "PBS / based sequencing (single light proof)",
+            sequencer: "PBS / based sequencing (single light proof) — analogy only",
             pendingPool: "mempools — held as superposition ghosts",
-            finality: "soft finality via PoLS; upgradeable to restaked quorum",
-            lightClient: "header + merkle + light proof (phone-capable)",
-            pqc: "aligns with Ethereum PQ migration research",
+            finality: "soft sequential finality via PoLS; not restaked quorum yet",
+            lightClient: "header + merkle + light proof (phone-capable verify)",
+            pqc: "hash-OTS class today; ML-DSA swap planned",
           },
         });
       case "pix_getEmission": {

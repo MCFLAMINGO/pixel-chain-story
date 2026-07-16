@@ -117,8 +117,8 @@ function Lab() {
               rewards ({energy.model}).
             </li>
             <li>
-              <span className="text-foreground">Sovereign nodes</span> — diversity caps so one cloud
-              cannot kill the picture.
+              <span className="text-foreground">Sovereign nodes</span> — diversity policy enforced
+              when ≥7 providers are registered (local lab skips).
             </li>
           </ul>
         </section>

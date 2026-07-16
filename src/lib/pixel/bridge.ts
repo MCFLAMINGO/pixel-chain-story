@@ -132,8 +132,11 @@ export function bridgeThesis(): {
   shineIn: string;
   targets: ForeignChain[];
   neutrality: string;
+  status: string;
 } {
   return {
+    status:
+      "PROTOTYPE — off-chain ULA packages verify in TS; contracts/ULAVerifier.sol is an explicit stub (no real sig check).",
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
     shineOut:

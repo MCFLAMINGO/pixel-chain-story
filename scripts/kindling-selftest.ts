@@ -74,9 +74,17 @@ async function main() {
   if (mismatch.ok) throw new Error("amount mismatch must fail");
   console.log("▸ Scam amount mismatch rejected ✓");
 
+  const sameParty = await confluentSeal(
+    { ...offer, partyId: "same" },
+    { ...accept, partyId: "same" },
+  );
+  if (sameParty.ok) throw new Error("same partyId must fail");
+  console.log("▸ Same-party confluence rejected ✓");
+
   const conf = await confluentSeal(offer, accept);
   if (!conf.ok) throw new Error(conf.reason);
-  console.log("▸ Presence Seal:", conf.seal.boundLabel);
+  if (conf.seal.channel !== "simulated") throw new Error("channel label");
+  console.log("▸ Presence Seal:", conf.seal.boundLabel, `(${conf.seal.channel})`);
 
   const genesis = await createGenesis(unlocked.keypair);
   const settled = await settleKindling({

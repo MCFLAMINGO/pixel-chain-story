@@ -20,7 +20,8 @@
     "test:worldlight": "bun scripts/worldlight-selftest.ts",
     "test:lock": "bun scripts/lock-feeder-selftest.ts",
     "test:bootstrap": "bun scripts/bootstrap-selftest.ts",
-    "test:all": "bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap",
+    "test:crypto": "bun scripts/crypto-selftest.ts",
+    "test:all": "bun run test:crypto && bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {

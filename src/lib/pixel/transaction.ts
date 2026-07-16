@@ -4,6 +4,7 @@
  */
 
 import {
+  addressFromPublicKey,
   generateLightKeypair,
   sha512Hex,
   signLightFull,
@@ -117,6 +118,22 @@ export async function verifyTransactionSignatures(tx: Transaction): Promise<bool
     if (!input.signature || !input.publicKey) return false;
     const ok = await verifyLightFull(message, input.signature, input.publicKey);
     if (!ok) return false;
+  }
+  return true;
+}
+
+/** Verify sigs and that each input's public key commits to the UTXO owner address. */
+export async function verifyTransactionSignaturesForOwners(
+  tx: Transaction,
+  ownerByUtxo: (txid: string, vout: number) => string | undefined,
+): Promise<boolean> {
+  if (!(await verifyTransactionSignatures(tx))) return false;
+  if (tx.inputs.length === 0) return true;
+  for (const input of tx.inputs) {
+    if (!input.publicKey) return false;
+    const owner = ownerByUtxo(input.txid, input.vout);
+    if (!owner) return false;
+    if ((await addressFromPublicKey(input.publicKey)) !== owner) return false;
   }
   return true;
 }

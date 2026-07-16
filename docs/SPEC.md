@@ -16,10 +16,12 @@ Status: **draft, implemented in this repo**. Normative text is what the tests en
 | Piece | Algorithm | Notes |
 | --- | --- | --- |
 | Hash | SHA-512 | Via Web Crypto / runtime |
-| Signatures | PIX-HASH-OTS-128 | Hash-based OTS (quantum-resistant class) |
+| Signatures | PIX-HASH-OTS-128 | Merkle window of Lamport OTS leaves (32); each sign consumes one leaf |
 | Production path | NIST ML-DSA / SLH-DSA | Swap behind same verify interface |
 
-Invariant: signature scheme is **versioned** and crypto-agile.
+Invariant: signature scheme is **versioned** and crypto-agile.  
+Invariant: `verifyLight` (weak) is fail-closed; only `verifyLightFull` verifies.  
+Invariant: address ↔ master public key binding is checked on PoLS proofs.
 
 ## 3. State
 
@@ -90,5 +92,14 @@ HTTP:
 
 ## 8. What this version does / does not claim
 
-**Does:** local + multi-node accept, persist, One API, SISO model, ULA package.  
-**Does not yet:** global provider mesh, production NIST PQC, full origin failover runtime, audited bridges.
+**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS, diversity *policy* when ≥7 providers registered.
+
+**Does not yet:**
+- Global provider mesh / BFT fork-choice / reorgs (offline elected sequencer stalls the tip)
+- Production NIST PQC (ML-DSA) — hash-OTS class only
+- Real optical capture (`getUserMedia`) — luminance codec + simulated capture only
+- Kindling as shipped anti-phishing — confluence is commitment math; channel is `simulated`
+- Audited on-chain bridge verifier — `ULAVerifier.sol` is an explicit stub
+- Production gossip (no peer auth, fragile catch-up)
+
+Frame this honestly: a coherent educational / lab prototype with real running crypto and UTXO settlement — not a finished L1, bridge, or sovereignty regime.

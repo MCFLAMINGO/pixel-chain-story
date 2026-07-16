@@ -1,5 +1,9 @@
 /**
  * Bun WebSocket gossip implementation.
+ *
+ * Prototype limits (honest): no peer auth, no discovery DHT, dedupe is best-effort,
+ * missed messages have limited catch-up via get_pixels. Fine for 2–3 local processes;
+ * not a production network fabric.
  */
 
 import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
