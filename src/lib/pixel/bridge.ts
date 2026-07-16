@@ -134,7 +134,7 @@ export function bridgeThesis(): {
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
     shineOut:
-      "Lock or burn PIX → illuminate a pixel containing the bridge intent → foreign contract verifies ULA → mint/unlock wrapped value.",
+      "Lock/escrow PIX (default) → illuminate bridge intent → foreign chain verifies ULA → mint/unlock. Burn is optional, not required.",
     shineIn:
       "Lock on foreign chain → post commitment hash into a Pixel tx → illuminate → release PIX or credit.",
     targets: ["ethereum", "bitcoin", "cosmos", "solana", "polkadot", "icp", "other"],
