@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { AccessDemo } from "@/components/pixel/AccessDemo";
 import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
 import { LedgerField } from "@/components/pixel/LedgerField";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
@@ -33,13 +34,13 @@ function Index() {
   const [amount, setAmount] = useState("250");
   const [memo, setMemo] = useState("For a lighter world");
   const energy = estimatePoLSCost();
-  const blocks = pixel.chain?.blocks ?? [];
+  const blocks = pixel.chain?.pixels ?? [];
 
   return (
     <main className="min-h-screen overflow-x-hidden text-foreground">
       <section className="pixel-hero-light relative min-h-[100svh]">
         <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden>
-          {blocks.length > 0 ? (
+          {pixels.length > 0 ? (
             <LedgerField
               blocks={blocks}
               pendingCount={pixel.pending}
@@ -60,8 +61,8 @@ function Index() {
               PIXEL
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/90 md:text-xl">
-              The Abstract Expressionists had the key: information moves as field and gesture
-              through void. Light reveals proximity. Color is absent without it.
+              Source · Word · Light — one ledger. Commitment proceeds, light reveals, the pixel
+              stands. Color is absent without light.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
@@ -101,6 +102,8 @@ function Index() {
             <RealityField blocks={blocks} pendingCount={pixel.pending} />
           </div>
         </section>
+
+        <AccessDemo />
 
         <TransferDeck
           aliceBal={pixel.aliceBal}
@@ -142,22 +145,26 @@ function Index() {
         />
 
         <section className="pixel-rise border-t border-border pt-16">
-          <h2 className="font-pixel text-3xl font-bold tracking-tight">Why Ethereum should care</h2>
+          <h2 className="font-pixel text-3xl font-bold tracking-tight">
+            Scarcity · Sovereignty · Shine
+          </h2>
           <ul className="mt-6 max-w-2xl list-disc space-y-3 pl-5 text-muted-foreground">
             <li>
-              Post-quantum signatures now (hash-OTS), crypto-agile to ML-DSA — aligned with Ethereum
-              PQ research.
+              <span className="text-foreground">21,000,000 PIX</span> hard cap — Bitcoin’s scarcity
+              math; issuance by illuminating pixels, not wasting energy ({energy.model}).
             </li>
             <li>
-              PoLS sequencers are PBS-familiar: one light proof, no hash-power arms race (
-              {energy.relativeToPoW}).
+              <span className="text-foreground">Sovereign nodes</span> — diversity caps so
+              AWS/Cloudflare/single-nation majorities cannot be the kill switch.
             </li>
             <li>
-              JSON-RPC + Lumen execution: state transitions you can run, measure, and verify
-              in-browser.
+              <span className="text-foreground">Agnostic bridges</span> — Universal Light
+              Attestations shine onto Ethereum, Bitcoin, Cosmos, Solana, ICP… without becoming
+              anyone’s L2.
             </li>
             <li>
-              Human-readable, privacy-veiled transfers — settlement first, spectacle never required.
+              <span className="text-foreground">No second Facebook</span> — build on AWS in any
+              language; come into the light via SISO. If AWS dies, continuity holds.
             </li>
           </ul>
         </section>

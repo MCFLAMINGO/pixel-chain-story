@@ -92,7 +92,7 @@ export async function runPixelBenchmarks(): Promise<BenchRow[]> {
       [{ amount: 1, address: bob.address }],
       { description: "bench", recipientLabel: "@bob" },
     );
-    chain = await sequenceBlock(state);
+    chain = await sequenceBlock(state, alice);
     if (tx.state === "superposition" && chain.pending.length !== 0) {
       /* sequenced clears pending */
     }

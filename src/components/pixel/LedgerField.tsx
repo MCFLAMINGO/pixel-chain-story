@@ -4,39 +4,39 @@ import {
   isColorAbsent,
   proximityLinks,
   type ObserverMode,
-  type PixelBlock,
+  type LedgerPixel,
 } from "@/lib/pixel";
 
 /** Ledger as picture: void until light; proximity only under illumination. */
 export function LedgerField({
-  blocks,
+  pixels,
   className = "",
   interactive = false,
   observer = "screen",
   pendingCount = 0,
 }: {
-  blocks: PixelBlock[];
+  pixels: LedgerPixel[];
   className?: string;
   interactive?: boolean;
   observer?: ObserverMode;
   pendingCount?: number;
 }) {
   const [focus, setFocus] = useState<number | null>(null);
-  const count = Math.max(blocks.length, 1);
+  const count = Math.max(pixels.length, 1);
   const cols = Math.max(12, Math.ceil(Math.sqrt(count * 1.6)));
 
   const links = useMemo(() => {
     if (focus === null) return [];
     return proximityLinks(
-      blocks.map((b) => ({
-        index: b.index,
-        illuminated: b.illuminated,
-        transactions: b.transactions,
-        color: b.color,
+      pixels.map((p) => ({
+        index: p.index,
+        illuminated: p.illuminated,
+        transactions: p.transactions,
+        color: p.color,
       })),
       focus,
     );
-  }, [blocks, focus]);
+  }, [pixels, focus]);
 
   const linked = useMemo(() => new Set(links.map((l) => l.to)), [links]);
 
@@ -47,40 +47,39 @@ export function LedgerField({
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         aria-label="Pixel ledger field — color absent without light"
       >
-        {blocks.map((block) => {
-          const absent = !block.illuminated || isColorAbsent(block.color);
-          const isFocus = focus === block.index;
-          const isNear = linked.has(block.index);
+        {pixels.map((pixel) => {
+          const absent = !pixel.illuminated || isColorAbsent(pixel.color);
+          const isFocus = focus === pixel.index;
+          const isNear = linked.has(pixel.index);
           return (
             <button
-              key={block.hash}
+              key={pixel.hash}
               type="button"
               disabled={!interactive}
               title={
                 absent
-                  ? `#${block.index} — no light, color absent`
-                  : `#${block.index} lit · proximity ${block.proximity.length} · ${observer}`
+                  ? `#${pixel.index} — no light, color absent`
+                  : `#${pixel.index} lit · proximity ${pixel.proximity.length} · ${observer}`
               }
               onClick={() =>
-                interactive && setFocus((f) => (f === block.index ? null : block.index))
+                interactive && setFocus((f) => (f === pixel.index ? null : pixel.index))
               }
               className={`aspect-square min-h-[10px] transition-all duration-500 ${
                 interactive ? "cursor-pointer" : ""
-              } ${isFocus ? "scale-110 z-10" : ""} ${isNear ? "ring-1 ring-accent" : ""}`}
+              } ${isFocus ? "z-10 scale-110" : ""} ${isNear ? "ring-1 ring-accent" : ""}`}
               style={{
-                backgroundColor: absent ? "transparent" : cssRgb(block.color),
+                backgroundColor: absent ? "transparent" : cssRgb(pixel.color),
                 boxShadow:
                   !absent && (isFocus || isNear)
-                    ? `0 0 18px ${cssRgb(block.color, 0.55)}`
+                    ? `0 0 18px ${cssRgb(pixel.color, 0.55)}`
                     : !absent && interactive
-                      ? `0 0 10px ${cssRgb(block.color, 0.25)}`
+                      ? `0 0 10px ${cssRgb(pixel.color, 0.25)}`
                       : undefined,
                 opacity: absent ? 0.15 : isNear || isFocus || focus === null ? 1 : 0.35,
               }}
             />
           );
         })}
-        {/* Unlit pending ghosts — present in the field but color-absent */}
         {Array.from({ length: pendingCount }).map((_, i) => (
           <div
             key={`ghost-${i}`}

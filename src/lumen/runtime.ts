@@ -24,6 +24,8 @@ import { parseLumen } from "./parse";
 export interface LumenHost {
   chain: PixelChainState;
   wallets: Record<string, LightKeypair>;
+  /** Key used when this host sequences (usually alice / node key). */
+  sequencer: LightKeypair;
   /** Named ghost txs awaiting light */
   ghosts: Map<string, Transaction>;
   painted: string[];
@@ -39,10 +41,14 @@ export interface LumenResult {
 export function createHost(
   chain: PixelChainState,
   wallets: Record<string, LightKeypair>,
+  sequencer?: LightKeypair,
 ): LumenHost {
+  const seq = sequencer ?? wallets.alice ?? Object.values(wallets)[0];
+  if (!seq) throw new Error("Lumen host needs a sequencer key");
   return {
     chain,
     wallets,
+    sequencer: seq,
     ghosts: new Map(),
     painted: [],
     log: [],
@@ -127,8 +133,8 @@ async function execStmt(
           // ensure ghost is in pending
         }
         if (host.chain.pending.length > 0) {
-          host.chain = await sequenceBlock(host.chain);
-          const tip = host.chain.blocks[host.chain.blocks.length - 1];
+          host.chain = await sequenceBlock(host.chain, host.sequencer);
+          const tip = host.chain.pixels[host.chain.pixels.length - 1];
           for (const tx of tip.transactions) {
             host.ghosts.delete(tx.txid);
             host.log.push(`shine via sequence collapsed ${tx.txid.slice(0, 12)}…`);
@@ -173,7 +179,7 @@ async function execStmt(
         }
       }
       // If already sequenced in shine, mark from chain tip
-      const tip = host.chain.blocks[host.chain.blocks.length - 1];
+      const tip = host.chain.pixels[host.chain.pixels.length - 1];
       const tx = tip?.transactions[0];
       if (tx) {
         const settled: LumenValue = {

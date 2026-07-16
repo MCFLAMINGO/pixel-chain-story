@@ -10,7 +10,14 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test:pixel": "bun scripts/pixel-selftest.ts"
+    "test:pixel": "bun scripts/pixel-selftest.ts",
+    "test:l1": "bun scripts/l1-selftest.ts",
+    "test:scale": "bun scripts/scale-thesis-selftest.ts",
+    "test:siso": "bun scripts/siso-selftest.ts",
+    "test:one": "bun scripts/one-selftest.ts",
+    "test:access": "bun scripts/access-selftest.ts",
+    "test:all": "bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access",
+    "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

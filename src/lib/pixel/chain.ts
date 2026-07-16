@@ -12,6 +12,7 @@ import {
   verifyLightProof,
   type LightProof,
 } from "./pol";
+import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import {
   createTransaction,
   finalizeTransaction,
@@ -24,7 +25,7 @@ import {
   type Utxo,
 } from "./transaction";
 
-export interface PixelBlock {
+export interface LedgerPixel {
   index: number;
   prevHash: Hex;
   merkleRoot: Hex;
@@ -40,11 +41,18 @@ export interface PixelBlock {
   proximity: number[];
 }
 
+/** Public sequencer identity — safe to gossip / persist. */
+export interface SequencerId {
+  address: string;
+  publicKey: Hex;
+}
+
 export interface PixelChainState {
-  blocks: PixelBlock[];
+  pixels: LedgerPixel[];
   utxos: Map<string, Utxo>;
   pending: Transaction[];
-  sequencers: LightKeypair[];
+  sequencers: SequencerId[];
+  networkId: number;
 }
 
 function utxoKey(txid: string, vout: number): string {
@@ -98,15 +106,19 @@ async function hashBlock(header: {
   );
 }
 
-export async function createGenesis(sequencer: LightKeypair): Promise<PixelChainState> {
+export const PIXEL_NETWORK_ID = 0x5049; // "PI"
+
+export async function createGenesis(
+  sequencer: LightKeypair,
+  networkId = PIXEL_NETWORK_ID,
+): Promise<PixelChainState> {
+  const genesisReward = lightReward(0);
+  assertUnderCap(0, genesisReward);
   const mint = await createTransaction({
     inputs: [],
-    outputs: [
-      { amount: 1_000_000, address: sequencer.address },
-      { amount: 1_000_000, address: sequencer.address },
-    ],
+    outputs: [{ amount: genesisReward, address: sequencer.address }],
     metadata: {
-      description: "Genesis light — the first revelation",
+      description: "Genesis light — first illumination (21M PIX hard cap)",
       reference: "GENESIS",
     },
   });
@@ -137,7 +149,7 @@ export async function createGenesis(sequencer: LightKeypair): Promise<PixelChain
     timestamp,
     transactions: [revealed],
   });
-  const genesis: PixelBlock = {
+  const genesis: LedgerPixel = {
     index: 0,
     prevHash,
     merkleRoot: root,
@@ -162,19 +174,26 @@ export async function createGenesis(sequencer: LightKeypair): Promise<PixelChain
   });
 
   return {
-    blocks: [genesis],
+    pixels: [genesis],
     utxos,
     pending: [],
-    sequencers: [sequencer],
+    sequencers: [{ address: sequencer.address, publicKey: sequencer.publicKey }],
+    networkId,
   };
 }
 
 export function registerSequencer(
   state: PixelChainState,
-  sequencer: LightKeypair,
+  sequencer: Pick<LightKeypair, "address" | "publicKey">,
 ): PixelChainState {
   if (state.sequencers.some((s) => s.address === sequencer.address)) return state;
-  return { ...state, sequencers: [...state.sequencers, sequencer] };
+  return {
+    ...state,
+    sequencers: [
+      ...state.sequencers,
+      { address: sequencer.address, publicKey: sequencer.publicKey },
+    ],
+  };
 }
 
 export function balanceOf(state: PixelChainState, address: string): number {
@@ -237,20 +256,72 @@ export async function proposeTransfer(
   };
 }
 
-/** Shine light: sequencer reveals pending txs and appends a block. */
-export async function sequenceBlock(state: PixelChainState): Promise<PixelChainState> {
+/** Who should sequence next — deterministic from tip hash. */
+export function nextSequencerAddress(state: PixelChainState): string {
+  const tip = state.pixels[state.pixels.length - 1];
+  return selectSequencer(
+    tip.hash,
+    tip.sequence + 1,
+    state.sequencers.map((s) => s.address),
+  );
+}
+
+function applyTxUtxos(utxos: Map<string, Utxo>, txs: Transaction[]): Map<string, Utxo> {
+  const next = new Map(utxos);
+  for (const tx of txs) {
+    for (const input of tx.inputs) {
+      next.delete(utxoKey(input.txid, input.vout));
+    }
+    tx.outputs.forEach((out, vout) => {
+      next.set(utxoKey(tx.txid, vout), {
+        txid: tx.txid,
+        vout,
+        amount: out.amount,
+        address: out.address,
+      });
+    });
+  }
+  return next;
+}
+
+/** Shine light locally: only the elected sequencer key may produce the block. */
+export async function sequenceBlock(
+  state: PixelChainState,
+  localSequencer: LightKeypair,
+): Promise<PixelChainState> {
   if (state.pending.length === 0) {
     throw new Error("Nothing in superposition to reveal");
   }
 
-  const tip = state.blocks[state.blocks.length - 1];
+  const tip = state.pixels[state.pixels.length - 1];
   const sequence = tip.sequence + 1;
-  const addresses = state.sequencers.map((s) => s.address);
-  const chosen = selectSequencer(tip.hash, sequence, addresses);
-  const sequencer = state.sequencers.find((s) => s.address === chosen);
-  if (!sequencer) throw new Error("Selected sequencer missing");
+  const chosen = nextSequencerAddress(state);
+  if (localSequencer.address !== chosen) {
+    throw new Error(`Not this node's turn to sequence (need ${chosen})`);
+  }
 
-  const revealed = state.pending.map((tx) => finalizeTransaction(revealTransaction(tx, sequence)));
+  const nextIndex = tip.index + 1;
+  const reward = lightReward(nextIndex);
+  assertUnderCap(mintedThrough(nextIndex), reward);
+
+  const coinbase = finalizeTransaction(
+    revealTransaction(
+      await createTransaction({
+        inputs: [],
+        outputs: [{ amount: reward, address: localSequencer.address }],
+        metadata: {
+          description: `Light reward for illuminating pixel #${nextIndex}`,
+          reference: `LIGHT-${nextIndex}`,
+        },
+      }),
+      sequence,
+    ),
+  );
+
+  const revealed = [
+    coinbase,
+    ...state.pending.map((tx) => finalizeTransaction(revealTransaction(tx, sequence))),
+  ];
 
   for (const tx of revealed) {
     const ok = await verifyTransactionSignatures(tx);
@@ -260,22 +331,22 @@ export async function sequenceBlock(state: PixelChainState): Promise<PixelChainS
   const proof = await createLightProof({
     sequence,
     prevHash: tip.hash,
-    sequencer,
+    sequencer: localSequencer,
   });
-  const proofOk = await verifyLightProof(proof, chosen);
-  if (!proofOk) throw new Error("Invalid light proof");
+  if (!(await verifyLightProof(proof, chosen))) {
+    throw new Error("Invalid light proof");
+  }
 
   const root = await merkleRoot(revealed.map((t) => t.txid));
   const timestamp = Date.now();
   const hash = await hashBlock({
-    index: tip.index + 1,
+    index: nextIndex,
     prevHash: tip.hash,
     merkleRoot: root,
     sequence,
     timestamp,
     beacon: proof.beacon,
   });
-  const nextIndex = tip.index + 1;
   const { color, proximity } = await colorFromLight({
     index: nextIndex,
     hash,
@@ -287,7 +358,7 @@ export async function sequenceBlock(state: PixelChainState): Promise<PixelChainS
     transactions: revealed,
   });
 
-  const block: PixelBlock = {
+  const block: LedgerPixel = {
     index: nextIndex,
     prevHash: tip.hash,
     merkleRoot: root,
@@ -301,39 +372,168 @@ export async function sequenceBlock(state: PixelChainState): Promise<PixelChainS
     proximity,
   };
 
-  const utxos = new Map(state.utxos);
-  for (const tx of revealed) {
-    for (const input of tx.inputs) {
-      utxos.delete(utxoKey(input.txid, input.vout));
-    }
-    tx.outputs.forEach((out, vout) => {
-      utxos.set(utxoKey(tx.txid, vout), {
-        txid: tx.txid,
-        vout,
-        amount: out.amount,
-        address: out.address,
-      });
-    });
-  }
-
   return {
     ...state,
-    blocks: [...state.blocks, block],
-    utxos,
+    pixels: [...state.pixels, block],
+    utxos: applyTxUtxos(state.utxos, revealed),
     pending: [],
   };
 }
 
+/**
+ * Accept a block from the network (full validation, no private key needed).
+ * This is what makes Pixel a multi-node L1.
+ */
+export async function acceptBlock(
+  state: PixelChainState,
+  block: LedgerPixel,
+): Promise<PixelChainState> {
+  const tip = state.pixels[state.pixels.length - 1];
+  if (block.index !== tip.index + 1) {
+    throw new Error(`Unexpected block height ${block.index}, tip is ${tip.index}`);
+  }
+  if (block.prevHash !== tip.hash) {
+    throw new Error("Block does not link to tip");
+  }
+
+  const chosen = selectSequencer(
+    tip.hash,
+    block.sequence,
+    state.sequencers.map((s) => s.address),
+  );
+  if (!(await verifyLightProof(block.lightProof, chosen))) {
+    throw new Error("Invalid PoLS light proof");
+  }
+
+  const root = await merkleRoot(block.transactions.map((t) => t.txid));
+  if (root !== block.merkleRoot) throw new Error("Bad merkle root");
+
+  const hash = await hashBlock({
+    index: block.index,
+    prevHash: block.prevHash,
+    merkleRoot: block.merkleRoot,
+    sequence: block.sequence,
+    timestamp: block.timestamp,
+    beacon: block.lightProof.beacon,
+  });
+  if (hash !== block.hash) throw new Error("Bad block hash");
+
+  if (!block.illuminated) throw new Error("Block not illuminated");
+  const { color, proximity } = await colorFromLight({
+    index: block.index,
+    hash: block.hash,
+    prevHash: block.prevHash,
+    merkleRoot: block.merkleRoot,
+    beacon: block.lightProof.beacon,
+    sequence: block.sequence,
+    timestamp: block.timestamp,
+    transactions: block.transactions,
+    proximity: block.proximity,
+  });
+  if (color.r !== block.color.r || color.g !== block.color.g || color.b !== block.color.b) {
+    throw new Error("Color does not match light composition");
+  }
+  if (proximity.join(",") !== block.proximity.join(",")) {
+    throw new Error("Proximity cone mismatch");
+  }
+
+  for (const tx of block.transactions) {
+    if (!(await verifyTransactionSignatures(tx))) {
+      throw new Error(`Bad tx signature ${tx.txid}`);
+    }
+  }
+
+  // Drop pending txs included or conflicting
+  const included = new Set(block.transactions.map((t) => t.txid));
+  const spent = new Set(
+    block.transactions.flatMap((t) => t.inputs.map((i) => utxoKey(i.txid, i.vout))),
+  );
+  const pending = state.pending.filter((tx) => {
+    if (included.has(tx.txid)) return false;
+    return !tx.inputs.some((i) => spent.has(utxoKey(i.txid, i.vout)));
+  });
+
+  return {
+    ...state,
+    pixels: [...state.pixels, block],
+    utxos: applyTxUtxos(state.utxos, block.transactions),
+    pending,
+  };
+}
+
+/** Persistable snapshot (Maps → arrays). */
+export interface SerializedChain {
+  networkId: number;
+  pixels: LedgerPixel[];
+  utxos: Utxo[];
+  pending: Transaction[];
+  sequencers: SequencerId[];
+}
+
+export function serializeChain(state: PixelChainState): SerializedChain {
+  return {
+    networkId: state.networkId,
+    pixels: state.pixels,
+    utxos: [...state.utxos.values()],
+    pending: state.pending,
+    sequencers: state.sequencers,
+  };
+}
+
+export function deserializeChain(
+  data: SerializedChain & { blocks?: LedgerPixel[] },
+): PixelChainState {
+  const utxos = new Map<string, Utxo>();
+  for (const u of data.utxos ?? []) {
+    utxos.set(utxoKey(u.txid, u.vout), u);
+  }
+  const pixels = data.pixels ?? data.blocks ?? [];
+  // If snapshot omitted utxos, rebuild by replay.
+  if (utxos.size === 0 && pixels.length > 0) {
+    let map = new Map<string, Utxo>();
+    for (const pixel of pixels) {
+      map = applyTxUtxos(map, pixel.transactions);
+    }
+    return {
+      networkId: data.networkId ?? PIXEL_NETWORK_ID,
+      pixels,
+      utxos: map,
+      pending: data.pending ?? [],
+      sequencers: data.sequencers,
+    };
+  }
+  return {
+    networkId: data.networkId ?? PIXEL_NETWORK_ID,
+    pixels,
+    utxos,
+    pending: data.pending ?? [],
+    sequencers: data.sequencers,
+  };
+}
+
+/** Rebuild ledger state from a peer's pixel list (join network). */
+export function stateFromPixels(
+  pixels: LedgerPixel[],
+  sequencers: SequencerId[],
+  networkId = PIXEL_NETWORK_ID,
+): PixelChainState {
+  let utxos = new Map<string, Utxo>();
+  for (const pixel of pixels) {
+    utxos = applyTxUtxos(utxos, pixel.transactions);
+  }
+  return { pixels, utxos, pending: [], sequencers, networkId };
+}
+
 export async function verifyChain(state: PixelChainState): Promise<boolean> {
-  if (state.blocks.length === 0) return false;
+  if (state.pixels.length === 0) return false;
   const addresses = state.sequencers.map((s) => s.address);
 
-  for (let i = 0; i < state.blocks.length; i++) {
-    const block = state.blocks[i];
-    if (i > 0 && block.prevHash !== state.blocks[i - 1].hash) return false;
+  for (let i = 0; i < state.pixels.length; i++) {
+    const block = state.pixels[i];
+    if (i > 0 && block.prevHash !== state.pixels[i - 1].hash) return false;
 
     const expectedSequencer = selectSequencer(
-      i === 0 ? "0".repeat(128) : state.blocks[i - 1].hash,
+      i === 0 ? "0".repeat(128) : state.pixels[i - 1].hash,
       block.sequence,
       addresses,
     );
@@ -379,7 +579,7 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
 
 /** Serialize for UI — Maps don't travel through React state cleanly. */
 export interface PixelChainView {
-  blocks: PixelBlock[];
+  pixels: LedgerPixel[];
   utxos: Utxo[];
   pending: Transaction[];
   sequencers: { address: string; publicKey: Hex; label?: string }[];
@@ -387,7 +587,7 @@ export interface PixelChainView {
 
 export function toView(state: PixelChainState): PixelChainView {
   return {
-    blocks: state.blocks,
+    pixels: state.pixels,
     utxos: [...state.utxos.values()],
     pending: state.pending,
     sequencers: state.sequencers.map((s) => ({
@@ -395,4 +595,8 @@ export function toView(state: PixelChainState): PixelChainView {
       publicKey: s.publicKey,
     })),
   };
+}
+
+export function tipHash(state: PixelChainState): Hex {
+  return state.pixels[state.pixels.length - 1]?.hash ?? "0".repeat(128);
 }

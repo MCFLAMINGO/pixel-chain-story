@@ -6,7 +6,7 @@
  * live in-memory chain (not stubs).
  */
 
-import { balanceOf, type PixelChainState, type PixelBlock, verifyChain } from "./chain";
+import { balanceOf, type PixelChainState, type LedgerPixel, verifyChain } from "./chain";
 import { estimatePoLSCost } from "./pol";
 import type { Transaction } from "./transaction";
 
@@ -39,7 +39,7 @@ export interface PixelRpcContext {
   clientVersion: string;
 }
 
-function headerView(block: PixelBlock) {
+function headerView(block: LedgerPixel) {
   return {
     number: `0x${block.index.toString(16)}`,
     hash: `0x${block.hash.slice(0, 64)}`,
@@ -84,11 +84,11 @@ export async function handlePixelRpc(
       case "pix_chainId":
         return ok(id, `0x${ctx.networkId.toString(16)}`);
       case "pix_blockNumber":
-        return ok(id, `0x${(ctx.chain.blocks.length - 1).toString(16)}`);
+        return ok(id, `0x${(ctx.chain.pixels.length - 1).toString(16)}`);
       case "pix_getBlockByNumber": {
         const tag = String(params[0] ?? "latest");
-        const idx = tag === "latest" ? ctx.chain.blocks.length - 1 : parseInt(tag, 16);
-        const block = ctx.chain.blocks[idx];
+        const idx = tag === "latest" ? ctx.chain.pixels.length - 1 : parseInt(tag, 16);
+        const block = ctx.chain.pixels[idx];
         if (!block) throw rpcError(-32602, "block not found");
         return ok(id, headerView(block));
       }
@@ -104,7 +104,7 @@ export async function handlePixelRpc(
       case "pix_verifyChain":
         return ok(id, {
           valid: await verifyChain(ctx.chain),
-          blocks: ctx.chain.blocks.length,
+          pixels: ctx.chain.pixels.length,
           pending: ctx.chain.pending.length,
         });
       case "pix_getEnergyProfile":
@@ -112,7 +112,7 @@ export async function handlePixelRpc(
       case "pix_getLedgerPixels":
         return ok(
           id,
-          ctx.chain.blocks.map((b) => ({
+          ctx.chain.pixels.map((b) => ({
             index: b.index,
             color: b.color,
             hash: b.hash.slice(0, 16),
@@ -120,13 +120,22 @@ export async function handlePixelRpc(
         );
       case "pix_protocolInfo":
         return ok(id, {
-          name: "Pixel",
+          name: "Pixel Ledger",
+          unit: "pixel (not block)",
           consensus: "Proof of Light Sequence (PoLS)",
           signatures: "PIX-HASH-OTS-128 (hash-based, quantum-resistant)",
           hash: "SHA-512",
           model: "UTXO",
           language: "Lumen (light-native) + TypeScript host",
           finality: "light-revelation (sequencer signature + beacon)",
+          economics: {
+            hardCap: 21_000_000,
+            issuance: "light rewards per illuminated pixel (halving eras of 210,000)",
+            analogy: "Bitcoin scarcity schedule; energy-cheap security",
+          },
+          sovereignty:
+            "Independent node providers; diversity caps on cloud/jurisdiction; no required CDN",
+          bridge: "Universal Light Attestations — agnostic shineOut/shineIn to any chain",
           ethereumAnalogues: {
             sequencer: "PBS / based sequencing (single light proof)",
             pendingPool: "mempools — held as superposition ghosts",
@@ -135,6 +144,18 @@ export async function handlePixelRpc(
             pqc: "aligns with Ethereum PQ migration research",
           },
         });
+      case "pix_getEmission": {
+        const { emissionInfo } = await import("./economics");
+        return ok(id, emissionInfo(ctx.chain.pixels.length));
+      }
+      case "pix_getSovereigntyPolicy": {
+        const { SOVEREIGNTY_POLICY, sovereigntyThesis } = await import("./sovereignty");
+        return ok(id, { policy: SOVEREIGNTY_POLICY, thesis: sovereigntyThesis() });
+      }
+      case "pix_getBridgeThesis": {
+        const { bridgeThesis } = await import("./bridge");
+        return ok(id, bridgeThesis());
+      }
       default:
         throw rpcError(-32601, `method not found: ${req.method}`);
     }

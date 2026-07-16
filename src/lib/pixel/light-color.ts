@@ -345,7 +345,7 @@ export function revealProximity(focusIndex: number, radius = 2): number[] {
 
 /** Economic + temporal proximity links — only among illuminated pixels. */
 export function proximityLinks(
-  blocks: {
+  pixels: {
     index: number;
     illuminated: boolean;
     transactions: Transaction[];
@@ -353,19 +353,19 @@ export function proximityLinks(
   }[],
   focusIndex: number,
 ): ProximityLink[] {
-  const focus = blocks[focusIndex];
+  const focus = pixels[focusIndex];
   if (!focus?.illuminated) return []; // no light → proximity hidden
 
   const links: ProximityLink[] = [];
   // Explorer may show bidirectional proximity among currently lit pixels
   const near = [
     ...revealProximity(focusIndex, 2),
-    ...blocks
+    ...pixels
       .filter((b) => b.illuminated && b.index > focusIndex && b.index <= focusIndex + 2)
       .map((b) => b.index),
   ];
   for (const j of near) {
-    const other = blocks[j];
+    const other = pixels[j];
     if (!other.illuminated) continue; // dark neighbor stays undisclosed
     links.push({
       from: focusIndex,
