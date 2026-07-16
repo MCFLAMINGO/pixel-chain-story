@@ -1,7 +1,5 @@
-// Pixel-based blockchain: each "block" is a single pixel.
-// A block's color encodes: R = index low byte, G = data byte, B = hash byte.
-// Each block's hash is derived from the previous block's hash + its data,
-// so tampering with any pixel invalidates every subsequent pixel color.
+// Legacy demo: each "block" is a single pixel (FNV hash toy chain).
+// Prefer `src/lib/pixel/` for the real Light Protocol (UTXO + PoLS + optical keys).
 
 export interface PixelBlock {
   index: number;
@@ -11,7 +9,6 @@ export interface PixelBlock {
   color: { r: number; g: number; b: number };
 }
 
-// Tiny synchronous hash (FNV-1a 32-bit) — good enough for a demo, not crypto.
 function fnv1a(input: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
