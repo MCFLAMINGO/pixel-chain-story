@@ -2,17 +2,28 @@ import { useMemo, useState } from "react";
 import {
   ACCESS_FORMS,
   ACCESS_PERSONAS,
+  UPTAKE_LADDER,
   handleAccessIntent,
   handleUssdInput,
   helperAssistedSend,
+  inviteToKindleIntent,
   parseAccessText,
   ussdMenuText,
   type AccessChannel,
   type AccessLocale,
+  type AccessResult,
   type UssdSession,
 } from "@/lib/pixel";
 
-/** Demo door for SMS/USSD/helper access — no hex. */
+function formatResult(res: AccessResult): string {
+  const invite = inviteToKindleIntent(res);
+  const extra = invite
+    ? `\n· kindle invite ${invite.amount} PIX → ${invite.toLocal} (climb to #kindling)`
+    : "";
+  return `${res.reply.sms}\n\n(${res.reply.code})${extra}`;
+}
+
+/** Signal bridge demo — invites Kindling; never spends. */
 export function AccessDemo() {
   const [personaId, setPersonaId] =
     useState<(typeof ACCESS_PERSONAS)[number]["id"]>("kansas_farmer");
@@ -53,7 +64,7 @@ export function AccessDemo() {
     setLocale(p.locale);
     setFromId(p.localId);
     setText(p.sampleText);
-    setChannel(p.channels[0] ?? "sms");
+    setChannel("sms");
     setConfirm("");
     setOut("");
     setUssd(null);
@@ -68,9 +79,8 @@ export function AccessDemo() {
       };
       const step = handleUssdInput(session, text, ctx);
       setUssd(step.session.step === "done" ? null : step.session);
-      const extra = step.result?.ledgerSend
-        ? `\n· ledger ${step.result.ledgerSend.amount} PIX → ${step.result.ledgerSend.meta.recipientLabel}`
-        : "";
+      const invite = step.result ? inviteToKindleIntent(step.result) : null;
+      const extra = invite ? `\n· kindle invite ${invite.amount} → ${invite.toLocal}` : "";
       setOut(`${step.prompt}${extra}`);
       return;
     }
@@ -85,39 +95,36 @@ export function AccessDemo() {
         ctx,
         confirm || undefined,
       );
-      setOut(
-        `${res.reply.sms}\n\n(${res.reply.code}` +
-          (res.ledgerSend
-            ? ` · ledger ${res.ledgerSend.amount} PIX → ${res.ledgerSend.meta.recipientLabel}`
-            : "") +
-          ")",
-      );
+      setOut(formatResult(res));
       return;
     }
 
     const intent = parseAccessText(text, channel, fromId, locale);
-    const res = handleAccessIntent(intent, ctx);
-    setOut(
-      `${res.reply.sms}\n\n(${res.reply.code}` +
-        (res.ledgerSend
-          ? ` · ledger ${res.ledgerSend.amount} PIX → ${res.ledgerSend.meta.recipientLabel}`
-          : "") +
-        ")",
-    );
+    setOut(formatResult(handleAccessIntent(intent, ctx)));
   };
 
   return (
     <section id="access" className="pixel-rise">
       <p className="font-pixel text-xs font-semibold tracking-[0.28em] text-primary uppercase">
-        Access for everyone
+        Uptake ladder · signal → presence
       </p>
       <h2 className="font-pixel mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-        A peasant in Bangladesh. A farmer in Kansas.
+        Primitive doors. Advanced core.
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        Same ledger. Different doors. Feature-phone SMS, USSD menus, co-op helpers, shared phones,
-        paper codes, offline queue. People never see hex — gateways speak Pixel.
+        Feature phones and helpers are on-ramps — they invite Kindling. They never move value.
+        Settlement is light meeting light. Climb the ladder; do not rename the bottom rung into a
+        wallet.
       </p>
+
+      <ol className="mt-6 max-w-xl list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+        {UPTAKE_LADDER.map((s) => (
+          <li key={s.tier}>
+            <span className="font-pixel text-foreground">{s.name}</span> — {s.role}
+            {s.canSpend ? " · can spend" : " · cannot spend"}
+          </li>
+        ))}
+      </ol>
 
       <div className="mt-8 flex flex-wrap gap-3">
         {ACCESS_PERSONAS.map((p) => (
@@ -157,8 +164,8 @@ export function AccessDemo() {
         </label>
         <label className="block text-sm text-muted-foreground">
           {channel === "ussd"
-            ? "USSD input (try empty for menu, then 1 / 2 / name / amount)"
-            : "Message (SMS style)"}
+            ? "USSD input (empty = menu; 1 balance; 2 invite flow)"
+            : "Message (signal bridge)"}
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -167,7 +174,7 @@ export function AccessDemo() {
         </label>
         {channel === "helper" && (
           <label className="block text-sm text-muted-foreground">
-            Confirm (YES or PIN 1234)
+            Helper ack (YES) — still only invites Kindling
             <input
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
@@ -211,8 +218,14 @@ export function AccessDemo() {
             onClick={run}
             className="font-pixel ml-auto rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
           >
-            Send intent
+            Signal
           </button>
+          <a
+            href="#kindling"
+            className="font-pixel rounded-md border border-primary/40 px-4 py-2 text-xs font-semibold"
+          >
+            Climb to Kindling
+          </a>
         </div>
         {channel === "ussd" && (
           <p className="whitespace-pre-wrap text-xs text-muted-foreground">

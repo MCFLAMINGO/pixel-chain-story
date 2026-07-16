@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AccessDemo } from "@/components/pixel/AccessDemo";
 import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
+import { KindlingPanel } from "@/components/pixel/KindlingPanel";
 import { LedgerField } from "@/components/pixel/LedgerField";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
 import { RealityField } from "@/components/pixel/RealityField";
 import { TransferDeck } from "@/components/pixel/TransferDeck";
 import { usePixelChain } from "@/hooks/use-pixel-chain";
-import { EXPRESSION_AXIOM, estimatePoLSCost } from "@/lib/pixel";
+import { EXPRESSION_AXIOM, datacenterRebuke, estimatePoLSCost } from "@/lib/pixel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -61,21 +62,21 @@ function Index() {
               PIXEL
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/90 md:text-xl">
-              Source · Word · Light — one ledger. A peasant in Bangladesh and a farmer in Kansas use
-              the same light — by SMS, USSD, helper, or phone. Color is absent without light.
+              Source · Word · Light — every person holds their own Source. Kindling settles without
+              hyperscale thirst. Color is absent without light.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
-                href="#access"
+                href="#kindling"
                 className="font-pixel inline-flex rounded-md bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
               >
-                Open a door
+                Kindle
               </a>
               <a
-                href="#field"
+                href="#access"
                 className="font-pixel text-sm font-semibold underline decoration-primary/40 underline-offset-4"
               >
-                Enter the field
+                Uptake doors
               </a>
             </div>
             <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -102,6 +103,8 @@ function Index() {
             <RealityField pixels={blocks} pendingCount={pixel.pending} />
           </div>
         </section>
+
+        <KindlingPanel />
 
         <AccessDemo />
 
@@ -148,6 +151,7 @@ function Index() {
           <h2 className="font-pixel text-3xl font-bold tracking-tight">
             Scarcity · Sovereignty · Shine
           </h2>
+          <p className="mt-4 max-w-2xl text-sm text-muted-foreground">{datacenterRebuke()}</p>
           <ul className="mt-6 max-w-2xl list-disc space-y-3 pl-5 text-muted-foreground">
             <li>
               <span className="text-foreground">21,000,000 PIX</span> hard cap — Bitcoin’s scarcity

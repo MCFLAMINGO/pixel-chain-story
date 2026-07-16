@@ -22,4 +22,4 @@ const { state: next, summary } = await One.reveal({ ... });
 
 That single `reveal` is the trinity acting as one: Source commits, Light shines, Word stands.
 
-People who never see code still enter through **`One.Access`** — SMS, USSD, helper desk, offline queue — in Bangla, English, and more. Same ledger; many doors.
+People enter through **`One.Access`** (signal bridges — invite only) and spend through **`One.Kindling`** with **`One.Custody`** Personal Sources. Self-custody is law. SMS never spends. Energy Truth rebukes hyperscale waste.

@@ -1,11 +1,10 @@
 /**
- * Access for everyone — Bangladesh peasant · Kansas farmer · anyone between.
+ * Access messaging — Bangladesh peasant · Kansas farmer · anyone between.
  *
- * Coders use One / RPC / Lumen.
- * People use plain intents over whatever channel they have:
- *   SMS, USSD, voice, shared smartphone, paper+light, a trusted helper.
- *
- * No wallets-as-identity theater. No English-only. No always-on broadband.
+ * IMPORTANT: This module is NOT spend authority.
+ * Text/USSD may query balance/status or invite Kindling.
+ * Moving value for people requires Kindling (mutual light) — see kindling.ts.
+ * We refuse renamed M-Pesa / SMS-wallet shortcuts (docs/INVENT.md).
  */
 
 import type { ReadableMeta } from "./transaction";
@@ -54,7 +53,7 @@ export interface AccessReply {
   /** Slightly longer for USSD/smartphone */
   display: string;
   /** Structured for gateways */
-  code: "OK" | "NEED_TO" | "NEED_AMOUNT" | "QUEUED" | "NEED_CONFIRM" | "ERR";
+  code: "OK" | "NEED_TO" | "NEED_AMOUNT" | "QUEUED" | "NEED_CONFIRM" | "KINDLING_REQUIRED" | "ERR";
 }
 
 /** Map everyday people → ledger addresses via a local directory (co-op, SIM, etc.). */
@@ -84,7 +83,7 @@ export const ACCESS_PERSONAS: readonly AccessPersona[] = [
     locale: "bn",
     channels: ["sms", "ussd", "shared_phone", "helper", "offline_queue", "paper_optical"],
     localId: "+8801711000001",
-    ease: "Feature phone + Bangla SMS/USSD. Names, not hex. Helper at the hat if stuck.",
+    ease: "SMS for balance; Kindling at the Light Pillar to spend. Names, not hex.",
     sampleText: "পাঠাও rina 5",
   },
   {
@@ -94,7 +93,7 @@ export const ACCESS_PERSONAS: readonly AccessPersona[] = [
     locale: "en",
     channels: ["smartphone", "ussd", "helper", "offline_queue", "sms", "voice"],
     localId: "+16205551212",
-    ease: "Big buttons or co-op desk. Spotty LTE OK — queue offline. Never say ‘gas’.",
+    ease: "Kindle face-to-face or at the co-op pillar. SMS only invites. No seed theater.",
     sampleText: "SEND joe 12",
   },
 ] as const;
@@ -116,74 +115,74 @@ const COPY: Record<
 > = {
   en: {
     bal: (n) => `Balance: ${n} PIX`,
-    sent: (n, to) => `Sent ${n} PIX to ${to}. Light will confirm.`,
-    queued: (n, to) => `Saved offline: ${n} PIX to ${to}. Will send when connected.`,
-    needTo: "Who do you want to send to? Reply: SEND name amount",
+    sent: (n, to) => `Kindle required: ${n} PIX to ${to}. Meet in light — SMS cannot spend.`,
+    queued: (n, to) => `Invite saved: kindle ${n} PIX to ${to} when you meet in light.`,
+    needTo: "Who? Reply: SEND name amount (invites Kindling — does not spend)",
     needAmt: "How much? Reply: SEND name amount",
-    needConfirm: (n, to) => `Confirm send ${n} PIX to ${to}? Reply YES or PIN`,
-    help: "Commands: BALANCE | SEND name amount | RECEIVE | STATUS",
-    recv: (a) => `Your receive code: ${a.slice(0, 12)}… Show this or your phone number.`,
-    ussdMenu: "1 Balance\n2 Send\n3 Receive\n4 Status\n0 Help",
-    err: "Could not complete. Try again or ask your helper.",
+    needConfirm: (n, to) => `Helper noted ${n} PIX to ${to}. Still must Kindling (two lights).`,
+    help: "BALANCE | RECEIVE | STATUS | SEND name amount (kindle invite only)",
+    recv: (a) => `Receive by Kindling under your name/phone. Ref: ${a.slice(0, 12)}…`,
+    ussdMenu: "1 Balance\n2 Kindle invite\n3 Receive\n4 Status\n0 Help",
+    err: "Could not complete. Try again or meet at the Light Pillar.",
   },
   bn: {
     bal: (n) => `ব্যালেন্স: ${n} PIX`,
-    sent: (n, to) => `${to}-কে ${n} PIX পাঠানো হয়েছে। আলো নিশ্চিত করবে।`,
-    queued: (n, to) => `অফলাইন সংরক্ষিত: ${to}-কে ${n} PIX। সংযোগে পাঠানো হবে।`,
-    needTo: "কার কাছে পাঠাবেন? SEND নাম পরিমাণ",
+    sent: (n, to) => `কিন্ডলিং লাগবে: ${to}-কে ${n} PIX। এসএমএস খরচ করে না — আলোয় মিলিত হোন।`,
+    queued: (n, to) => `আমন্ত্রণ সংরক্ষিত: ${to}-কে ${n} PIX কিন্ডলিং।`,
+    needTo: "কার কাছে? SEND নাম পরিমাণ (শুধু আমন্ত্রণ)",
     needAmt: "কত? SEND নাম পরিমাণ",
-    needConfirm: (n, to) => `${to}-কে ${n} PIX? YES বা PIN দিয়ে নিশ্চিত করুন`,
-    help: "কমান্ড: BALANCE | SEND নাম পরিমাণ | RECEIVE | STATUS",
-    recv: (a) => `রিসিভ কোড: ${a.slice(0, 12)}… ফোন নম্বরও চলবে।`,
-    ussdMenu: "1 ব্যালেন্স\n2 পাঠান\n3 রিসিভ\n4 স্ট্যাটাস\n0 সাহায্য",
-    err: "সম্পন্ন হয়নি। আবার চেষ্টা করুন বা সহায়ককে জিজ্ঞাসা করুন।",
+    needConfirm: (n, to) => `${to}-কে ${n} PIX নোট। এখনও কিন্ডলিং (দুই আলো) লাগবে।`,
+    help: "BALANCE | RECEIVE | STATUS | SEND (কিন্ডলিং আমন্ত্রণ)",
+    recv: (a) => `নাম/ফোনে কিন্ডলিং করে নিন। Ref: ${a.slice(0, 12)}…`,
+    ussdMenu: "1 ব্যালেন্স\n2 কিন্ডলিং\n3 রিসিভ\n4 স্ট্যাটাস\n0 সাহায্য",
+    err: "সম্পন্ন হয়নি। লাইট পিলারে মিলিত হোন।",
   },
   hi: {
     bal: (n) => `बैलेंस: ${n} PIX`,
-    sent: (n, to) => `${to} को ${n} PIX भेजा। रोशनी पुष्टि करेगी।`,
-    queued: (n, to) => `ऑफ़लाइन सेव: ${to} को ${n} PIX। जुड़ने पर भेजा जाएगा।`,
-    needTo: "किसे भेजें? SEND नाम राशि",
+    sent: (n, to) => `किंडलिंग चाहिए: ${to} को ${n} PIX। SMS खर्च नहीं करता।`,
+    queued: (n, to) => `निमंत्रण सेव: ${to} को ${n} PIX किंडलिंग।`,
+    needTo: "किसे? SEND नाम राशि (केवल निमंत्रण)",
     needAmt: "कितना? SEND नाम राशि",
-    needConfirm: (n, to) => `${to} को ${n} PIX? YES या PIN से पुष्टि करें`,
-    help: "कमांड: BALANCE | SEND नाम राशि | RECEIVE | STATUS",
-    recv: (a) => `रिसीव कोड: ${a.slice(0, 12)}… या अपना फ़ोन नंबर।`,
-    ussdMenu: "1 बैलेंस\n2 भेजें\n3 रिसीव\n4 स्थिति\n0 मदद",
-    err: "पूरा नहीं हुआ। फिर कोशिश करें या सहायक से पूछें।",
+    needConfirm: (n, to) => `${to} को ${n} PIX नोट। फिर किंडलिंग चाहिए।`,
+    help: "BALANCE | RECEIVE | STATUS | SEND (किंडलिंग निमंत्रण)",
+    recv: (a) => `नाम/फ़ोन से किंडलिंग। Ref: ${a.slice(0, 12)}…`,
+    ussdMenu: "1 बैलेंस\n2 किंडलिंग\n3 रिसीव\n4 स्थिति\n0 मदद",
+    err: "पूरा नहीं। लाइट पिलर पर मिलें।",
   },
   es: {
     bal: (n) => `Saldo: ${n} PIX`,
-    sent: (n, to) => `Enviado ${n} PIX a ${to}. La luz confirmará.`,
-    queued: (n, to) => `Guardado sin red: ${n} PIX a ${to}.`,
-    needTo: "¿A quién? SEND nombre cantidad",
+    sent: (n, to) => `Requiere Kindling: ${n} PIX a ${to}. SMS no gasta.`,
+    queued: (n, to) => `Invitación: kindle ${n} PIX a ${to}.`,
+    needTo: "¿A quién? SEND nombre cantidad (solo invita)",
     needAmt: "¿Cuánto? SEND nombre cantidad",
-    needConfirm: (n, to) => `¿Enviar ${n} PIX a ${to}? Responda YES o PIN`,
-    help: "Comandos: BALANCE | SEND nombre cantidad | RECEIVE | STATUS",
-    recv: (a) => `Código: ${a.slice(0, 12)}… o tu teléfono.`,
-    ussdMenu: "1 Saldo\n2 Enviar\n3 Recibir\n4 Estado\n0 Ayuda",
-    err: "No se pudo. Intente de nuevo o pregunte al ayudante.",
+    needConfirm: (n, to) => `Anotado ${n} PIX a ${to}. Aún falta Kindling.`,
+    help: "BALANCE | RECEIVE | STATUS | SEND (invita Kindling)",
+    recv: (a) => `Recibe con Kindling. Ref: ${a.slice(0, 12)}…`,
+    ussdMenu: "1 Saldo\n2 Kindling\n3 Recibir\n4 Estado\n0 Ayuda",
+    err: "Falló. Encuéntrense en la Luz.",
   },
   sw: {
     bal: (n) => `Salio: ${n} PIX`,
-    sent: (n, to) => `Umetuma ${n} PIX kwa ${to}. Mwanga utathibitisha.`,
-    queued: (n, to) => `Imehifadhiwa nje ya mtandao: ${n} PIX kwa ${to}.`,
+    sent: (n, to) => `Kindling inahitajika: ${n} PIX kwa ${to}. SMS haitumi.`,
+    queued: (n, to) => `Mwaliko: kindle ${n} PIX kwa ${to}.`,
     needTo: "Kwenda kwa nani? SEND jina kiasi",
     needAmt: "Kiasi gani? SEND jina kiasi",
-    needConfirm: (n, to) => `Thibitisha ${n} PIX kwa ${to}? YES au PIN`,
-    help: "Amri: BALANCE | SEND jina kiasi | RECEIVE | STATUS",
-    recv: (a) => `Nambari: ${a.slice(0, 12)}… au simu yako.`,
-    ussdMenu: "1 Salio\n2 Tuma\n3 Pokea\n4 Hali\n0 Msaada",
-    err: "Imeshindikana. Jaribu tena au muulize msaidizi.",
+    needConfirm: (n, to) => `Imeandikwa ${n} PIX kwa ${to}. Kindling bado.`,
+    help: "BALANCE | RECEIVE | STATUS | SEND (mwaliko wa Kindling)",
+    recv: (a) => `Pokea kwa Kindling. Ref: ${a.slice(0, 12)}…`,
+    ussdMenu: "1 Salio\n2 Kindling\n3 Pokea\n4 Hali\n0 Msaada",
+    err: "Imeshindikana. Kutana nuruni.",
   },
   und: {
     bal: (n) => `BAL ${n}`,
-    sent: (n, to) => `OK SEND ${n} -> ${to}`,
-    queued: (n, to) => `QUEUE ${n} -> ${to}`,
+    sent: (n, to) => `KINDLING ${n} -> ${to}`,
+    queued: (n, to) => `INVITE KINDLING ${n} -> ${to}`,
     needTo: "SEND name amount",
     needAmt: "SEND name amount",
-    needConfirm: (n, to) => `CONFIRM ${n} -> ${to} YES|PIN`,
-    help: "BALANCE | SEND name amount | RECEIVE",
-    recv: (a) => `RECV ${a.slice(0, 12)}`,
-    ussdMenu: "1 BAL\n2 SEND\n3 RECV\n4 STAT\n0 HELP",
+    needConfirm: (n, to) => `NOTE ${n} -> ${to}; KINDLING`,
+    help: "BALANCE | RECEIVE | SEND=kindle invite",
+    recv: (a) => `RECV KINDLING ${a.slice(0, 12)}`,
+    ussdMenu: "1 BAL\n2 KINDLE\n3 RECV\n4 STAT\n0 HELP",
     err: "ERR",
   },
 };
@@ -285,12 +284,17 @@ export interface AccessContext {
 
 export interface AccessResult {
   reply: AccessReply;
-  /** If set, gateway should call propose+shine (or queue) */
-  ledgerSend?: {
-    fromAddress: string;
-    toAddress: string;
+  /**
+   * @deprecated People spends must Kindling. Never returned for SEND anymore.
+   * Kept optional so old gateway sketches fail closed.
+   */
+  ledgerSend?: never;
+  /** SMS/USSD/helper may only invite Kindling — not authorize spend */
+  kindlingInvite?: {
+    fromLocalId: string;
+    toLocalId: string;
     amount: number;
-    meta: ReadableMeta;
+    note?: string;
     offline: boolean;
   };
 }
@@ -361,25 +365,27 @@ export function handleAccessIntent(intent: SimpleIntent, ctx: AccessContext): Ac
       return { reply: { ok: false, sms: c.err.slice(0, 160), display: c.err, code: "ERR" } };
     }
 
-    const needsConfirm =
-      Boolean(ctx.requireConfirm) ||
+    // Spend authority is Kindling — not SMS, not PIN theater.
+    void toAddr;
+    const offline = Boolean(intent.offline) || intent.channel === "offline_queue";
+    const helperNote =
       intent.channel === "helper" ||
       intent.channel === "voice" ||
       intent.channel === "shared_phone";
-
-    if (needsConfirm) {
-      const conf = (ctx.confirmation ?? intent.confirmPin ?? "").trim().toUpperCase();
-      const pinOk = ctx.expectedPin ? conf === ctx.expectedPin.toUpperCase() : false;
-      const yesOk = conf === "YES" || conf === "Y" || conf === "হ্যাঁ" || conf === "हां";
-      if (!pinOk && !yesOk) {
-        const msg = c.needConfirm(intent.amount, intent.toLocalId);
-        return {
-          reply: { ok: false, sms: msg.slice(0, 160), display: msg, code: "NEED_CONFIRM" },
-        };
-      }
+    if (helperNote && !ctx.confirmation && !intent.confirmPin) {
+      const msg = c.needConfirm(intent.amount, intent.toLocalId);
+      return {
+        reply: { ok: false, sms: msg.slice(0, 160), display: msg, code: "NEED_CONFIRM" },
+        kindlingInvite: {
+          fromLocalId: fromKey,
+          toLocalId: intent.toLocalId,
+          amount: intent.amount,
+          note: intent.note,
+          offline,
+        },
+      };
     }
 
-    const offline = Boolean(intent.offline) || intent.channel === "offline_queue";
     const msg = offline
       ? c.queued(intent.amount, intent.toLocalId)
       : c.sent(intent.amount, intent.toLocalId);
@@ -387,19 +393,15 @@ export function handleAccessIntent(intent: SimpleIntent, ctx: AccessContext): Ac
       reply: {
         ok: true,
         sms: msg.slice(0, 160),
-        display: msg,
-        code: offline ? "QUEUED" : "OK",
+        display: `${msg}\n(Kindling required — text cannot move PIX)`,
+        code: "KINDLING_REQUIRED",
       },
-      ledgerSend: {
-        fromAddress: fromAddr,
-        toAddress: toAddr,
+      kindlingInvite: {
+        fromLocalId: fromKey,
+        toLocalId: intent.toLocalId,
         amount: intent.amount,
+        note: intent.note,
         offline,
-        meta: {
-          description: intent.note || `Send via ${intent.channel}`,
-          recipientLabel: intent.toLocalId,
-          reference: `ACCESS-${intent.channel}-${Date.now()}`,
-        },
       },
     };
   }
@@ -522,7 +524,7 @@ export function enqueueOffline(queue: QueuedIntent[], intent: SimpleIntent): Que
   return [...queue, q];
 }
 
-/** Drain queue when radio/data returns — returns ledger actions + replies. */
+/** Drain queue when radio/data returns — re-issues Kindling invites, never silent spends. */
 export function flushOfflineQueue(
   queue: QueuedIntent[],
   ctx: AccessContext,
@@ -536,7 +538,7 @@ export function flushOfflineQueue(
       channel: "sms",
     };
     const result = handleAccessIntent(onlineIntent, { ...ctx, requireConfirm: false });
-    if (result.reply.code === "ERR" || (onlineIntent.kind === "send" && !result.ledgerSend)) {
+    if (result.reply.code === "ERR") {
       remaining.push(item);
     } else {
       results.push(result);
@@ -570,47 +572,42 @@ export function helperAssistedSend(
   );
 }
 
-/** Forms of access we commit to supporting. */
+/** Forms of access — messaging & presence. Spend = Kindling only. */
 export const ACCESS_FORMS = [
+  {
+    id: "kindling",
+    who: "Everyone who moves value",
+    how: "Two lights meet (Presence Seal) — the only people spend path",
+  },
   {
     id: "sms",
     who: "Feature phone users (e.g. rural Bangladesh)",
-    how: "Text BALANCE / SEND name amount — gateway signs & shines",
+    how: "BALANCE / status / kindle invite — never spend authority",
   },
   {
     id: "ussd",
     who: "Any GSM phone without data",
-    how: "Menu: 1 Balance 2 Send — same intents",
+    how: "Menu for balance + kindle invite; settle in light",
   },
   {
-    id: "shared_phone",
-    who: "Family / village shared Android",
-    how: "Simple big-button UI; local accounts by name/PIN",
+    id: "light_pillar",
+    who: "Village / co-op screen",
+    how: "Shared optical pillar — kindle without owning a smartphone",
   },
   {
     id: "helper",
     who: "Kansas co-op desk / village agent",
-    how: "Trusted helper operates gateway; farmer confirms with PIN/voice",
-  },
-  {
-    id: "paper_optical",
-    who: "Offline / low literacy",
-    how: "Printed receive codes + screen/flashlight light ceremony",
+    how: "Helps aim the lights; cannot spend for you without your half",
   },
   {
     id: "offline_queue",
     who: "Intermittent connectivity",
-    how: "Intent saved on phone; syncs when radio/data returns",
+    how: "Queue a kindle invite; confluence when both present",
   },
   {
     id: "smartphone",
-    who: "Anyone with a basic app",
-    how: "One screen: Send / Receive / Balance — no hex, no gas words",
-  },
-  {
-    id: "voice",
-    who: "IVR / missed-call menus",
-    how: "Dial, hear menu in local language, speak or press amounts",
+    who: "Anyone with a basic screen",
+    how: "Kindle / Receive / Balance — no seed theater, no gas, no hex",
   },
 ] as const;
 

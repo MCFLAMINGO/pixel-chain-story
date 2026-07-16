@@ -27,6 +27,10 @@ import {
 } from "./siso";
 import { ABSENT_COLOR, isColorAbsent, revealProximity } from "./light-color";
 import { Access } from "./access";
+import { Kindling } from "./kindling";
+import { energyTruthForIlluminate, formatEnergyTruth, datacenterRebuke } from "./energy-truth";
+import { Uptake } from "./uptake";
+import { Custody, SELF_CUSTODY_AXIOM } from "./custody";
 import type { ReadableMeta, TxOutput } from "./transaction";
 
 /** The three names of the one. */
@@ -122,7 +126,20 @@ export const One = {
   Source,
   Word,
   Light,
-  /** Doors for people who never see hex — SMS, USSD, helper, offline… */
+  /** Messaging doors — balance/status/invites only (never spend authority). */
   Access,
+  /** People spend path — mutual light Presence Seals. */
+  Kindling,
+  /** Optical Personal Source — self-custody for everyone. */
+  Custody,
+  /** Primitive → advanced on-ramps (bridges never hold keys). */
+  Uptake,
+  /** Waste refused — labeled energy/water models; rebuke hyperscale thirst. */
+  Energy: {
+    truth: energyTruthForIlluminate,
+    format: formatEnergyTruth,
+    rebuke: datacenterRebuke,
+  },
+  law: { selfCustody: SELF_CUSTODY_AXIOM },
   reveal,
 } as const;
