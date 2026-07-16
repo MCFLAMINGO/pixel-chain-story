@@ -41,9 +41,19 @@ async function main() {
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip]
   join --peer http://HOST:RPC [--datadir DIR]
   wallet create NAME [--datadir DIR]
+  wallet from-node [NAME] [--datadir DIR]   # use sequencer identity as a named wallet (holds genesis PIX)
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
   balance ADDR|--wallet NAME [--datadir DIR]
   interactions
+
+Day-one local (you are the sequencer):
+  bun run pixel -- init --datadir ./data/a
+  bun run pixel -- wallet from-node sequencer --datadir ./data/a
+  bun run pixel -- wallet create bob --datadir ./data/a
+  bun run pixel -- send --from sequencer --to <bob-addr> --amount 10 --datadir ./data/a
+  bun run pixel -- balance --wallet bob --datadir ./data/a
+  bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
+  bun run dev   # UI: Worldlight / Kindling / Access
 `);
     return;
   }
@@ -166,6 +176,22 @@ async function main() {
     await saveWallet(datadir, name, kp);
     console.log(`Created wallet ${name}`);
     console.log(`  address: ${kp.address}`);
+    return;
+  }
+
+  if (cmd === "wallet" && process.argv[3] === "from-node") {
+    const name = process.argv[4] ?? "sequencer";
+    await ensureDatadir(datadir);
+    const { keypair } = await loadOrCreateIdentity(datadir, "genesis");
+    await saveWallet(datadir, name, keypair);
+    const { loadChain } = await import("./store");
+    const { balanceOf } = await import("../lib/pixel/index");
+    const chain = await loadChain(datadir);
+    const bal = chain ? balanceOf(chain, keypair.address) : 0;
+    console.log(`Sequencer identity saved as wallet "${name}"`);
+    console.log(`  address: ${keypair.address}`);
+    console.log(`  balance: ${bal} PIX (genesis light reward if you ran init)`);
+    console.log(`  You are the illuminator for this datadir — send/illuminate with --from ${name}`);
     return;
   }
 
