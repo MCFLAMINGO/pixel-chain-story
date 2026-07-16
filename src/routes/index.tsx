@@ -61,8 +61,8 @@ function Index() {
               PIXEL
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/90 md:text-xl">
-              Source · Word · Light — one ledger. A peasant in Bangladesh and a farmer in Kansas
-              use the same light — by SMS, USSD, helper, or phone. Color is absent without light.
+              Source · Word · Light — one ledger. A peasant in Bangladesh and a farmer in Kansas use
+              the same light — by SMS, USSD, helper, or phone. Color is absent without light.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a

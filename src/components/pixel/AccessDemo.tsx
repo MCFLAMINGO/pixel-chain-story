@@ -14,9 +14,8 @@ import {
 
 /** Demo door for SMS/USSD/helper access — no hex. */
 export function AccessDemo() {
-  const [personaId, setPersonaId] = useState<(typeof ACCESS_PERSONAS)[number]["id"]>(
-    "kansas_farmer",
-  );
+  const [personaId, setPersonaId] =
+    useState<(typeof ACCESS_PERSONAS)[number]["id"]>("kansas_farmer");
   const persona = ACCESS_PERSONAS.find((p) => p.id === personaId)!;
   const [locale, setLocale] = useState<AccessLocale>(persona.locale);
   const [channel, setChannel] = useState<AccessChannel>("sms");
@@ -216,7 +215,9 @@ export function AccessDemo() {
           </button>
         </div>
         {channel === "ussd" && (
-          <p className="whitespace-pre-wrap text-xs text-muted-foreground">{ussdMenuText(locale)}</p>
+          <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+            {ussdMenuText(locale)}
+          </p>
         )}
         {out && (
           <pre className="whitespace-pre-wrap border border-border bg-background/70 p-3 text-sm">

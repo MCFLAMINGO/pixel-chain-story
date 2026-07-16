@@ -109,7 +109,7 @@ async function main() {
   const intent = parseAccessText("SEND rina 2", "offline_queue", "+8801711000001", "bn");
   const queued = handleAccessIntent(intent, ctx);
   if (queued.reply.code !== "QUEUED") throw new Error("queue");
-  let q = enqueueOffline([], intent);
+  const q = enqueueOffline([], intent);
   const flushed = flushOfflineQueue(q, ctx);
   if (flushed.results.length !== 1 || flushed.results[0].reply.code !== "OK") {
     throw new Error("flush");
