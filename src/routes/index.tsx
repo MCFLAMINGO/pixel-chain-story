@@ -40,9 +40,9 @@ function Index() {
     <main className="min-h-screen overflow-x-hidden text-foreground">
       <section className="pixel-hero-light relative min-h-[100svh]">
         <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden>
-          {pixels.length > 0 ? (
+          {blocks.length > 0 ? (
             <LedgerField
-              blocks={blocks}
+              pixels={blocks}
               pendingCount={pixel.pending}
               className="h-full min-h-[100svh] w-full [&>div]:min-h-[100svh]"
             />
@@ -61,21 +61,21 @@ function Index() {
               PIXEL
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/90 md:text-xl">
-              Source · Word · Light — one ledger. Commitment proceeds, light reveals, the pixel
-              stands. Color is absent without light.
+              Source · Word · Light — one ledger. A peasant in Bangladesh and a farmer in Kansas
+              use the same light — by SMS, USSD, helper, or phone. Color is absent without light.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a
-                href="#field"
+                href="#access"
                 className="font-pixel inline-flex rounded-md bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
               >
-                Enter the field
+                Open a door
               </a>
               <a
-                href="#console"
+                href="#field"
                 className="font-pixel text-sm font-semibold underline decoration-primary/40 underline-offset-4"
               >
-                Execute Lumen
+                Enter the field
               </a>
             </div>
             <p className="mt-8 max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -99,7 +99,7 @@ function Index() {
             Unlit remains colorless.
           </p>
           <div className="mt-8">
-            <RealityField blocks={blocks} pendingCount={pixel.pending} />
+            <RealityField pixels={blocks} pendingCount={pixel.pending} />
           </div>
         </section>
 

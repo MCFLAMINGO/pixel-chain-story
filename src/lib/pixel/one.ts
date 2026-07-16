@@ -14,16 +14,8 @@
  * This is the whole ledger, said simply.
  */
 
-import {
-  createGenesis,
-  proposeTransfer,
-  sequenceBlock,
-  type LightKeypair,
-  type PixelChainState,
-  type ReadableMeta,
-  type TxOutput,
-} from "./chain";
-import { generateLightKeypair } from "./crypto";
+import { createGenesis, proposeTransfer, sequenceBlock, type PixelChainState } from "./chain";
+import { generateLightKeypair, type LightKeypair } from "./crypto";
 import { PIX_HARD_CAP, lightReward } from "./economics";
 import {
   acceptIntoLight,
@@ -34,6 +26,8 @@ import {
   type LightArtifact,
 } from "./siso";
 import { ABSENT_COLOR, isColorAbsent, revealProximity } from "./light-color";
+import { Access } from "./access";
+import type { ReadableMeta, TxOutput } from "./transaction";
 
 /** The three names of the one. */
 export const Names = ["Source", "Word", "Light"] as const;
@@ -128,5 +122,7 @@ export const One = {
   Source,
   Word,
   Light,
+  /** Doors for people who never see hex — SMS, USSD, helper, offline… */
+  Access,
   reveal,
 } as const;

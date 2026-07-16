@@ -1,12 +1,30 @@
 import { useMemo, useState } from "react";
-import { ACCESS_FORMS, handleAccessIntent, parseAccessText, type AccessLocale } from "@/lib/pixel";
+import {
+  ACCESS_FORMS,
+  ACCESS_PERSONAS,
+  handleAccessIntent,
+  handleUssdInput,
+  helperAssistedSend,
+  parseAccessText,
+  ussdMenuText,
+  type AccessChannel,
+  type AccessLocale,
+  type UssdSession,
+} from "@/lib/pixel";
 
-/** Demo door for SMS/USSD-style access — no hex. */
+/** Demo door for SMS/USSD/helper access — no hex. */
 export function AccessDemo() {
-  const [locale, setLocale] = useState<AccessLocale>("en");
-  const [fromId, setFromId] = useState("+16205551212");
-  const [text, setText] = useState("SEND joe 12");
+  const [personaId, setPersonaId] = useState<(typeof ACCESS_PERSONAS)[number]["id"]>(
+    "kansas_farmer",
+  );
+  const persona = ACCESS_PERSONAS.find((p) => p.id === personaId)!;
+  const [locale, setLocale] = useState<AccessLocale>(persona.locale);
+  const [channel, setChannel] = useState<AccessChannel>("sms");
+  const [fromId, setFromId] = useState(persona.localId);
+  const [text, setText] = useState(persona.sampleText);
+  const [confirm, setConfirm] = useState("");
   const [out, setOut] = useState<string>("");
+  const [ussd, setUssd] = useState<UssdSession | null>(null);
 
   const directory = useMemo(
     () => (id: string) => {
@@ -21,12 +39,65 @@ export function AccessDemo() {
     [],
   );
 
-  const run = () => {
-    const intent = parseAccessText(text, "sms", fromId, locale);
-    const res = handleAccessIntent(intent, {
+  const ctx = useMemo(
+    () => ({
       directory,
-      balanceOf: (a) => (a.includes("kansas") ? 100 : a.includes("farmer") ? 40 : 0),
-    });
+      balanceOf: (a: string) => (a.includes("kansas") ? 100 : a.includes("farmer") ? 40 : 0),
+      expectedPin: "1234",
+    }),
+    [directory],
+  );
+
+  const pickPersona = (id: (typeof ACCESS_PERSONAS)[number]["id"]) => {
+    const p = ACCESS_PERSONAS.find((x) => x.id === id)!;
+    setPersonaId(id);
+    setLocale(p.locale);
+    setFromId(p.localId);
+    setText(p.sampleText);
+    setChannel(p.channels[0] ?? "sms");
+    setConfirm("");
+    setOut("");
+    setUssd(null);
+  };
+
+  const run = () => {
+    if (channel === "ussd") {
+      const session: UssdSession = ussd ?? {
+        step: "menu",
+        locale,
+        fromLocalId: fromId,
+      };
+      const step = handleUssdInput(session, text, ctx);
+      setUssd(step.session.step === "done" ? null : step.session);
+      const extra = step.result?.ledgerSend
+        ? `\n· ledger ${step.result.ledgerSend.amount} PIX → ${step.result.ledgerSend.meta.recipientLabel}`
+        : "";
+      setOut(`${step.prompt}${extra}`);
+      return;
+    }
+
+    if (channel === "helper") {
+      const parsed = parseAccessText(text, "helper", fromId, locale);
+      const res = helperAssistedSend(
+        fromId,
+        parsed.toLocalId ?? "joe",
+        parsed.amount ?? 0,
+        locale,
+        ctx,
+        confirm || undefined,
+      );
+      setOut(
+        `${res.reply.sms}\n\n(${res.reply.code}` +
+          (res.ledgerSend
+            ? ` · ledger ${res.ledgerSend.amount} PIX → ${res.ledgerSend.meta.recipientLabel}`
+            : "") +
+          ")",
+      );
+      return;
+    }
+
+    const intent = parseAccessText(text, channel, fromId, locale);
+    const res = handleAccessIntent(intent, ctx);
     setOut(
       `${res.reply.sms}\n\n(${res.reply.code}` +
         (res.ledgerSend
@@ -42,12 +113,31 @@ export function AccessDemo() {
         Access for everyone
       </p>
       <h2 className="font-pixel mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-        Bangladesh · Kansas · same ledger
+        A peasant in Bangladesh. A farmer in Kansas.
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        Feature phone SMS, USSD menus, shared Androids, co-op helpers, paper codes, offline queue.
-        People never see hex. Gateways speak Pixel.
+        Same ledger. Different doors. Feature-phone SMS, USSD menus, co-op helpers, shared phones,
+        paper codes, offline queue. People never see hex — gateways speak Pixel.
       </p>
+
+      <div className="mt-8 flex flex-wrap gap-3">
+        {ACCESS_PERSONAS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => pickPersona(p.id)}
+            className={`font-pixel max-w-xs rounded-md px-4 py-3 text-left text-sm transition ${
+              personaId === p.id
+                ? "bg-primary text-primary-foreground"
+                : "border border-border hover:border-primary/50"
+            }`}
+          >
+            <span className="block font-semibold">{p.name}</span>
+            <span className="mt-1 block text-xs opacity-80">{p.place}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 max-w-xl text-sm text-muted-foreground">{persona.ease}</p>
 
       <ul className="mt-6 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
         {ACCESS_FORMS.map((f) => (
@@ -67,13 +157,43 @@ export function AccessDemo() {
           />
         </label>
         <label className="block text-sm text-muted-foreground">
-          Message (SMS style)
+          {channel === "ussd"
+            ? "USSD input (try empty for menu, then 1 / 2 / name / amount)"
+            : "Message (SMS style)"}
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="mt-1 w-full border-0 border-b border-border bg-transparent py-2 font-mono outline-none focus:border-primary"
           />
         </label>
+        {channel === "helper" && (
+          <label className="block text-sm text-muted-foreground">
+            Confirm (YES or PIN 1234)
+            <input
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className="mt-1 w-full border-0 border-b border-border bg-transparent py-2 outline-none focus:border-primary"
+            />
+          </label>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {(["sms", "ussd", "helper", "offline_queue"] as AccessChannel[]).map((ch) => (
+            <button
+              key={ch}
+              type="button"
+              onClick={() => {
+                setChannel(ch);
+                setUssd(null);
+                if (ch === "ussd") setText("");
+              }}
+              className={`font-pixel rounded-md px-3 py-1 text-xs ${
+                channel === ch ? "bg-primary text-primary-foreground" : "border border-border"
+              }`}
+            >
+              {ch}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap gap-2">
           {(["en", "bn", "hi", "es", "sw"] as AccessLocale[]).map((l) => (
             <button
@@ -95,6 +215,9 @@ export function AccessDemo() {
             Send intent
           </button>
         </div>
+        {channel === "ussd" && (
+          <p className="whitespace-pre-wrap text-xs text-muted-foreground">{ussdMenuText(locale)}</p>
+        )}
         {out && (
           <pre className="whitespace-pre-wrap border border-border bg-background/70 p-3 text-sm">
             {out}
