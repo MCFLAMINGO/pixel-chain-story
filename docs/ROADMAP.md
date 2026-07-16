@@ -14,6 +14,7 @@ Engineers respect **runnable truth**, not vision decks. Do these in order.
 - [x] Access intents — SMS/USSD/helper/offline + BD/KS personas (`One.Access`)
 - [x] Kindling Presence Seals + Energy Truth + self-custody Personal Source (`One.Kindling` / `One.Custody`)
 - [x] Uptake ladder — signal bridges invite only; never hold keys
+- [x] Worldlight ingress — $USD / domain / treasury / app → light (`One.Worldlight`)
 
 ## Next (respect unlock)
 
