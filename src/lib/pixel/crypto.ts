@@ -71,21 +71,27 @@ export async function addressFromPublicKey(publicKey: Hex): Promise<string> {
  * under a Merkle window so an address can authorize multiple spends without
  * reusing a leaf.
  */
+export type LightSchemeId = "PIX-HASH-OTS-128" | "PIX-ML-DSA-65";
+
 export interface LightKeypair {
+  /** Signature scheme — OTS (default lab) or NIST ML-DSA-65. */
+  scheme?: LightSchemeId;
   seed: Hex;
-  /** Merkle root over OTS_LEAF_COUNT leaf public keys. */
+  /** OTS: Merkle root. ML-DSA: public key bytes hex. */
   publicKey: Hex;
   address: string;
-  /** Next unused leaf index. Persist this with the wallet. */
+  /** Next unused OTS leaf index. Persist this with the wallet. Unused for ML-DSA. */
   nextLeaf: number;
   leafCount: number;
-  /** Leaf public keys (needed to build auth paths). */
+  /** Leaf public keys (OTS). Empty for ML-DSA. */
   leafPublicKeys: Hex[];
   /**
-   * Private pairs for the *current* leaf only (compat / debugging).
+   * Private pairs for the *current* OTS leaf only (compat / debugging).
    * Signing always re-derives from seed + nextLeaf.
    */
   privatePairs: Hex[][];
+  /** ML-DSA secret key bytes (hex). Absent for OTS. */
+  secretKey?: Hex;
 }
 
 const MSG_BITS = 128;
@@ -181,6 +187,7 @@ export async function generateLightKeypair(seed?: Uint8Array): Promise<LightKeyp
   const { root } = await merkleRootFromLeaves(leafPublicKeys);
   const address = await addressFromPublicKey(root);
   return {
+    scheme: "PIX-HASH-OTS-128",
     seed: bytesToHex(s),
     publicKey: root,
     address,
@@ -229,6 +236,9 @@ export async function verifyLight(
  * Throws if the Merkle window is exhausted.
  */
 export async function signLightFull(message: string, keypair: LightKeypair): Promise<Hex> {
+  if (keypair.scheme === "PIX-ML-DSA-65") {
+    throw new Error("Use signPixel for PIX-ML-DSA-65 keypairs");
+  }
   if (keypair.nextLeaf >= keypair.leafCount) {
     throw new Error(
       `OTS_EXHAUSTED: PIX-HASH-OTS-128 window (${keypair.leafCount} leaves) used up — rotate wallet`,

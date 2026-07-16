@@ -3,15 +3,8 @@
  * Lifecycle: superposition (commitment only) → light reveal → final.
  */
 
-import {
-  addressFromPublicKey,
-  generateLightKeypair,
-  sha512Hex,
-  signLightFull,
-  verifyLightFull,
-  type Hex,
-  type LightKeypair,
-} from "./crypto";
+import { generateLightKeypair, sha512Hex, type Hex, type LightKeypair } from "./crypto";
+import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
 
 export type TxState = "superposition" | "revealed" | "final";
 export type PrivacyLevel = "public" | "private" | "selective";
@@ -100,7 +93,7 @@ export async function signTransaction(
   keypair: LightKeypair,
 ): Promise<Transaction> {
   const message = `${tx.commitment}|${canonicalTxBody(tx)}`;
-  const signature = await signLightFull(message, keypair);
+  const signature = await signPixel(message, keypair);
   return {
     ...tx,
     inputs: tx.inputs.map((input) => ({
@@ -116,7 +109,7 @@ export async function verifyTransactionSignatures(tx: Transaction): Promise<bool
   const message = `${tx.commitment}|${canonicalTxBody(tx)}`;
   for (const input of tx.inputs) {
     if (!input.signature || !input.publicKey) return false;
-    const ok = await verifyLightFull(message, input.signature, input.publicKey);
+    const ok = await verifyPixel(message, input.signature, input.publicKey);
     if (!ok) return false;
   }
   return true;
@@ -130,10 +123,17 @@ export async function verifyTransactionSignaturesForOwners(
   if (!(await verifyTransactionSignatures(tx))) return false;
   if (tx.inputs.length === 0) return true;
   for (const input of tx.inputs) {
-    if (!input.publicKey) return false;
+    if (!input.publicKey || !input.signature) return false;
+    let scheme: SchemeId = "PIX-HASH-OTS-128";
+    try {
+      const alg = (JSON.parse(input.signature) as { alg?: string }).alg;
+      if (alg === "PIX-ML-DSA-65") scheme = "PIX-ML-DSA-65";
+    } catch {
+      return false;
+    }
     const owner = ownerByUtxo(input.txid, input.vout);
     if (!owner) return false;
-    if ((await addressFromPublicKey(input.publicKey)) !== owner) return false;
+    if ((await addressForScheme(input.publicKey, scheme)) !== owner) return false;
   }
   return true;
 }

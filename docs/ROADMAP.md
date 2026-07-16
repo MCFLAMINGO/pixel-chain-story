@@ -33,11 +33,15 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [ ] Sequencer timeout + replacement (tested)
 - [ ] Bounded reorg / tip-replace policy
 
-## Gate D — crypto adults
+## Gate D — quantum security (critical)
 
-- [ ] `SignatureScheme` interface (OTS + ML-DSA/SLH-DSA)
-- [ ] Fixed vectors in CI
-- [ ] Wallet persists scheme id + OTS `nextLeaf`
+- [x] `signPixel` / `verifyPixel` scheme surface
+- [x] NIST ML-DSA-65 (`PIX-ML-DSA-65`) on tx + PoLS — `bun run test:mldsa`
+- [x] Hash-OTS window retained
+- [x] [`docs/QUANTUM.md`](./QUANTUM.md)
+- [ ] Frozen public vectors in CI
+- [x] Persist `scheme` + ML-DSA secret in nodekey/wallets
+- [ ] Default new genesis to ML-DSA when ready (`PIXEL_SIG_SCHEME=PIX-ML-DSA-65` works now)
 
 ## Gate E — bridge that verifies
 

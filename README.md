@@ -32,6 +32,7 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 | Doc | Why |
 | --- | --- |
 | [`docs/PATH.md`](docs/PATH.md) | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
+| [`docs/QUANTUM.md`](docs/QUANTUM.md) | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65) |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | **How to help** — lanes, checklist, what we reject |
 | [`docs/SPEC.md`](docs/SPEC.md) | Normative behavior |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Honest risks |
@@ -59,5 +60,5 @@ ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
 
 ## Status
 
-**Gate A** lab: real UTXO + PoLS + PQ-class OTS + tests. Not a finished global network.  
-Claims escalate only with PATH gates — see [`docs/PATH.md`](docs/PATH.md). `pix_protocolInfo.gates` tells you what is earned.
+**Gate A** lab: real UTXO + PoLS + **PQ signatures** (hash-OTS + NIST ML-DSA-65) + tests. Not a finished global network.  
+Quantum is a critical priority — [`docs/QUANTUM.md`](docs/QUANTUM.md). Claims escalate with PATH gates; `pix_protocolInfo.quantum` / `.gates` are the badges.

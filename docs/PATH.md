@@ -15,7 +15,7 @@ This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. 
 | “Vapor bridge” | Point at a **non-stub** foreign verifier + frozen fixture |
 | “Not an L1” | Point at multi-host tip extension, stall recovery, headers sync |
 | “Sovereignty theater” | Point at ≥7 live diverse providers failing cloud-majority sets *on the wire* |
-| “QR marketing” | Point at OTS leaf enforcement + ML-DSA vectors in CI |
+| “QR marketing” | Point at OTS leaf enforcement + live `PIX-ML-DSA-65` (`bun run test:mldsa`) + [`QUANTUM.md`](./QUANTUM.md) |
 | “Optical scam” | Point at real camera capture + two-device Kindling that fails remote |
 
 **Public voice rule:** claim only what the highest passing gate allows. Vocabulary (Kindling, Worldlight, PoLS) stays — claims escalate with gates.
@@ -48,7 +48,7 @@ Runnable, tested, and framed as a **lab prototype with real crypto**:
 | **Bridge** | Lock on A → verify on B with **real** crypto; no stub `lightProofValid`; testnet value moved end-to-end |
 | **Sovereignty** | Live ≥7-provider set; diversity enforced on join; no required CDN/API hostname for ledger use |
 | **Custody / Kindling** | Personal Source + two-device optical (or proven proximity) path; SMS still never spends |
-| **Crypto** | Versioned schemes; ML-DSA (or SLH-DSA) production default; OTS retained for constrained devices |
+| **Crypto** | **Critical.** Versioned schemes; ML-DSA-65 shipped; production default ML-DSA; OTS retained for constrained devices |
 
 Invention stays ([`INVENT.md`](./INVENT.md)). Uptake bridges stay optional.
 
@@ -76,14 +76,17 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 **Evidence:** SPEC §PoLS fault section + tests for offline sequencer  
 **Claim unlock:** *“Fault-tolerant PoLS (lab).”* Still not “BFT mainnet.”
 
-### Gate D — Crypto adults in the room
+### Gate D — Quantum security (critical priority — parallel with B)
 **Build**
-- `SignatureScheme` interface; PIX-HASH-OTS retained; **ML-DSA** (or liboqs) behind same tx/PoLS verify
-- Fixed test vectors in CI; domain-separated messages
-- Wallet persists scheme id + OTS `nextLeaf` / ML-DSA key
+- [x] `signPixel` / `verifyPixel` scheme surface
+- [x] **PIX-ML-DSA-65** (NIST FIPS-204 via `@noble/post-quantum`) on tx + PoLS
+- [x] PIX-HASH-OTS-128 retained (one-time leaves)
+- [ ] Freeze public test vectors file in CI
+- [ ] Wallet/node persist `scheme` + ML-DSA secret / OTS `nextLeaf`
+- [ ] Optional: default `PIXEL_SIG_SCHEME=PIX-ML-DSA-65` for new genesis
 
-**Evidence:** `scripts/crypto-vectors-selftest.ts` green; SPEC crypto table updated  
-**Claim unlock:** *“Crypto-agile PQ signatures (OTS + ML-DSA).”*
+**Evidence:** `bun run test:mldsa` green; [`QUANTUM.md`](./QUANTUM.md)  
+**Claim unlock:** *“Crypto-agile PQ signatures (hash-OTS + NIST ML-DSA-65).”* — partial unlock now for in-process ML-DSA.
 
 ### Gate E — Bridge that verifies
 **Build**
@@ -168,9 +171,9 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 
 ## 6. Immediate next actions (this repo)
 
-1. Gate B: flake-free two-node demo + stall detection design note  
-2. Gate D: sketch `SignatureScheme` + first ML-DSA vector harness (even if behind flag)  
-3. Gate E: Foundry project; turn `ULAVerifier` toward real verify of one frozen fixture  
-4. Expose `gates` on `pix_protocolInfo` so the UI can’t overclaim past CI  
+1. **Gate D (quantum, critical):** freeze ML-DSA vectors; persist `scheme` in nodekey/wallets; document `PIXEL_SIG_SCHEME`  
+2. Gate B: flake-free two-node demo + stall detection design note  
+3. Gate E: Foundry ULA verifying **PQ** sigs (OTS or ML-DSA), not stub length checks  
+4. Keep `pix_protocolInfo.quantum` honest as gaps close  
 
-When Gate B–E are green, the “cute idea” attack dies on contact: the skeptic has a network, PQ-agile sigs, and a verifying bridge — still a pilot, but no longer a costume.
+When Gate B + D + E are green, the skeptic meets a networked tip, NIST PQ signatures, and a verifying bridge — still a pilot, but not a costume.

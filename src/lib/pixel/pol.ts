@@ -6,21 +6,17 @@
  * and collapses pending transactions from superposition into reality.
  */
 
-import {
-  addressFromPublicKey,
-  sha512Hex,
-  signLightFull,
-  verifyLightFull,
-  type Hex,
-  type LightKeypair,
-} from "./crypto";
+import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
+import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
 import { opticalBeacon } from "./optical";
 
 export interface LightProof {
   sequence: number;
   sequencerAddress: string;
-  /** Master Merkle-root public key (not a single OTS leaf). */
+  /** Master public key (OTS Merkle root or ML-DSA pk). */
   sequencerPublicKey: Hex;
+  /** Scheme used for the light proof signature. */
+  scheme?: SchemeId;
   beacon: Hex;
   prevHash: Hex;
   signature: string;
@@ -47,11 +43,13 @@ export async function createLightProof(params: {
 }): Promise<LightProof> {
   const beacon = await opticalBeacon(params.sequence, params.prevHash);
   const message = `pols|${params.sequence}|${params.prevHash}|${beacon}|${params.sequencer.address}`;
-  const signature = await signLightFull(message, params.sequencer);
+  const signature = await signPixel(message, params.sequencer);
+  const scheme = (params.sequencer.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
   return {
     sequence: params.sequence,
     sequencerAddress: params.sequencer.address,
     sequencerPublicKey: params.sequencer.publicKey,
+    scheme,
     beacon,
     prevHash: params.prevHash,
     signature,
@@ -64,14 +62,15 @@ export async function verifyLightProof(
   expectedSequencer: string,
 ): Promise<boolean> {
   if (proof.sequencerAddress !== expectedSequencer) return false;
+  const scheme = (proof.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
   // Bind address ↔ master public key (closes forged-pubkey-with-elected-address).
-  if ((await addressFromPublicKey(proof.sequencerPublicKey)) !== proof.sequencerAddress) {
+  if ((await addressForScheme(proof.sequencerPublicKey, scheme)) !== proof.sequencerAddress) {
     return false;
   }
   const expectedBeacon = await opticalBeacon(proof.sequence, proof.prevHash);
   if (expectedBeacon !== proof.beacon) return false;
   const message = `pols|${proof.sequence}|${proof.prevHash}|${proof.beacon}|${proof.sequencerAddress}`;
-  return verifyLightFull(message, proof.signature, proof.sequencerPublicKey);
+  return verifyPixel(message, proof.signature, proof.sequencerPublicKey);
 }
 
 /** Energy profile note for UI — PoLS work is O(signature verify), not O(hashrate). */

@@ -16,12 +16,15 @@ Status: **draft, implemented in this repo**. Normative text is what the tests en
 | Piece | Algorithm | Notes |
 | --- | --- | --- |
 | Hash | SHA-512 | Via Web Crypto / runtime |
-| Signatures | PIX-HASH-OTS-128 | Merkle window of Lamport OTS leaves (32); each sign consumes one leaf |
-| Production path | NIST ML-DSA / SLH-DSA | Swap behind same verify interface |
+| Signatures (OTS) | PIX-HASH-OTS-128 | Merkle window of Lamport OTS leaves (32); each sign consumes one leaf |
+| Signatures (PQ multi-use) | **PIX-ML-DSA-65** | NIST FIPS-204 via `@noble/post-quantum`; domain-separated |
+| Surface | `signPixel` / `verifyPixel` | Scheme id in signature envelope |
+| Not used | ECDSA / Ed25519 | Classical ECC is out of scope for Pixel sigs |
 
 Invariant: signature scheme is **versioned** and crypto-agile.  
-Invariant: `verifyLight` (weak) is fail-closed; only `verifyLightFull` verifies.  
-Invariant: address ↔ master public key binding is checked on PoLS proofs.
+Invariant: `verifyLight` (weak) is fail-closed; only scheme verifiers accept.  
+Invariant: address ↔ public key binding is checked on PoLS proofs (scheme-aware).  
+Priority: quantum security is **critical** — see [`QUANTUM.md`](./QUANTUM.md).
 
 ## 3. State
 
@@ -96,7 +99,7 @@ HTTP:
 
 **Does not yet:**
 - Global provider mesh / BFT fork-choice / reorgs (offline elected sequencer stalls the tip)
-- Production NIST PQC (ML-DSA) — hash-OTS class only
+- ML-DSA defaulted for all new wallets / on-chain ULA verify of Dilithium (in-process ML-DSA **does** ship)
 - Real optical capture (`getUserMedia`) — luminance codec + simulated capture only
 - Kindling as shipped anti-phishing — confluence is commitment math; channel is `simulated`
 - Audited on-chain bridge verifier — `ULAVerifier.sol` is an explicit stub
