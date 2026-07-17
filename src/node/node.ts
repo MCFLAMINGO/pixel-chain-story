@@ -26,9 +26,11 @@ import type { GossipNet, PeerMessage } from "./p2p";
 import {
   ensureDatadir,
   loadChain,
+  loadIdentity,
   loadOrCreateIdentity,
   loadPeers,
   loadWallet,
+  persistIdentityLeaf,
   saveChain,
   savePeers,
   saveWallet,
@@ -99,6 +101,10 @@ export class PixelLedgerNode {
 
   async persist(): Promise<void> {
     await saveChain(this.datadir, this.chain);
+    const identity = await loadIdentity(this.datadir);
+    if (identity) {
+      await persistIdentityLeaf(this.datadir, identity, this.keypair);
+    }
   }
 
   private queuePersist(): void {
@@ -135,6 +141,10 @@ export class PixelLedgerNode {
   ): Promise<Transaction> {
     const { state, tx } = await proposeTransfer(this.chain, from, outputs, metadata);
     this.chain = state;
+    // OTS leaf advanced during sign — persist wallet cursor when named wallets are used.
+    if (from.address === this.keypair.address) {
+      this.keypair.nextLeaf = from.nextLeaf;
+    }
     this.gossip.broadcast({ type: "tx", tx });
     this.queuePersist();
     await this.trySequence();

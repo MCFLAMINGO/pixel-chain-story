@@ -133,6 +133,7 @@ export function usePixelChain() {
     }
   }, [alice]);
 
+  /** CI / no-camera fallback — in-memory simulate (not anti-phishing evidence). */
   const captureKey = useCallback(async () => {
     if (!optical) return;
     setBusy(true);
@@ -142,13 +143,33 @@ export function usePixelChain() {
       setOpticalOk(result.ok);
       setPhase(
         result.ok
-          ? "Camera read the light — key recovered intact."
+          ? "Simulated read OK (CI path) — use Open camera for real optical."
           : "Optical capture failed checksum.",
       );
     } finally {
       setBusy(false);
     }
   }, [optical]);
+
+  /** Real path: cells from getUserMedia / raster sample. */
+  const captureKeyFromCells = useCallback(
+    async (cells: number[]) => {
+      if (!optical) return;
+      setBusy(true);
+      try {
+        const result = await verifyCapturedPattern(cells, optical.checksum);
+        setOpticalOk(result.ok);
+        setPhase(
+          result.ok
+            ? "Camera/raster read the light — key recovered (optical-capture)."
+            : "Optical capture failed checksum — aim closer / more light.",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [optical],
+  );
 
   /** Apply chain state from Lumen / RPC execution (real settlement). */
   const applyChain = useCallback(async (next: PixelChainState, note?: string) => {
@@ -180,6 +201,7 @@ export function usePixelChain() {
     shineLight,
     projectKey,
     captureKey,
+    captureKeyFromCells,
     applyChain,
   };
 }

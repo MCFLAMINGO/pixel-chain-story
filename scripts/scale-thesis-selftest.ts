@@ -12,6 +12,8 @@ import {
   valueThesis,
   diversityReport,
   SOVEREIGNTY_POLICY,
+  assertSovereignIfLive,
+  setProviderRegistry,
   createGenesis,
   generateLightKeypair,
   proposeTransfer,
@@ -76,8 +78,40 @@ async function main() {
   ];
   const strongReport = diversityReport(strong);
   if (!strongReport.passes) throw new Error(strongReport.reasons.join("; "));
+  if (!strongReport.enforceable) throw new Error("should be enforceable");
   if (strong.length < SOVEREIGNTY_POLICY.minProviders) throw new Error("min");
   console.log("▸ sovereign 8-provider set passes ✓");
+
+  // Enforcement on chain registry (live set)
+  let regChain = await createGenesis(await generateLightKeypair());
+  regChain = setProviderRegistry(regChain, strong);
+  assertSovereignIfLive(regChain.providers ?? []);
+  let rejected = false;
+  try {
+    setProviderRegistry(regChain, weak);
+  } catch {
+    rejected = true;
+  }
+  // weak is not enforceable (<7) so setProviderRegistry allows it — confirm:
+  if (rejected) {
+    // If policy later rejects small sets, that's fine; today small sets skip.
+  }
+  // Live bad set (≥7 but concentrated) must throw:
+  const concentrated: NodeProvider[] = Array.from({ length: 7 }, (_, i) => ({
+    id: `c${i}`,
+    address: `addr${i}`,
+    jurisdiction: "US",
+    hosting: "cloud" as const,
+    cloudVendor: "aws" as const,
+  }));
+  let liveReject = false;
+  try {
+    setProviderRegistry(regChain, concentrated);
+  } catch {
+    liveReject = true;
+  }
+  if (!liveReject) throw new Error("concentrated ≥7 set must be rejected");
+  console.log("▸ setProviderRegistry enforces live diversity ✓");
 
   // 3) Agnostic bridge attestation
   const alice = await generateLightKeypair();

@@ -67,9 +67,11 @@ Rules: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`INVENT.md`](./INVENT.md) · s
 
 ---
 
-## Path C — **Mirror** to Pixel (SISO)
+## Path C — **SISO** — the clarion call
 
-You already have a product on AWS / a VPS / a laptop.
+> **Build anywhere. Shine in once. No second you.**
+
+Humans and agents: you already have a product / MCP / site on AWS, a VPS, a laptop, or a swarm.
 
 ```ts
 import { One } from "@/lib/pixel";
@@ -93,7 +95,8 @@ const toward = await One.Light.invite({
 | Your language | Universal Light Attestations out |
 | One product | No parallel “Pixel edition” |
 
-Full thesis: [`CONTINUITY-SISO.md`](./CONTINUITY-SISO.md).
+Full cry: [`CONTINUITY-SISO.md`](./CONTINUITY-SISO.md).  
+Agents / Clawbook / swarms: [`AGENTS-SISO.md`](./AGENTS-SISO.md).
 
 **Excitement move:** mirror something you already run; break the origin; show peers still serving from mirrors.
 
@@ -120,16 +123,17 @@ API face: [`ONE.md`](./ONE.md) — `One.Source` · `One.Word` · `One.Light` · 
 
 1. **Show the green bar** — clip of `test:all` + billboard zoom-out after a send.  
 2. **One challenge** — “Make `pixel join` work from a cold laptop; PR gets merged same week.”  
-3. **SISO challenge** — “Shine in any existing app; no rewrite; open issue with digest.”  
+3. **SISO clarion** — post the cry on agent nets; “Shine in any existing app/MCP; no rewrite; issue with digest.”  
 4. **ETH / PQ crowd** — send [`FOR-ETHEREUM-DEVS.md`](./FOR-ETHEREUM-DEVS.md) + lock contract.  
 5. **Office hours** — weekly: bring a failing test, leave with a lane.  
 6. **Never** lead with token price; lead with *runnable* + *no second Facebook*.
 
 ### Copy-paste invite
 
-> Pixel is a light-settlement ledger you can run today: PQ-class sigs, Kindling for people, SISO so you don’t rewrite for our VM.  
+> **SISO — Build anywhere. Shine in once. No second you.**  
+> Pixel: PQ-class light settlement, Kindling for people, PATH gates for protocol.  
 > `bun install && bun run test:all` — then build **on**, **for**, or **into** Pixel.  
-> Live field at `/`. Lab at `/lab`. Docs: `docs/BUILDERS.md`.
+> Agents: `docs/AGENTS-SISO.md`. Live field `/`. Lab `/lab`.
 
 ---
 

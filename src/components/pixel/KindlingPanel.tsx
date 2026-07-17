@@ -83,18 +83,22 @@ export function KindlingPanel() {
     }
   };
 
+  /** Raster optical path — same decode as camera (not in-memory cell copy). */
   const meet = async () => {
     if (!offer || !accept) return;
     setBusy(true);
     try {
-      const r = await confluentSeal(offer, accept);
+      const { captureFromRaster, patternToRaster } = await import("@/lib/pixel");
+      const offerCapture = captureFromRaster(patternToRaster(offer.pattern, 14));
+      const acceptCapture = captureFromRaster(patternToRaster(accept.pattern, 14));
+      const r = await confluentSeal(offer, accept, { offerCapture, acceptCapture });
       if (!r.ok) {
         setLog(`Confluence failed: ${r.reason}`);
         setSeal(null);
         return;
       }
       setSeal(r.seal);
-      setLog(`Presence Seal: ${r.seal.boundLabel}`);
+      setLog(`Presence Seal: ${r.seal.boundLabel} · channel=${r.seal.channel}`);
     } finally {
       setBusy(false);
     }

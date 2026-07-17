@@ -6,11 +6,14 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import {
   deserializeChain,
-  generateLightKeypair,
+  generatePixelKeypair,
   hexToBytes,
+  resolveSchemeId,
+  restoreLightKeypair,
   serializeChain,
   type LightKeypair,
   type PixelChainState,
+  type SchemeId,
   type SerializedChain,
 } from "../lib/pixel/index";
 
@@ -19,6 +22,12 @@ export interface NodeIdentity {
   address: string;
   publicKey: string;
   label: string;
+  /** OTS Merkle leaf cursor — must advance with every signature. */
+  nextLeaf?: number;
+  /** PIX-HASH-OTS-128 | PIX-ML-DSA-65 */
+  scheme?: string;
+  /** ML-DSA secret key hex (never gossip). */
+  secretKey?: string;
 }
 
 export interface PeerBook {
@@ -69,18 +78,46 @@ export async function loadOrCreateIdentity(
   let identity = await loadIdentity(datadir);
   let keypair: LightKeypair;
   if (identity) {
-    keypair = await generateLightKeypair(hexToBytes(identity.seed));
+    const scheme = resolveSchemeId(identity.scheme);
+    if (scheme === "PIX-ML-DSA-65") {
+      keypair = await generatePixelKeypair("PIX-ML-DSA-65", hexToBytes(identity.seed));
+      if (identity.secretKey) keypair.secretKey = identity.secretKey;
+    } else {
+      keypair = await restoreLightKeypair(hexToBytes(identity.seed), identity.nextLeaf ?? 0);
+    }
   } else {
-    keypair = await generateLightKeypair();
+    const scheme = resolveSchemeId();
+    keypair = await generatePixelKeypair(scheme);
     identity = {
       seed: keypair.seed,
       address: keypair.address,
       publicKey: keypair.publicKey,
       label,
+      nextLeaf: keypair.nextLeaf,
+      scheme: keypair.scheme ?? scheme,
+      secretKey: keypair.secretKey,
     };
     await saveIdentity(datadir, identity);
   }
   return { identity, keypair };
+}
+
+/** Persist identity including OTS leaf cursor after signing. */
+export async function persistIdentityLeaf(
+  datadir: string,
+  identity: NodeIdentity,
+  keypair: LightKeypair,
+): Promise<NodeIdentity> {
+  const next: NodeIdentity = {
+    ...identity,
+    nextLeaf: keypair.nextLeaf,
+    scheme: keypair.scheme ?? identity.scheme,
+    secretKey: keypair.secretKey ?? identity.secretKey,
+    publicKey: keypair.publicKey,
+    address: keypair.address,
+  };
+  await saveIdentity(datadir, next);
+  return next;
 }
 
 export async function saveWallet(
@@ -93,14 +130,28 @@ export async function saveWallet(
     seed: keypair.seed,
     address: keypair.address,
     publicKey: keypair.publicKey,
+    nextLeaf: keypair.nextLeaf,
+    scheme: keypair.scheme ?? "PIX-HASH-OTS-128",
+    secretKey: keypair.secretKey,
   });
 }
 
 export async function loadWallet(datadir: string, name: string): Promise<LightKeypair | null> {
   try {
     const raw = await readFile(join(datadir, "wallets", `${name}.json`), "utf8");
-    const data = JSON.parse(raw) as { seed: string };
-    return generateLightKeypair(hexToBytes(data.seed));
+    const data = JSON.parse(raw) as {
+      seed: string;
+      nextLeaf?: number;
+      scheme?: string;
+      secretKey?: string;
+    };
+    const scheme = resolveSchemeId(data.scheme) as SchemeId;
+    if (scheme === "PIX-ML-DSA-65") {
+      const kp = await generatePixelKeypair("PIX-ML-DSA-65", hexToBytes(data.seed));
+      if (data.secretKey) kp.secretKey = data.secretKey;
+      return kp;
+    }
+    return restoreLightKeypair(hexToBytes(data.seed), data.nextLeaf ?? 0);
   } catch {
     return null;
   }

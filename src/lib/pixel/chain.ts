@@ -24,6 +24,7 @@ import {
   type TxOutput,
   type Utxo,
 } from "./transaction";
+import { assertSovereignIfLive, type NodeProvider } from "./sovereignty";
 
 export interface LedgerPixel {
   index: number;
@@ -53,6 +54,12 @@ export interface PixelChainState {
   pending: Transaction[];
   sequencers: SequencerId[];
   networkId: number;
+  /**
+   * Optional provider registry for sovereignty checks.
+   * When length ≥ SOVEREIGNTY_POLICY.minProviders, diversity is enforced
+   * on registry updates. Absent in single-node prototypes.
+   */
+  providers?: NodeProvider[];
 }
 
 function utxoKey(txid: string, vout: number): string {
@@ -194,6 +201,29 @@ export function registerSequencer(
       { address: sequencer.address, publicKey: sequencer.publicKey },
     ],
   };
+}
+
+/** Attach / replace provider registry; enforces diversity when set is live (≥7). */
+export function setProviderRegistry(
+  state: PixelChainState,
+  providers: NodeProvider[],
+): PixelChainState {
+  assertSovereignIfLive(providers);
+  return { ...state, providers: [...providers] };
+}
+
+/** Register sequencer and optional provider row together. */
+export function registerSequencerWithProvider(
+  state: PixelChainState,
+  sequencer: Pick<LightKeypair, "address" | "publicKey">,
+  provider: NodeProvider,
+): PixelChainState {
+  const withSeq = registerSequencer(state, sequencer);
+  const providers = [
+    ...(withSeq.providers ?? []).filter((p) => p.address !== provider.address),
+    provider,
+  ];
+  return setProviderRegistry(withSeq, providers);
 }
 
 export function balanceOf(state: PixelChainState, address: string): number {
@@ -381,8 +411,11 @@ export async function sequenceBlock(
 }
 
 /**
- * Accept a block from the network (full validation, no private key needed).
- * This is what makes Pixel a multi-node L1.
+ * Accept the next sequential pixel from a peer (full validation, no private key).
+ *
+ * Honesty: this is sequential tip-extension, not BFT fork-choice. An elected
+ * sequencer going offline stalls illumination until that turn can be skipped
+ * by a future protocol upgrade. Fine for a networked prototype; not a finished L1.
  */
 export async function acceptBlock(
   state: PixelChainState,
@@ -468,6 +501,7 @@ export interface SerializedChain {
   utxos: Utxo[];
   pending: Transaction[];
   sequencers: SequencerId[];
+  providers?: NodeProvider[];
 }
 
 export function serializeChain(state: PixelChainState): SerializedChain {
@@ -477,6 +511,7 @@ export function serializeChain(state: PixelChainState): SerializedChain {
     utxos: [...state.utxos.values()],
     pending: state.pending,
     sequencers: state.sequencers,
+    providers: state.providers,
   };
 }
 
@@ -500,6 +535,7 @@ export function deserializeChain(
       utxos: map,
       pending: data.pending ?? [],
       sequencers: data.sequencers,
+      providers: data.providers,
     };
   }
   return {
@@ -508,6 +544,7 @@ export function deserializeChain(
     utxos,
     pending: data.pending ?? [],
     sequencers: data.sequencers,
+    providers: data.providers,
   };
 }
 

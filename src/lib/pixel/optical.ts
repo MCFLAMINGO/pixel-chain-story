@@ -1,12 +1,9 @@
 /**
- * Optical light encoding — the analog bridge.
+ * Optical light encoding — luminance grid codec.
  *
- * A phone screen shines a picture; that picture holds key material.
- * Another camera (or two screens held together) reads the pattern back.
- *
- * No new programming language is required: light intensity grids are bytes
- * rendered as luminance. The computer "thinks" by projecting light; the
- * picture is the channel.
+ * Screen projects a pattern; camera (getUserMedia) or raster sample reads it back.
+ * See `optical-capture.ts` for the real capture path. `simulateCameraCapture`
+ * remains for headless CI only — Kindling marks those seals `channel: "simulated"`.
  */
 
 import { bytesToHex, hexToBytes, sha512Hex, type Hex } from "./crypto";
@@ -115,8 +112,9 @@ export function patternToCssGrid(pattern: OpticalPattern): string[] {
 }
 
 /**
- * Simulate two open screens / flashlight+camera capture.
- * Noise models imperfect optical channels; decode still works within tolerance.
+ * PROTOTYPE ONLY — not a camera.
+ * Copies cell bytes in-process (optional synthetic noise). Useful for codec
+ * tests; does not prove physical proximity or defeat remote phishing.
  */
 export function simulateCameraCapture(pattern: OpticalPattern, noise = 0): number[] {
   return pattern.cells.map((v) => {

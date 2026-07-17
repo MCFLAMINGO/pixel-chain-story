@@ -2,7 +2,8 @@
 
 **Source · Word · Light** — a pixel ledger (not a chain of opaque blocks).  
 Light reveals proximity. Color is absent without it.  
-Build anywhere; come into the light via SISO — no second Facebook.
+**SISO — Build anywhere. Shine in once. No second you.**  
+(Agents and humans: come into the light without a rewrite.)
 
 ## Do this right now
 
@@ -31,14 +32,19 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 
 | Doc | Why |
 | --- | --- |
+| [`docs/PATH.md`](docs/PATH.md) | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
+| [`docs/QUANTUM.md`](docs/QUANTUM.md) | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65) |
+| [`docs/INVENTION.md`](docs/INVENTION.md) | What is ours vs borrowed |
+| [`docs/LUMEN.md`](docs/LUMEN.md) | Light-native DSL — evolve, don’t abandon |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | **How to help** — lanes, checklist, what we reject |
 | [`docs/SPEC.md`](docs/SPEC.md) | Normative behavior |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Honest risks |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What earns respect next |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Checklist tied to PATH gates |
 | [`docs/ONE.md`](docs/ONE.md) | Simple API |
 | [`docs/INVENT.md`](docs/INVENT.md) | Invent, don’t rename |
 | [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) | Day one without $21M myth |
-| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | No parallel rewrite |
+| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | **SISO clarion call** — no parallel rewrite |
+| [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md) | Agents / swarms: shine in or build a PATH gate |
 
 ## Builders — on / for / into Pixel
 
@@ -49,13 +55,14 @@ bun install && bun run test:all
 | Path | Meaning | Start |
 | --- | --- | --- |
 | **On** | Apps, Lumen, Kindling, agents | [`docs/BUILDERS.md`](docs/BUILDERS.md) · `/lab` |
-| **For** | Protocol, crypto, nodes, locks | [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
+| **For** | Protocol, crypto, nodes, locks | [`docs/PATH.md`](docs/PATH.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
 | **Into (SISO)** | Mirror an existing app — no rewrite | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) |
 
 ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
 
-**Invite:** *Runnable PQ-class light settlement. Keep your stack; shine in. `bun run test:all` then pick a door in `docs/BUILDERS.md`.*
+**Invite:** *SISO — Build anywhere. Shine in once. No second you. `bun run test:all` → `docs/AGENTS-SISO.md` or `docs/BUILDERS.md`.*
 
 ## Status
 
-Prototype ledger with real tests. Not a finished global network. See roadmap.
+**Gate A** lab: real UTXO + PoLS + **PQ signatures** (hash-OTS + NIST ML-DSA-65) + tests. Not a finished global network.  
+Quantum is a critical priority — [`docs/QUANTUM.md`](docs/QUANTUM.md). Claims escalate with PATH gates; `pix_protocolInfo.quantum` / `.gates` are the badges.

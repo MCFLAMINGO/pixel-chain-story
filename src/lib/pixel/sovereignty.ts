@@ -1,16 +1,17 @@
 /**
- * Sovereign decentralization — ICP-grade resilience for Pixel Ledger.
+ * Sovereign decentralization — diversity policy for sequencer sets.
  *
  * Goal: no AWS, Cloudflare, or single nation/corp can take the ledger down.
  * The protocol itself must never *require* a hosted API gateway. Explorers and
  * web UIs may use CDNs; light clients and nodes must not.
  *
- * Model (inspired by ICP node providers + Bitcoin’s geographic diversity):
- *   - Independent Node Providers operate machines they control
- *   - Providers declare jurisdiction + hosting class (home / colo / cloud)
- *   - Sequencer sets must pass diversity checks or are rejected by honest peers
- *   - Subnets = groups of sequencers; multiple subnets checkpoint each other
- *   - Light clients dial many peers (never a single RPC hostname)
+ * Enforcement status (honest):
+ *   - `diversityReport` / `assertSovereign` are real checks.
+ *   - They run when a provider registry is attached via `setProviderRegistry`
+ *     or `registerSequencerWithProvider` once the set reaches `minProviders`.
+ *   - Single-sequencer local prototypes intentionally skip (too small to judge).
+ *   - Until a live ≥7-provider set is declared, this is policy-ready code, not
+ *     a running sovereignty regime.
  */
 
 export type HostingClass = "home" | "colo" | "cloud" | "mobile" | "unknown";
@@ -35,9 +36,11 @@ export interface DiversityReport {
   cloudShare: number;
   passes: boolean;
   reasons: string[];
+  /** Whether this report was large enough to enforce (vs local toy set). */
+  enforceable: boolean;
 }
 
-/** Consensus-critical thresholds (honest nodes enforce). */
+/** Consensus-critical thresholds (honest nodes enforce when registry is live). */
 export const SOVEREIGNTY_POLICY = {
   /** At least this many independent providers in an active sequencer set */
   minProviders: 7,
@@ -75,6 +78,7 @@ export function diversityReport(providers: NodeProvider[]): DiversityReport {
   const maxJurisdictionShare = Math.max(0, ...[...byCountry.values()].map((c) => c / n));
   const cloudShare = hostingBreakdown.cloud / n;
   const maxCloudVendorShare = Math.max(0, ...[...byVendor.values()].map((c) => c / n));
+  const enforceable = providers.length >= SOVEREIGNTY_POLICY.minProviders;
 
   const reasons: string[] = [];
   if (providers.length < SOVEREIGNTY_POLICY.minProviders) {
@@ -106,12 +110,25 @@ export function diversityReport(providers: NodeProvider[]): DiversityReport {
     cloudShare,
     passes: reasons.length === 0,
     reasons,
+    enforceable,
   };
 }
 
 export function assertSovereign(providers: NodeProvider[]): DiversityReport {
   const report = diversityReport(providers);
   if (!report.passes) {
+    throw new Error(`Sovereignty check failed: ${report.reasons.join("; ")}`);
+  }
+  return report;
+}
+
+/**
+ * Enforce diversity when the registry is large enough to be meaningful.
+ * Smaller local sets are allowed for single-machine prototypes.
+ */
+export function assertSovereignIfLive(providers: NodeProvider[]): DiversityReport {
+  const report = diversityReport(providers);
+  if (report.enforceable && !report.passes) {
     throw new Error(`Sovereignty check failed: ${report.reasons.join("; ")}`);
   }
   return report;
@@ -134,11 +151,11 @@ export function subnetHealth(subnet: LightSubnet): DiversityReport {
 
 export function sovereigntyThesis(): string[] {
   return [
-    "Nodes are run by independent providers — home, colo, and minority-cloud — not a single hyperscaler.",
-    "Sequencer sets failing diversity checks are rejected by honest peers (protocol law, not TOS).",
-    "Multiple light subnets checkpoint each other; one region outage ≠ ledger death.",
-    "Light clients connect to many peer endpoints; there is no required api.pixeledger.com.",
-    "Web marketing sites may use Cloudflare; the Pixel Ledger itself must not.",
-    "Optical / analog recovery paths survive internet partitions for key material.",
+    "STATUS: diversity policy is implemented and enforced when a ≥7-provider registry is declared.",
+    "Local single-sequencer prototypes intentionally skip enforcement (set too small to judge).",
+    "Nodes are intended to be run by independent providers — home, colo, and minority-cloud.",
+    "Multiple light subnets checkpointing each other is roadmap — not shipped runtime.",
+    "Light clients should dial many peer endpoints; there is no required api.pixeledger.com.",
+    "Optical capture path ships (getUserMedia + raster); Kindling can seal channel=optical-capture.",
   ];
 }

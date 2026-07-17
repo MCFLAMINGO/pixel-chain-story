@@ -16,10 +16,15 @@ Status: **draft, implemented in this repo**. Normative text is what the tests en
 | Piece | Algorithm | Notes |
 | --- | --- | --- |
 | Hash | SHA-512 | Via Web Crypto / runtime |
-| Signatures | PIX-HASH-OTS-128 | Hash-based OTS (quantum-resistant class) |
-| Production path | NIST ML-DSA / SLH-DSA | Swap behind same verify interface |
+| Signatures (OTS) | PIX-HASH-OTS-128 | Merkle window of Lamport OTS leaves (32); each sign consumes one leaf |
+| Signatures (PQ multi-use) | **PIX-ML-DSA-65** | NIST FIPS-204 via `@noble/post-quantum`; domain-separated |
+| Surface | `signPixel` / `verifyPixel` | Scheme id in signature envelope |
+| Not used | ECDSA / Ed25519 | Classical ECC is out of scope for Pixel sigs |
 
-Invariant: signature scheme is **versioned** and crypto-agile.
+Invariant: signature scheme is **versioned** and crypto-agile.  
+Invariant: `verifyLight` (weak) is fail-closed; only scheme verifiers accept.  
+Invariant: address ↔ public key binding is checked on PoLS proofs (scheme-aware).  
+Priority: quantum security is **critical** — see [`QUANTUM.md`](./QUANTUM.md).
 
 ## 3. State
 
@@ -90,5 +95,15 @@ HTTP:
 
 ## 8. What this version does / does not claim
 
-**Does:** local + multi-node accept, persist, One API, SISO model, ULA package.  
-**Does not yet:** global provider mesh, production NIST PQC, full origin failover runtime, audited bridges.
+**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS, diversity *policy* when ≥7 providers registered.
+
+**Does not yet:**
+- Global provider mesh / BFT fork-choice / reorgs (offline elected sequencer stalls the tip)
+- ML-DSA defaulted for all new wallets / on-chain ULA verify of Dilithium (in-process ML-DSA **does** ship)
+- Two-phone field hardening / device attestation beyond raster+getUserMedia path
+- Kindling anti-phishing complete — `optical-capture` channel ships; remote device attestation still thin
+- Audited on-chain bridge verifier — `ULAVerifier.sol` is an explicit stub
+- Production gossip (no peer auth, fragile catch-up)
+
+Frame this honestly: a coherent lab prototype with real running crypto and UTXO settlement — **Gate A** on the path to an L1 / bridge / sovereignty regime.  
+Destination and claim unlocks: [`PATH.md`](./PATH.md). Do not claim Gates B–J until their evidence exists.

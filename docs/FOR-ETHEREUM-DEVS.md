@@ -1,9 +1,9 @@
 # Pixel for Ethereum developers
 
-Pixel is an executable post-quantum UTXO ledger with Proof of Light Sequence.  
-**Run it today** — then pick: build on it, harden it, or mirror your existing stack in (SISO).
+Pixel is an executable post-quantum-**class** UTXO lab with Proof of Light Sequence — Gate A on a published path to L1 / ULA bridge / diversity-enforced sovereignty ([`PATH.md`](./PATH.md)).  
+**Run it today** — then pick a gate: harden consensus, finish the verifier, or mirror your stack in (SISO).
 
-Full builder map: [`BUILDERS.md`](./BUILDERS.md).
+Full builder map: [`BUILDERS.md`](./BUILDERS.md). Claim only what the current gate list allows.
 
 ## Why look
 

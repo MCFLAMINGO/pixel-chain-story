@@ -15,8 +15,11 @@ import {
 async function main() {
   console.log("═══ SISO CONTINUITY ═══\n");
   const thesis = sisoThesis();
+  if (!thesis.call.includes("Shine in once")) throw new Error("SISO clarion missing");
+  console.log("▸", thesis.call);
   console.log(thesis.vsIcp);
   console.log(thesis.awsFailure);
+  console.log(thesis.toAgents);
 
   // "Facebook" built on AWS in TypeScript — NOT rewritten for Pixel
   const bundle = await digestBytes("fake-facebook-build-artifact-v1");

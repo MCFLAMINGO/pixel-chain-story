@@ -4,6 +4,7 @@ import { AccessDemo } from "@/components/pixel/AccessDemo";
 import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
 import { KindlingPanel } from "@/components/pixel/KindlingPanel";
 import { WorldlightPanel } from "@/components/pixel/WorldlightPanel";
+import { LumenPanel } from "@/components/pixel/LumenPanel";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
 import { RealityField } from "@/components/pixel/RealityField";
 import { TransferDeck } from "@/components/pixel/TransferDeck";
@@ -42,8 +43,8 @@ function Lab() {
         </Link>
         <h1 className="font-pixel mt-6 text-4xl font-bold tracking-tight md:text-5xl">Lab</h1>
         <p className="mt-3 max-w-xl text-muted-foreground">
-          Build on Pixel here. Build for Pixel via the roadmap. Mirror existing apps in via SISO —
-          no second Facebook. See docs/BUILDERS.md. {EXPRESSION_AXIOM}
+          SISO — Build anywhere. Shine in once. No second you. Build on / for / into Pixel. Agents:
+          docs/AGENTS-SISO.md. {EXPRESSION_AXIOM}
         </p>
         <p className="font-pixel mt-4 text-xs tracking-widest text-muted-foreground uppercase">
           On · For · Into
@@ -104,6 +105,14 @@ function Lab() {
           busy={pixel.busy}
           onProject={() => pixel.projectKey()}
           onCapture={() => pixel.captureKey()}
+          onCameraCapture={(cells) => pixel.captureKeyFromCells(cells)}
+        />
+
+        <LumenPanel
+          chain={pixel.chain}
+          alice={pixel.alice}
+          bob={pixel.bob}
+          onChain={(c, note) => void pixel.applyChain(c, note)}
         />
 
         <section className="pixel-rise border-t border-border pt-16">
@@ -117,8 +126,8 @@ function Lab() {
               rewards ({energy.model}).
             </li>
             <li>
-              <span className="text-foreground">Sovereign nodes</span> — diversity caps so one cloud
-              cannot kill the picture.
+              <span className="text-foreground">Sovereign nodes</span> — diversity policy enforced
+              when ≥7 providers are registered (local lab skips).
             </li>
           </ul>
         </section>

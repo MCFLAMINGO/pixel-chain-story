@@ -14,3 +14,5 @@ Remote scammers cannot stand in your light. Stolen halves expire. Gateways canno
 ## Law
 
 Self-custody is mandatory (`assertSelfCustody`). `gatewayHeldSeed: true` throws.
+
+**Optical:** pass captures from `optical-capture.ts` (getUserMedia or raster sample) into `confluentSeal` → seal `channel: "optical-capture"`. Headless CI may omit captures and get `channel: "simulated"`. Distinct `partyId`s still required. Lab Kindling uses the raster optical path by default.

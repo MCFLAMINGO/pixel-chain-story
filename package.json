@@ -20,11 +20,15 @@
     "test:worldlight": "bun scripts/worldlight-selftest.ts",
     "test:lock": "bun scripts/lock-feeder-selftest.ts",
     "test:bootstrap": "bun scripts/bootstrap-selftest.ts",
-    "test:all": "bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap",
+    "test:crypto": "bun scripts/crypto-selftest.ts",
+    "test:mldsa": "bun scripts/mldsa-selftest.ts",
+    "test:optical": "bun scripts/optical-selftest.ts",
+    "test:all": "bun run test:crypto && bun run test:mldsa && bun run test:optical && bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@noble/post-quantum": "0.6.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
