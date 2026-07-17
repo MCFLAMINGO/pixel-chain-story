@@ -213,6 +213,7 @@ export class PixelLedgerNode {
   ): Promise<Transaction> {
     const { state, tx } = await proposeTransfer(this.chain, from, outputs, metadata);
     this.chain = state;
+    // OTS leaf advanced during sign — persist wallet cursor when named wallets are used.
     if (from.address === this.keypair.address) {
       this.keypair.nextLeaf = from.nextLeaf;
     }

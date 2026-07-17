@@ -3,7 +3,8 @@
  *
  * - Reconnect with backoff to seed peers
  * - Unicast sendTo for catch-up (get_pixels → pixels)
- * - Best-effort dedupe (still prototype: no peer auth / DHT)
+ * - Receive/broadcast dedupe (dual-link safe)
+ * Prototype limits: no peer auth, no DHT — fine for 2–N lab hosts, not production fabric.
  */
 
 import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
