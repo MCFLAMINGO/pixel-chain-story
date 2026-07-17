@@ -36,8 +36,10 @@ Borrowing audited crypto is a virtue. Re-implementing Dilithium from scratch wou
 Lumen is already **real**: parser + interpreter drives genesis transfers in CI (`TRANSFER_LUMEN`).  
 It is also **tiny**. To stay “something different,” expand it — do not abandon it for TypeScript-only demos.
 
+**Hash simplification (shipped):** `lightDigest` + Lumen `digest` / `attest` / ray `exist` — authors never write domain-separated sha512 soup. L0: where light recomputes, verification survives (store of creation, not only wealth).
+
 **Next Lumen work (ordered):**
-1. Surface a Lumen panel on `/lab` (edit ray → run → balances move)
+1. [x] Surface a Lumen panel on `/lab` (edit ray → run → balances move)
 2. More rays: `kindle`, `shine_in`, `balance`, `when aperture`
 3. Types / errors that talk in light vocabulary (not generic JS exceptions)
 4. Persist modules beside chain state
