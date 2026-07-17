@@ -39,10 +39,9 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [x] NIST ML-DSA-65 (`PIX-ML-DSA-65`) on tx + PoLS — `bun run test:mldsa`
 - [x] Hash-OTS window retained
 - [x] [`docs/QUANTUM.md`](./QUANTUM.md)
-- [ ] Frozen public vectors in CI
+- [x] Frozen public vectors in CI — `bun run test:vectors`
 - [x] Persist `scheme` + ML-DSA secret in nodekey/wallets
-- [ ] Default new genesis to ML-DSA when ready (`PIXEL_SIG_SCHEME=PIX-ML-DSA-65` works now)
-
+- [x] Default new genesis to ML-DSA (`DEFAULT_SCHEME=PIX-ML-DSA-65`)
 ## Gate E — bridge that verifies
 
 - [ ] Real `ULAVerifier` (no stub accept for value)

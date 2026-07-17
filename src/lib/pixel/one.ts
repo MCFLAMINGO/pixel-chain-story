@@ -15,7 +15,8 @@
  */
 
 import { createGenesis, proposeTransfer, sequenceBlock, type PixelChainState } from "./chain";
-import { generateLightKeypair, type LightKeypair } from "./crypto";
+import { type LightKeypair } from "./crypto";
+import { generatePixelKeypair, resolveSchemeId } from "./scheme";
 import { PIX_HARD_CAP, lightReward } from "./economics";
 import {
   acceptIntoLight,
@@ -60,7 +61,7 @@ export const Creed = {
 /** SOURCE — keys, law, origin */
 export const Source = {
   async key(seed?: Uint8Array) {
-    return generateLightKeypair(seed);
+    return generatePixelKeypair(resolveSchemeId(), seed);
   },
   async begin(sequencer: LightKeypair) {
     return createGenesis(sequencer);

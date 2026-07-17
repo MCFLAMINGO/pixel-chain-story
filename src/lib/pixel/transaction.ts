@@ -3,9 +3,15 @@
  * Lifecycle: superposition (commitment only) → light reveal → final.
  */
 
-import { generateLightKeypair, type Hex, type LightKeypair } from "./crypto";
+import { type Hex, type LightKeypair } from "./crypto";
 import { lightDigest } from "./light-digest";
-import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
+import {
+  addressForScheme,
+  generatePixelKeypair,
+  signPixel,
+  verifyPixel,
+  type SchemeId,
+} from "./scheme";
 
 export type TxState = "superposition" | "revealed" | "final";
 export type PrivacyLevel = "public" | "private" | "selective";
@@ -182,6 +188,6 @@ export function humanSummary(
 }
 
 export async function createDemoWallet(label: string): Promise<LightKeypair & { label: string }> {
-  const keypair = await generateLightKeypair();
+  const keypair = await generatePixelKeypair();
   return { ...keypair, label };
 }

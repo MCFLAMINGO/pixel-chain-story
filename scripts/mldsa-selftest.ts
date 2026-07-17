@@ -57,6 +57,10 @@ async function main() {
   }
   console.log("▸ PIX-HASH-OTS-128 still available ✓");
 
+  const born = await generatePixelKeypair();
+  if (born.scheme !== "PIX-ML-DSA-65") throw new Error("default birth must be ML-DSA");
+  console.log("▸ default generatePixelKeypair() → ML-DSA ✓");
+
   console.log("\n═══ PASS — quantum schemes live ═══");
 }
 
