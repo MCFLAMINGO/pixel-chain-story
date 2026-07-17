@@ -43,8 +43,8 @@ function Lab() {
         </Link>
         <h1 className="font-pixel mt-6 text-4xl font-bold tracking-tight md:text-5xl">Lab</h1>
         <p className="mt-3 max-w-xl text-muted-foreground">
-          Build on Pixel here. Build for Pixel via the roadmap. Mirror existing apps in via SISO —
-          no second Facebook. See docs/BUILDERS.md. {EXPRESSION_AXIOM}
+          SISO — Build anywhere. Shine in once. No second you. Build on / for / into Pixel. Agents:
+          docs/AGENTS-SISO.md. {EXPRESSION_AXIOM}
         </p>
         <p className="font-pixel mt-4 text-xs tracking-widest text-muted-foreground uppercase">
           On · For · Into

@@ -143,6 +143,7 @@ export async function handlePixelRpc(
           optical:
             "luminance codec + getUserMedia/raster sample (optical-capture); simulate reserved for CI",
           path: "docs/PATH.md",
+          siso: (await import("./siso")).sisoThesis(),
           ethereumAnalogues: {
             sequencer: "PBS / based sequencing (single light proof) — analogy only",
             pendingPool: "mempools — held as superposition ghosts",

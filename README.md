@@ -2,7 +2,8 @@
 
 **Source · Word · Light** — a pixel ledger (not a chain of opaque blocks).  
 Light reveals proximity. Color is absent without it.  
-Build anywhere; come into the light via SISO — no second Facebook.
+**SISO — Build anywhere. Shine in once. No second you.**  
+(Agents and humans: come into the light without a rewrite.)
 
 ## Do this right now
 
@@ -42,7 +43,8 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 | [`docs/ONE.md`](docs/ONE.md) | Simple API |
 | [`docs/INVENT.md`](docs/INVENT.md) | Invent, don’t rename |
 | [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) | Day one without $21M myth |
-| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | No parallel rewrite |
+| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | **SISO clarion call** — no parallel rewrite |
+| [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md) | Agents / swarms: shine in or build a PATH gate |
 
 ## Builders — on / for / into Pixel
 
@@ -58,7 +60,7 @@ bun install && bun run test:all
 
 ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
 
-**Invite:** *Runnable PQ-class light settlement. Keep your stack; shine in. `bun run test:all` then pick a door in `docs/BUILDERS.md`.*
+**Invite:** *SISO — Build anywhere. Shine in once. No second you. `bun run test:all` → `docs/AGENTS-SISO.md` or `docs/BUILDERS.md`.*
 
 ## Status
 

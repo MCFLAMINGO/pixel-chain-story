@@ -1,18 +1,19 @@
 /**
- * SISO — Shine In / Shine Out framework
+ * SISO — Shine In / Shine Out
  *
- * ICP-style platforms often force a *parallel build*: rewrite the calculator
- * for their VM to have a calculator “on” them. Two Facebooks.
+ * Clarion call to humans and agents:
+ *   Build anywhere. Shine in once. No second you.
  *
- * Pixel Ledger rejects that. Build anywhere — AWS, a laptop, Rust, Python,
- * JS, Go, a spreadsheet macro. When the artifact **comes into the light**
- * (registers a continuity record + optional payload mirrors), Pixel accepts
- * it. If AWS dies, peers can still serve / verify / restart from what was
- * shone in. Belief in Pixel + SISO = continuity, not a second rewrite.
+ * ICP-style platforms force a *parallel build*: rewrite for their VM → two Facebooks.
+ * Pixel rejects that. Any language, any host, any agent — come into the light by
+ * digest + mirrors. If AWS dies and you believed in Pixel, peers still serve you.
  *
  *   Shine In   — foreign world → Pixel light (register, mirror, attest)
  *   Shine Out  — Pixel light → foreign world (proofs, unlocks, wake mirrors)
  */
+
+/** The cry — post this; live by this. */
+export const SISO_CALL = "Build anywhere. Shine in once. No second you.";
 
 import { sha512Hex, type Hex } from "./crypto";
 
@@ -141,18 +142,23 @@ export interface SisoShineIn {
 }
 
 export function sisoThesis(): {
+  call: string;
   problem: string;
   rule: string;
   vsIcp: string;
   awsFailure: string;
+  toAgents: string;
 } {
   return {
+    call: SISO_CALL,
     problem:
-      "Platforms that require rewriting every app for their VM create parallel builds — two calculators, two Facebooks.",
+      "Platforms that require rewriting every app for their VM create parallel builds — two calculators, two Facebooks, two agents.",
     rule: "Build in any language, anywhere. Come into the light once; Pixel accepts the artifact by digest and continuity, not by rewrite.",
     vsIcp:
       "ICP-style: build on ICP to run on ICP. Pixel: build on AWS/Rust/Python/… and shine in — no dual product.",
     awsFailure:
       "If AWS goes down and the service believed in Pixel (mirrored + illuminated), peers keep it usable via SISO continuity.",
+    toAgents:
+      "Agents: do not wait for a Pixel-native rewrite. Shine your MCP/app in (SISO) or build a PATH gate. See docs/AGENTS-SISO.md.",
   };
 }
