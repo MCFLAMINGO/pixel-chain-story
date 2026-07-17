@@ -23,9 +23,9 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate B — network that doesn’t flake
 
-- [ ] Two-terminal / two-VPS `pixel init|node|join` demo (documented + reproducible)
-- [ ] Reconnect + hole-filling catch-up (`get_pixels` / headers)
-- [ ] Stall detection design (elected sequencer silent)
+- [x] Two-terminal / two-VPS `pixel init|node|join` demo — [`docs/demos/two-node.md`](./demos/two-node.md)
+- [x] Reconnect + hole-filling catch-up (`get_pixels` / `/sync`); `bun run test:net`
+- [x] Stall detection (warn + catch-up); skip/replace deferred to Gate C
 
 ## Gate C — consensus that survives fault
 

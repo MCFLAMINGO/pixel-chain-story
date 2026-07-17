@@ -1,6 +1,9 @@
 /**
  * Lumen — a light-native coding structure.
  *
+ * Guided by science it need not name (`One.Creed.guide`): every verb below
+ * must bind a real invariant in the host — never simile alone.
+ *
  * Rust is excellent for systems. Lumen is better for *this* domain because its
  * primitives match the physics Pixel runs on:
  *
@@ -11,6 +14,8 @@
  *   maze       optical pattern that hides / carries a key
  *   paint      write a pixel into the living ledger picture
  *   veil       privacy — light reaches only chosen eyes
+ *   digest     one labeled light hash (hides sha512 domain soup)
+ *   attest     existence proof — store of creation, not only wealth
  *
  * Programs read like ceremonies of light, not memory layouts.
  */
@@ -23,6 +28,14 @@ export type LumenValue =
   | { kind: "ghost"; id: string; payload: Record<string, unknown> }
   | { kind: "picture"; cells: number[]; checksum: string; payloadHex: string }
   | { kind: "settled"; txid: string; summary: string }
+  /** Recomputable existence receipt — light that survives elsewhere. */
+  | {
+      kind: "proof";
+      light: string;
+      subject: string;
+      label: string;
+      at: number;
+    }
   | { kind: "unit" };
 
 export type Expr =

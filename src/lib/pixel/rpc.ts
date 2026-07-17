@@ -118,17 +118,23 @@ export async function handlePixelRpc(
             hash: b.hash.slice(0, 16),
           })),
         );
-      case "pix_protocolInfo":
+      case "pix_protocolInfo": {
+        const { Creed } = await import("./one");
         return ok(id, {
           name: "Pixel Ledger",
           status: "Gate A lab prototype — path to L1/bridge/sovereignty in docs/PATH.md",
           /** Earned claim badges — only append when PATH gate evidence exists. */
-          gates: ["A"],
+          gates: ["A", "B"],
+          creed: {
+            guide: Creed.guide,
+            discipline: Creed.discipline,
+            one: Creed.one,
+          },
           unit: "pixel (not block)",
           consensus: "Proof of Light Sequence (PoLS) — sequential tip extension, not BFT",
           signatures: "PIX-HASH-OTS-128 + PIX-ML-DSA-65 (NIST FIPS-204); no classical ECC",
           quantum: (await import("./scheme")).quantumStatus(),
-          hash: "SHA-512",
+          hash: "SHA-512 via lightDigest labels",
           model: "UTXO",
           language: "Lumen (light-native) + TypeScript host",
           finality: "light-revelation (sequencer signature + beacon); offline sequencer stalls tip",
@@ -152,6 +158,7 @@ export async function handlePixelRpc(
             pqc: "hash-OTS class today; ML-DSA swap planned",
           },
         });
+      }
       case "pix_getEmission": {
         const { emissionInfo } = await import("./economics");
         return ok(id, emissionInfo(ctx.chain.pixels.length));

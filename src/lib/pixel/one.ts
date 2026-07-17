@@ -45,6 +45,16 @@ export const Creed = {
   word: "What is spoken into being — the illuminated pixel",
   light: "What reveals — without it, color is absent",
   one: "Source, Word, and Light are not three ledgers. They are one.",
+  /**
+   * Law of the work — art guided by science it need not name.
+   * Vocabulary (ghost, shine, collapse, attest) is load-bearing for the
+   * physics of being only when each verb binds a real invariant.
+   */
+  guide:
+    "The art is not floating free of the science — it is guided by it the way good painting is guided by light it never names.",
+  /** Corollary: no verb without an invariant; no claim without a gate. */
+  discipline:
+    "Every light verb must touch verification, continuity, or custody for real — never simile alone.",
 } as const;
 
 /** SOURCE — keys, law, origin */

@@ -31,4 +31,10 @@ ray read_key(secret):
   let picture = project(secret)
   let key = recover(picture)
   return key
+
+ray exist(what):
+  ghost proof = attest(what)
+  when light:
+    paint proof
+  return proof
 `;

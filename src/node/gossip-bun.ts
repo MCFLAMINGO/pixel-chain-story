@@ -1,9 +1,10 @@
 /**
- * Bun WebSocket gossip implementation.
+ * Bun WebSocket gossip — Gate B hardened.
  *
- * Prototype limits (honest): no peer auth, no discovery DHT, dedupe is best-effort,
- * missed messages have limited catch-up via get_pixels. Fine for 2–3 local processes;
- * not a production network fabric.
+ * - Reconnect with backoff to seed peers
+ * - Unicast sendTo for catch-up (get_pixels → pixels)
+ * - Receive/broadcast dedupe (dual-link safe)
+ * Prototype limits: no peer auth, no DHT — fine for 2–N lab hosts, not production fabric.
  */
 
 import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
@@ -11,18 +12,25 @@ import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
 interface PeerSock {
   url: string;
   ws: WebSocket;
+  outbound: boolean;
 }
 
 export function createBunGossip(opts: {
   port: number;
   nodeId: string;
   address: string;
+  publicKey?: string;
+  /** Host others should use to dial us (VPS public IP/DNS). Default 127.0.0.1 */
+  advertiseHost?: string;
   getTip: () => { height: number; hash: string };
   onMessage: MessageHandler;
   seeds?: string[];
 }): GossipNet & { server: ReturnType<typeof Bun.serve> } {
   const peers = new Map<string, PeerSock>();
   const seen = new Set<string>();
+  const reconnectAttempt = new Map<string, number>();
+  const advertiseHost = opts.advertiseHost ?? "127.0.0.1";
+  const localUrl = `ws://${advertiseHost}:${opts.port}/gossip`;
 
   const server = Bun.serve({
     port: opts.port,
@@ -39,22 +47,19 @@ export function createBunGossip(opts: {
     websocket: {
       open(ws) {
         const data = ws.data as { url: string };
-        peers.set(data.url, { url: data.url, ws: ws as unknown as WebSocket });
-        const tip = opts.getTip();
-        ws.send(
-          JSON.stringify({
-            type: "hello",
-            nodeId: opts.nodeId,
-            address: opts.address,
-            tip: tip.height,
-            tipHash: tip.hash,
-          } satisfies PeerMessage),
-        );
+        peers.set(data.url, {
+          url: data.url,
+          ws: ws as unknown as WebSocket,
+          outbound: false,
+        });
+        ws.send(JSON.stringify(helloMsg()));
       },
       message(ws, message) {
         const data = ws.data as { url: string };
         try {
           const msg = JSON.parse(String(message)) as PeerMessage;
+          // Dedupe on receive — dual dial (inbound+outbound) otherwise double-delivers.
+          if (!shouldHandle(msg)) return;
           void opts.onMessage(msg, data.url);
         } catch (err) {
           console.error("gossip parse error", err);
@@ -67,26 +72,40 @@ export function createBunGossip(opts: {
     },
   });
 
+  function helloMsg(): PeerMessage {
+    const tip = opts.getTip();
+    return {
+      type: "hello",
+      nodeId: opts.nodeId,
+      address: opts.address,
+      tip: tip.height,
+      tipHash: tip.hash,
+      gossipUrl: localUrl,
+      publicKey: opts.publicKey,
+    };
+  }
+
+  function scheduleReconnect(url: string) {
+    const n = (reconnectAttempt.get(url) ?? 0) + 1;
+    reconnectAttempt.set(url, n);
+    const delay = Math.min(30_000, 1000 * 2 ** Math.min(n, 5));
+    setTimeout(() => connect(url), delay);
+  }
+
   function connect(url: string) {
     if (peers.has(url)) return;
     try {
       const ws = new WebSocket(url);
       ws.addEventListener("open", () => {
-        peers.set(url, { url, ws });
-        const tip = opts.getTip();
-        ws.send(
-          JSON.stringify({
-            type: "hello",
-            nodeId: opts.nodeId,
-            address: opts.address,
-            tip: tip.height,
-            tipHash: tip.hash,
-          } satisfies PeerMessage),
-        );
+        reconnectAttempt.set(url, 0);
+        peers.set(url, { url, ws, outbound: true });
+        ws.send(JSON.stringify(helloMsg()));
+        console.log(`[pixel-ledger] gossip connected ${url}`);
       });
       ws.addEventListener("message", (ev) => {
         try {
           const msg = JSON.parse(String(ev.data)) as PeerMessage;
+          if (!shouldHandle(msg)) return;
           void opts.onMessage(msg, url);
         } catch (err) {
           console.error("gossip client parse", err);
@@ -94,7 +113,7 @@ export function createBunGossip(opts: {
       });
       ws.addEventListener("close", () => {
         peers.delete(url);
-        setTimeout(() => connect(url), 3000);
+        scheduleReconnect(url);
       });
       ws.addEventListener("error", () => {
         try {
@@ -105,6 +124,7 @@ export function createBunGossip(opts: {
       });
     } catch (err) {
       console.error("peer connect failed", url, err);
+      scheduleReconnect(url);
     }
   }
 
@@ -112,13 +132,56 @@ export function createBunGossip(opts: {
     connect(seed);
   }
 
+  function dedupeKey(msg: PeerMessage): string {
+    if (msg.type === "pixel") return `pixel:${msg.pixel.hash}`;
+    if (msg.type === "tx") return `tx:${msg.tx.txid}`;
+    if (msg.type === "pixels") {
+      return `pixels:${msg.pixels
+        .map((p) => p.hash)
+        .join("|")
+        .slice(0, 160)}`;
+    }
+    return JSON.stringify(msg).slice(0, 160);
+  }
+
+  function remember(msg: PeerMessage): boolean {
+    const key = dedupeKey(msg);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    if (seen.size > 4000) {
+      const drop = [...seen].slice(0, 2000);
+      for (const k of drop) seen.delete(k);
+    }
+    return true;
+  }
+
+  /** hello / get_pixels are idempotent probes — always handle; content msgs dedupe. */
+  function shouldHandle(msg: PeerMessage): boolean {
+    if (
+      msg.type === "hello" ||
+      msg.type === "get_pixels" ||
+      msg.type === "ping" ||
+      msg.type === "pong"
+    ) {
+      return true;
+    }
+    return remember(msg);
+  }
+
   return {
     server,
+    localGossipUrl: () => localUrl,
     broadcast(msg: PeerMessage) {
-      const key = JSON.stringify(msg).slice(0, 120);
-      if (seen.has(key)) return;
-      seen.add(key);
-      if (seen.size > 2000) seen.clear();
+      // Mark seen so dual-link echoes are dropped on receive — do not gate the send
+      // (receiver may call broadcast to relay after shouldHandle already remembered).
+      if (
+        msg.type !== "hello" &&
+        msg.type !== "get_pixels" &&
+        msg.type !== "ping" &&
+        msg.type !== "pong"
+      ) {
+        remember(msg);
+      }
       const raw = JSON.stringify(msg);
       for (const peer of peers.values()) {
         try {
@@ -128,10 +191,20 @@ export function createBunGossip(opts: {
         }
       }
     },
+    sendTo(peerUrl: string, msg: PeerMessage) {
+      const peer = peers.get(peerUrl);
+      if (!peer || peer.ws.readyState !== WebSocket.OPEN) return;
+      try {
+        peer.ws.send(JSON.stringify(msg));
+      } catch {
+        /* ignore */
+      }
+    },
     addPeer(url: string) {
       connect(url);
     },
     peerCount: () => peers.size,
+    peerUrls: () => [...peers.keys()],
     stop() {
       server.stop(true);
       for (const peer of peers.values()) {
