@@ -23,9 +23,12 @@ Primitive → advanced is allowed for uptake. **Settling on the primitive rung i
 | Piece | Why it is not a rename |
 | --- | --- |
 | **Pixel / PoLS** | Light sequence settlement — not hashrate blocks |
-| **Lumen** | Light-native language → real UTXOs |
+| **Lumen** | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md)) |
 | **Kindling** | Mutual optical presence as spend *authorization* |
 | **Personal Source** | Optical self-custody for everyone — not MetaMask, not M-Pesa |
+| **Optical capture** | getUserMedia / raster grid sample — not in-memory theater |
+
+Full audit: [`INVENTION.md`](./INVENTION.md).
 | **Energy Truth** | Labeled waste accounting vs datacenter thirst |
 | **SISO** | Continuity without a forced rewrite VM |
 

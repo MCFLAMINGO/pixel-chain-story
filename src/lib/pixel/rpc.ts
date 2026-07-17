@@ -140,7 +140,8 @@ export async function handlePixelRpc(
           sovereignty:
             "Diversity policy enforced when ≥7 providers are registered; single-node labs skip",
           bridge: "ULA packages in TS; on-chain ULAVerifier.sol is an explicit stub",
-          optical: "luminance codec + simulated capture — no getUserMedia yet",
+          optical:
+            "luminance codec + getUserMedia/raster sample (optical-capture); simulate reserved for CI",
           path: "docs/PATH.md",
           ethereumAnalogues: {
             sequencer: "PBS / based sequencing (single light proof) — analogy only",

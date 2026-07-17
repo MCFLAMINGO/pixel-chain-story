@@ -15,4 +15,4 @@ Remote scammers cannot stand in your light. Stolen halves expire. Gateways canno
 
 Self-custody is mandatory (`assertSelfCustody`). `gatewayHeldSeed: true` throws.
 
-**Honesty:** confluence today uses simulated optical capture (in-process luminance copy) and distinct `partyId`s. That is commitment integrity for the lab — not shipped physical anti-phishing. Seals are labeled `channel: "simulated"` until a real camera path exists.
+**Optical:** pass captures from `optical-capture.ts` (getUserMedia or raster sample) into `confluentSeal` → seal `channel: "optical-capture"`. Headless CI may omit captures and get `channel: "simulated"`. Distinct `partyId`s still required. Lab Kindling uses the raster optical path by default.

@@ -22,7 +22,8 @@
     "test:bootstrap": "bun scripts/bootstrap-selftest.ts",
     "test:crypto": "bun scripts/crypto-selftest.ts",
     "test:mldsa": "bun scripts/mldsa-selftest.ts",
-    "test:all": "bun run test:crypto && bun run test:mldsa && bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap",
+    "test:optical": "bun scripts/optical-selftest.ts",
+    "test:all": "bun run test:crypto && bun run test:mldsa && bun run test:optical && bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {

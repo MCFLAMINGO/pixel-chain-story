@@ -65,9 +65,11 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate H — Kindling / optical real channel
 
-- [ ] `getUserMedia` (or native) capture path
-- [ ] Seals with `channel: "optical-capture"`
-- [ ] Two-device remote-fail proof
+- [x] `getUserMedia` + raster sample (`optical-capture.ts`)
+- [x] Seals with `channel: "optical-capture"` when captures provided
+- [x] `bun run test:optical`
+- [ ] Two-phone field notes
+- [ ] Remote-fail proof beyond partyId (device attestation)
 
 ## Gate I — external scrutiny
 

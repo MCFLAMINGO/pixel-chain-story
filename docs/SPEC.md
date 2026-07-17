@@ -100,8 +100,8 @@ HTTP:
 **Does not yet:**
 - Global provider mesh / BFT fork-choice / reorgs (offline elected sequencer stalls the tip)
 - ML-DSA defaulted for all new wallets / on-chain ULA verify of Dilithium (in-process ML-DSA **does** ship)
-- Real optical capture (`getUserMedia`) — luminance codec + simulated capture only
-- Kindling as shipped anti-phishing — confluence is commitment math; channel is `simulated`
+- Two-phone field hardening / device attestation beyond raster+getUserMedia path
+- Kindling anti-phishing complete — `optical-capture` channel ships; remote device attestation still thin
 - Audited on-chain bridge verifier — `ULAVerifier.sol` is an explicit stub
 - Production gossip (no peer auth, fragile catch-up)
 

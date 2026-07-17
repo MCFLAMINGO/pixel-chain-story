@@ -1,10 +1,9 @@
 /**
- * Optical light encoding — luminance grid codec (prototype).
+ * Optical light encoding — luminance grid codec.
  *
- * Real product path: phone screen projects a pattern; another camera reads it.
- * What ships today: bytes packed into "luminance cells" plus
- * `simulateCameraCapture` (in-process copy ± synthetic noise). There is no
- * getUserMedia / image-decode path in this repo yet — do not claim otherwise.
+ * Screen projects a pattern; camera (getUserMedia) or raster sample reads it back.
+ * See `optical-capture.ts` for the real capture path. `simulateCameraCapture`
+ * remains for headless CI only — Kindling marks those seals `channel: "simulated"`.
  */
 
 import { bytesToHex, hexToBytes, sha512Hex, type Hex } from "./crypto";

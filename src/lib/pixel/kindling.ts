@@ -22,6 +22,7 @@ import {
   verifyCapturedPattern,
   type OpticalPattern,
 } from "./optical";
+import { isPhysicalOpticalCapture, type OpticalCaptureResult } from "./optical-capture";
 import { bytesToHex, hexToBytes, randomBytes, sha512Hex, type Hex } from "./crypto";
 import { proposeTransfer, sequenceBlock, type LightKeypair, type PixelChainState } from "./chain";
 import { energyTruthForIlluminate, formatEnergyTruth, type EnergyTruth } from "./energy-truth";
@@ -160,16 +161,20 @@ function intentsEqual(a: KindleIntent, b: KindleIntent): boolean {
 /**
  * Confluence — two lights meet.
  *
- * Honesty: default path uses `simulateCameraCapture` (in-process luminance
- * copy). That proves commitment integrity, not physical proximity. A remote
- * attacker who can run both halves still can — unless partyIds differ and a
- * future real camera capture path binds device evidence. Do not market this
- * as shipped anti-phishing until `channel === "optical-capture"`.
+ * Pass `offerCapture` + `acceptCapture` from `optical-capture.ts` (camera or
+ * raster) to earn `channel: "optical-capture"`. Headless CI may omit them and
+ * get `simulated` (in-process copy) — that path is for tests, not anti-phishing claims.
  */
 export async function confluentSeal(
   offer: KindleHalf,
   accept: KindleHalf,
-  opts?: { now?: number; captureNoise?: number; allowSameParty?: boolean },
+  opts?: {
+    now?: number;
+    captureNoise?: number;
+    allowSameParty?: boolean;
+    offerCapture?: OpticalCaptureResult;
+    acceptCapture?: OpticalCaptureResult;
+  },
 ): Promise<{ ok: true; seal: PresenceSeal } | { ok: false; reason: KindlingFail }> {
   const now = opts?.now ?? Date.now();
   if (offer.role !== "offer" || accept.role !== "accept") {
@@ -185,11 +190,21 @@ export async function confluentSeal(
     return { ok: false, reason: "intent_mismatch" };
   }
 
-  // Prototype optical integrity — simulated capture, not getUserMedia.
-  const capturedOffer = simulateCameraCapture(offer.pattern, opts?.captureNoise ?? 0);
-  const capturedAccept = simulateCameraCapture(accept.pattern, opts?.captureNoise ?? 0);
-  const vo = await verifyCapturedPattern(capturedOffer, offer.pattern.checksum);
-  const va = await verifyCapturedPattern(capturedAccept, accept.pattern.checksum);
+  const physical =
+    opts?.offerCapture &&
+    opts?.acceptCapture &&
+    isPhysicalOpticalCapture(opts.offerCapture) &&
+    isPhysicalOpticalCapture(opts.acceptCapture);
+
+  const offerCells = physical
+    ? opts!.offerCapture!.cells
+    : simulateCameraCapture(offer.pattern, opts?.captureNoise ?? 0);
+  const acceptCells = physical
+    ? opts!.acceptCapture!.cells
+    : simulateCameraCapture(accept.pattern, opts?.captureNoise ?? 0);
+
+  const vo = await verifyCapturedPattern(offerCells, offer.pattern.checksum);
+  const va = await verifyCapturedPattern(acceptCells, accept.pattern.checksum);
   if (!vo.ok || !va.ok) {
     return { ok: false, reason: "optical_corrupt" };
   }
@@ -214,7 +229,7 @@ export async function confluentSeal(
       createdAt: now,
       expiresAt: Math.min(offer.expiresAt, accept.expiresAt),
       boundLabel: `${offer.intent.fromLocal} → ${offer.intent.toLocal} · ${offer.intent.amount} PIX`,
-      channel: "simulated",
+      channel: physical ? "optical-capture" : "simulated",
     },
   };
 }

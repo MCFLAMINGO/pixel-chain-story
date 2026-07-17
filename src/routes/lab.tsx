@@ -4,6 +4,7 @@ import { AccessDemo } from "@/components/pixel/AccessDemo";
 import { ExecutionConsole } from "@/components/pixel/ExecutionConsole";
 import { KindlingPanel } from "@/components/pixel/KindlingPanel";
 import { WorldlightPanel } from "@/components/pixel/WorldlightPanel";
+import { LumenPanel } from "@/components/pixel/LumenPanel";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
 import { RealityField } from "@/components/pixel/RealityField";
 import { TransferDeck } from "@/components/pixel/TransferDeck";
@@ -104,6 +105,14 @@ function Lab() {
           busy={pixel.busy}
           onProject={() => pixel.projectKey()}
           onCapture={() => pixel.captureKey()}
+          onCameraCapture={(cells) => pixel.captureKeyFromCells(cells)}
+        />
+
+        <LumenPanel
+          chain={pixel.chain}
+          alice={pixel.alice}
+          bob={pixel.bob}
+          onChain={(c, note) => void pixel.applyChain(c, note)}
         />
 
         <section className="pixel-rise border-t border-border pt-16">

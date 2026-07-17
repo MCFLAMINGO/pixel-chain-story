@@ -12,6 +12,7 @@ export { One, Source, Word, Light, Creed, reveal } from "./one";
 export * from "./crypto";
 export * from "./scheme";
 export * from "./optical";
+export * from "./optical-capture";
 export * from "./transaction";
 export * from "./pol";
 export * from "./light-color";

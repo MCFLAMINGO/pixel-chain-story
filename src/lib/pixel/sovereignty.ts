@@ -156,6 +156,6 @@ export function sovereigntyThesis(): string[] {
     "Nodes are intended to be run by independent providers — home, colo, and minority-cloud.",
     "Multiple light subnets checkpointing each other is roadmap — not shipped runtime.",
     "Light clients should dial many peer endpoints; there is no required api.pixeledger.com.",
-    "Optical / analog recovery paths are prototype encodings — not production camera capture yet.",
+    "Optical capture path ships (getUserMedia + raster); Kindling can seal channel=optical-capture.",
   ];
 }

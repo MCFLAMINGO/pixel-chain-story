@@ -33,6 +33,8 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 | --- | --- |
 | [`docs/PATH.md`](docs/PATH.md) | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
 | [`docs/QUANTUM.md`](docs/QUANTUM.md) | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65) |
+| [`docs/INVENTION.md`](docs/INVENTION.md) | What is ours vs borrowed |
+| [`docs/LUMEN.md`](docs/LUMEN.md) | Light-native DSL — evolve, don’t abandon |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | **How to help** — lanes, checklist, what we reject |
 | [`docs/SPEC.md`](docs/SPEC.md) | Normative behavior |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Honest risks |

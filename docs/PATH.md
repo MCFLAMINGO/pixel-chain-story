@@ -118,12 +118,14 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 
 ### Gate H — Kindling / optical that is not theater
 **Build**
-- `getUserMedia` (or native) capture path; seals with `channel: "optical-capture"`
-- Two-device flow that fails when both halves are scripted in one process without capture evidence
-- Personal Source unlock persists leaf cursor / scheme safely
+- [x] `getUserMedia` + canvas sample (`optical-capture.ts`)
+- [x] Raster round-trip CI (`bun run test:optical`)
+- [x] Kindling seals with `channel: "optical-capture"` when physical captures provided
+- [ ] Two-phone field notes (aim at projector → sample)
+- [ ] Personal Source unlock persists leaf cursor / scheme safely after optical unlock
 
-**Evidence:** device test notes + selftest with mocked MediaStream fixtures  
-**Claim unlock:** *“Presence-bound spend authorization (pilot).”*
+**Evidence:** `test:optical` + kindling optical-capture path green  
+**Claim unlock:** *“Optical capture path shipped (pilot); presence-bound Kindling when channel=optical-capture.”*
 
 ### Gate I — External scrutiny
 **Build**

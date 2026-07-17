@@ -81,10 +81,23 @@ async function main() {
   if (sameParty.ok) throw new Error("same partyId must fail");
   console.log("▸ Same-party confluence rejected ✓");
 
-  const conf = await confluentSeal(offer, accept);
+  const confSim = await confluentSeal(offer, accept);
+  if (!confSim.ok) throw new Error(confSim.reason);
+  if (confSim.seal.channel !== "simulated") throw new Error("sim channel");
+  console.log("▸ Presence Seal (sim):", confSim.seal.boundLabel);
+
+  const { captureFromRaster, patternToRaster } = await import("../src/lib/pixel");
+  const offerCap = captureFromRaster(patternToRaster(offer.pattern, 14));
+  const acceptCap = captureFromRaster(patternToRaster(accept.pattern, 14));
+  const conf = await confluentSeal(offer, accept, {
+    offerCapture: offerCap,
+    acceptCapture: acceptCap,
+  });
   if (!conf.ok) throw new Error(conf.reason);
-  if (conf.seal.channel !== "simulated") throw new Error("channel label");
-  console.log("▸ Presence Seal:", conf.seal.boundLabel, `(${conf.seal.channel})`);
+  if (conf.seal.channel !== "optical-capture") {
+    throw new Error(`expected optical-capture, got ${conf.seal.channel}`);
+  }
+  console.log("▸ Presence Seal (optical-capture):", conf.seal.boundLabel);
 
   const genesis = await createGenesis(unlocked.keypair);
   const settled = await settleKindling({
