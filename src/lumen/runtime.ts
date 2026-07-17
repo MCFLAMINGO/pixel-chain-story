@@ -1,15 +1,19 @@
 /**
  * Lumen runtime — executes light ceremonies against the Pixel chain.
  * This is the bridge: Lumen structure → real UTXO settlement + optical keys.
+ *
+ * Hash complexity stays behind `digest` / `attest` (lightDigest).
+ * Authors never write sha512 domain separators or OTS leaf math.
  */
 
 import {
+  asOpticalPayload,
+  attestExistence,
   balanceOf,
-  encodeHexAsLight,
   encodeMazeCard,
   encodeOpticalPattern,
-  hexToBytes,
   humanSummary,
+  lightDigest,
   proposeTransfer,
   sequenceBlock,
   simulateCameraCapture,
@@ -106,12 +110,12 @@ async function execStmt(
     }
     case "ghost": {
       const v = await evalExpr(stmt.expr, env, host);
-      if (v.kind === "settled") {
-        // commit() may return a ghost-shaped settled pending — wrap
-      }
       env.set(stmt.name, v);
       if (v.kind === "ghost") {
         host.log.push(`ghost ${stmt.name} held in superposition (${v.id.slice(0, 12)}…)`);
+      }
+      if (v.kind === "proof") {
+        host.log.push(`ghost ${stmt.name} holds existence light ${v.light.slice(0, 12)}…`);
       }
       return v;
     }
@@ -129,9 +133,6 @@ async function execStmt(
     case "shine": {
       const target = await evalExpr(stmt.target, env, host);
       if (stmt.via === "sequence" || !stmt.via) {
-        if (host.chain.pending.length === 0 && target.kind === "ghost") {
-          // ensure ghost is in pending
-        }
         if (host.chain.pending.length > 0) {
           host.chain = await sequenceBlock(host.chain, host.sequencer);
           const tip = host.chain.pixels[host.chain.pixels.length - 1];
@@ -151,10 +152,24 @@ async function execStmt(
           host.log.push("shine via screen — picture holds the key");
           return target;
         }
+        if (target.kind === "proof") {
+          const picture = await encodeOpticalPattern(asOpticalPayload(target.light));
+          const picVal: LumenValue = {
+            kind: "picture",
+            cells: picture.cells,
+            checksum: picture.checksum,
+            payloadHex: picture.payloadHex,
+          };
+          env.set("_picture", picVal);
+          host.log.push("shine via screen — existence proof becomes light");
+          return picVal;
+        }
         if (target.kind === "ghost" || target.kind === "string") {
           const hex =
-            target.kind === "string" ? target.value : String(target.payload.commitment ?? "");
-          const picture = await encodeHexAsLight(hex.padEnd(64, "0").slice(0, 64));
+            target.kind === "string"
+              ? target.value
+              : String(target.payload.light ?? target.payload.commitment ?? "");
+          const picture = await encodeOpticalPattern(asOpticalPayload(hex));
           const picVal: LumenValue = {
             kind: "picture",
             cells: picture.cells,
@@ -170,6 +185,10 @@ async function execStmt(
     }
     case "collapse": {
       const g = env.get(stmt.name);
+      if (g?.kind === "proof") {
+        host.log.push(`collapse ${stmt.name} → existence already one truth`);
+        return g;
+      }
       if (g?.kind === "ghost") {
         const settled = env.get("_last_settled");
         if (settled) {
@@ -178,7 +197,6 @@ async function execStmt(
           return settled;
         }
       }
-      // If already sequenced in shine, mark from chain tip
       const tip = host.chain.pixels[host.chain.pixels.length - 1];
       const tx = tip?.transactions[0];
       if (tx) {
@@ -194,7 +212,14 @@ async function execStmt(
     }
     case "paint": {
       const v = await evalExpr(stmt.expr, env, host);
-      const id = v.kind === "settled" ? v.txid : v.kind === "ghost" ? v.id : "unit";
+      const id =
+        v.kind === "settled"
+          ? v.txid
+          : v.kind === "ghost"
+            ? v.id
+            : v.kind === "proof"
+              ? v.light
+              : "unit";
       host.painted.push(id);
       host.log.push(`paint ledger pixel for ${id.slice(0, 12)}…`);
       return v;
@@ -263,6 +288,8 @@ async function evalCall(
       kind: "ghost",
       id: tx.txid,
       payload: {
+        /** Prefer `light` — commitment is the same hex via lightDigest. */
+        light: tx.commitment,
         commitment: tx.commitment,
         amount,
         memo,
@@ -278,10 +305,35 @@ async function evalCall(
     return { kind: "number", value: balanceOf(host.chain, w.address) };
   }
 
+  /** One labeled hash — the complex hash issue becomes a verb. */
+  if (name === "digest") {
+    const label = str(vals[0]);
+    const material = vals.slice(1).map(valueMaterial);
+    const light = await lightDigest(label, ...material);
+    return { kind: "string", value: light };
+  }
+
+  /**
+   * Attest existence under light — store of creation.
+   * Recomputable wherever lightDigest still runs (EMP elsewhere ≠ erasure here).
+   */
+  if (name === "attest") {
+    const subject = valueMaterial(vals[0]);
+    const extra = vals.slice(1).map(valueMaterial);
+    const proof = await attestExistence(subject, extra);
+    host.log.push(`attest existence ${proof.light.slice(0, 12)}… for ${subject.slice(0, 48)}`);
+    return {
+      kind: "proof",
+      light: proof.light,
+      subject: proof.subject,
+      label: String(proof.kind),
+      at: proof.at,
+    };
+  }
+
   if (name === "project") {
     const secret = str(vals[0]);
-    const bytes = hexToBytes(secret.padEnd(64, "0").slice(0, 64));
-    const picture = await encodeOpticalPattern(bytes);
+    const picture = await encodeOpticalPattern(asOpticalPayload(secret));
     return {
       kind: "picture",
       cells: picture.cells,
@@ -311,8 +363,7 @@ async function evalCall(
   if (name === "maze") {
     const secret = str(vals[0]);
     host.log.push("maze cut — light will find the path");
-    const bytes = hexToBytes(secret.padEnd(64, "0").slice(0, 64));
-    const picture = await encodeMazeCard(bytes);
+    const picture = await encodeMazeCard(asOpticalPayload(secret));
     return {
       kind: "picture",
       cells: picture.cells,
@@ -322,6 +373,28 @@ async function evalCall(
   }
 
   throw new Error(`Lumen: unknown ray/builtin '${name}'`);
+}
+
+function valueMaterial(v: LumenValue): string {
+  switch (v.kind) {
+    case "string":
+    case "address":
+      return v.value;
+    case "number":
+      return String(v.value);
+    case "bool":
+      return v.value ? "true" : "false";
+    case "ghost":
+      return String(v.payload.light ?? v.payload.commitment ?? v.id);
+    case "settled":
+      return v.txid;
+    case "proof":
+      return v.light;
+    case "picture":
+      return v.checksum;
+    case "unit":
+      return "unit";
+  }
 }
 
 function str(v: LumenValue): string {

@@ -24,19 +24,23 @@ export function LumenPanel({
     setBusy(true);
     try {
       const host = createHost(chain, { alice, bob });
-      const result = await runLumenSource(
-        source,
-        ray,
+      const args =
         ray === "send"
           ? {
-              from: { kind: "string", value: "alice" },
-              to: { kind: "string", value: "bob" },
-              amount: { kind: "number", value: 1 },
-              memo: { kind: "string", value: "lumen lab" },
+              from: { kind: "string" as const, value: "alice" },
+              to: { kind: "string" as const, value: "bob" },
+              amount: { kind: "number" as const, value: 1 },
+              memo: { kind: "string" as const, value: "lumen lab" },
             }
-          : { secret: { kind: "string", value: alice.seed.slice(0, 64) } },
-        host,
-      );
+          : ray === "exist"
+            ? {
+                what: {
+                  kind: "string" as const,
+                  value: `creation:${alice.address.slice(0, 20)}`,
+                },
+              }
+            : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
+      const result = await runLumenSource(source, ray, args, host);
       await onChain(result.host.chain, `Lumen ray \`${ray}\` settled`);
       setLog([...result.logs, `result: ${JSON.stringify(result.value)}`].join("\n"));
     } catch (e) {
@@ -55,8 +59,11 @@ export function LumenPanel({
         Code in light verbs
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        ghost → veil → shine → collapse → paint. This is not TypeScript with metaphors — the
-        interpreter drives real UTXOs. Evolve Lumen; don&apos;t abandon it.
+        L0: where there is light, there is verification.{" "}
+        <code className="text-foreground/80">digest</code> /{" "}
+        <code className="text-foreground/80">attest</code> hide the hash soup;{" "}
+        <code className="text-foreground/80">exist</code> stores creation, not only wealth.
+        ghost → shine → collapse → paint still settles real UTXOs.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -68,6 +75,7 @@ export function LumenPanel({
             className="ml-2 border-b border-border bg-transparent py-1 outline-none"
           >
             <option value="send">send</option>
+            <option value="exist">exist</option>
             <option value="read_key">read_key</option>
             <option value="open_key">open_key</option>
           </select>

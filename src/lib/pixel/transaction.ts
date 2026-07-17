@@ -3,7 +3,8 @@
  * Lifecycle: superposition (commitment only) → light reveal → final.
  */
 
-import { generateLightKeypair, sha512Hex, type Hex, type LightKeypair } from "./crypto";
+import { generateLightKeypair, type Hex, type LightKeypair } from "./crypto";
+import { lightDigest } from "./light-digest";
 import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
 
 export type TxState = "superposition" | "revealed" | "final";
@@ -74,8 +75,9 @@ export async function createTransaction(params: {
     metadata: params.metadata,
     timestamp,
   });
-  const commitment = await sha512Hex(`superposition|${body}`);
-  const txid = await sha512Hex(`txid|${commitment}|${body}`);
+  // One door: lightDigest — Lumen never sees these domain strings.
+  const commitment = await lightDigest("superposition", body);
+  const txid = await lightDigest("txid", commitment, body);
   return {
     txid,
     inputs: params.inputs,
