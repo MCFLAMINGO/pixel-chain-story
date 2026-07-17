@@ -2,6 +2,8 @@
 
 We are not here to relabel wallets, SMS banking, or proof-of-stake as “light.”
 
+**Guide:** the art is not floating free of the science — it is guided by it the way good painting is guided by light it never names (`One.Creed.guide`). Metaphor is allowed as compression of being; it is forbidden as a substitute for verification.
+
 ## World harms we refuse
 
 1. **Energy & water waste** — mining farms and hyperscale cooling. PoLS + Energy Truth.

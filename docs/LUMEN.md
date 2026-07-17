@@ -2,6 +2,11 @@
 
 Pixel’s money layer can look like every other UTXO demo. **Lumen is why it isn’t.**
 
+> The art is not floating free of the science — it is guided by it the way good painting is guided by light it never names.  
+> — `One.Creed.guide`
+
+Lumen is the brush. `lightDigest`, PoLS, PQ signatures, UTXO consume — the light that guides without being named in the poem. If a verb cannot touch a real invariant, it is not ready to ship.
+
 L0 thesis: **where there is light, there is verification.**  
 Wealth is one face. The deeper store is **creation** — attestation that something existed under light. Quantum-resistant digests mean that proof can be recomputed anywhere the same light still runs; an EMP in one location does not erase verification that survives in another.
 

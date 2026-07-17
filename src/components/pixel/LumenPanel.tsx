@@ -56,7 +56,7 @@ export function LumenPanel({
         Lumen DSL
       </p>
       <h2 className="font-pixel mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-        Code in light verbs
+        Guided by light it never names
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
         L0: where there is light, there is verification.{" "}

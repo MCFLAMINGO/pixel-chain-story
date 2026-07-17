@@ -20,6 +20,8 @@ This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. 
 
 **Public voice rule:** claim only what the highest passing gate allows. Vocabulary (Kindling, Worldlight, PoLS) stays — claims escalate with gates.
 
+**Guide:** art guided by science it need not name (`One.Creed.guide`). Light verbs compress the physics of being; they do not excuse missing invariants.
+
 **Never:** hide gaps behind thesis strings. Thesis strings describe intent; gates prove delivery.
 
 ---

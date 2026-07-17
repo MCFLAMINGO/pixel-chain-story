@@ -1,6 +1,9 @@
 /**
  * Lumen — a light-native coding structure.
  *
+ * Guided by science it need not name (`One.Creed.guide`): every verb below
+ * must bind a real invariant in the host — never simile alone.
+ *
  * Rust is excellent for systems. Lumen is better for *this* domain because its
  * primitives match the physics Pixel runs on:
  *

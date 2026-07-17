@@ -10,7 +10,12 @@ async function main() {
   console.log(One.Creed.one);
   console.log(`  Source — ${One.Creed.source}`);
   console.log(`  Word   — ${One.Creed.word}`);
-  console.log(`  Light  — ${One.Creed.light}\n`);
+  console.log(`  Light  — ${One.Creed.light}`);
+  console.log(`  Guide  — ${One.Creed.guide}`);
+  console.log(`  Law    — ${One.Creed.discipline}\n`);
+  if (!One.Creed.guide.includes("good painting")) {
+    throw new Error("Creed.guide must carry the painting axiom");
+  }
 
   const alice = await One.Source.key();
   const bob = await One.Source.key();
