@@ -62,8 +62,8 @@ export function LumenPanel({
         L0: where there is light, there is verification.{" "}
         <code className="text-foreground/80">digest</code> /{" "}
         <code className="text-foreground/80">attest</code> hide the hash soup;{" "}
-        <code className="text-foreground/80">exist</code> stores creation, not only wealth.
-        ghost → shine → collapse → paint still settles real UTXOs.
+        <code className="text-foreground/80">exist</code> stores creation, not only wealth. ghost →
+        shine → collapse → paint still settles real UTXOs.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">

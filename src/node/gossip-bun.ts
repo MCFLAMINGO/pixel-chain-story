@@ -136,7 +136,10 @@ export function createBunGossip(opts: {
     if (msg.type === "pixel") return `pixel:${msg.pixel.hash}`;
     if (msg.type === "tx") return `tx:${msg.tx.txid}`;
     if (msg.type === "pixels") {
-      return `pixels:${msg.pixels.map((p) => p.hash).join("|").slice(0, 160)}`;
+      return `pixels:${msg.pixels
+        .map((p) => p.hash)
+        .join("|")
+        .slice(0, 160)}`;
     }
     return JSON.stringify(msg).slice(0, 160);
   }
@@ -154,7 +157,12 @@ export function createBunGossip(opts: {
 
   /** hello / get_pixels are idempotent probes — always handle; content msgs dedupe. */
   function shouldHandle(msg: PeerMessage): boolean {
-    if (msg.type === "hello" || msg.type === "get_pixels" || msg.type === "ping" || msg.type === "pong") {
+    if (
+      msg.type === "hello" ||
+      msg.type === "get_pixels" ||
+      msg.type === "ping" ||
+      msg.type === "pong"
+    ) {
       return true;
     }
     return remember(msg);
@@ -166,7 +174,12 @@ export function createBunGossip(opts: {
     broadcast(msg: PeerMessage) {
       // Mark seen so dual-link echoes are dropped on receive — do not gate the send
       // (receiver may call broadcast to relay after shouldHandle already remembered).
-      if (msg.type !== "hello" && msg.type !== "get_pixels" && msg.type !== "ping" && msg.type !== "pong") {
+      if (
+        msg.type !== "hello" &&
+        msg.type !== "get_pixels" &&
+        msg.type !== "ping" &&
+        msg.type !== "pong"
+      ) {
         remember(msg);
       }
       const raw = JSON.stringify(msg);

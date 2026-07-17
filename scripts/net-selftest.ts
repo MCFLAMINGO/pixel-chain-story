@@ -6,11 +6,7 @@
 import { rm, mkdir } from "node:fs/promises";
 import { spawn, type Subprocess } from "bun";
 import { join } from "node:path";
-import {
-  deserializeChain,
-  proposeTransfer,
-  type SerializedChain,
-} from "../src/lib/pixel/index";
+import { deserializeChain, proposeTransfer, type SerializedChain } from "../src/lib/pixel/index";
 import { loadWallet, saveWallet } from "../src/node/store";
 
 const ROOT = join(import.meta.dir, "..");
@@ -145,12 +141,10 @@ async function main() {
     pending: [],
     sequencers: sync.sequencers,
   });
-  const { tx } = await proposeTransfer(
-    live,
-    seq,
-    [{ amount: 7, address: bobAddr }],
-    { description: "gate-b live", recipientLabel: "@bob" },
-  );
+  const { tx } = await proposeTransfer(live, seq, [{ amount: 7, address: bobAddr }], {
+    description: "gate-b live",
+    recipientLabel: "@bob",
+  });
   await saveWallet(A, "sequencer", seq);
   const submitted = await fetch("http://127.0.0.1:18545/tx", {
     method: "POST",
@@ -164,9 +158,9 @@ async function main() {
   console.log(`▸ live tips A=${tipA} B=${tipB}`);
   if (tipA !== tipB) throw new Error(`tip mismatch A=${tipA} B=${tipB}`);
 
-  const balB = (await (
-    await fetch(`http://127.0.0.1:18546/balance/${bobAddr}`)
-  ).json()) as { balance: number };
+  const balB = (await (await fetch(`http://127.0.0.1:18546/balance/${bobAddr}`)).json()) as {
+    balance: number;
+  };
   if (balB.balance !== 7) throw new Error(`bob on B want 7 got ${balB.balance}`);
   console.log("▸ bob balance on B = 7 ✓");
 
@@ -176,12 +170,10 @@ async function main() {
   );
   const again = await loadWallet(A, "sequencer");
   if (!again) throw new Error("reload sequencer");
-  const { tx: tx2 } = await proposeTransfer(
-    live,
-    again,
-    [{ amount: 3, address: bobAddr }],
-    { description: "gate-b-2", recipientLabel: "@bob" },
-  );
+  const { tx: tx2 } = await proposeTransfer(live, again, [{ amount: 3, address: bobAddr }], {
+    description: "gate-b-2",
+    recipientLabel: "@bob",
+  });
   await saveWallet(A, "sequencer", again);
   const submitted2 = await fetch("http://127.0.0.1:18546/tx", {
     method: "POST",
@@ -195,9 +187,9 @@ async function main() {
   console.log(`▸ second live tips A=${tipA2} B=${tipB2}`);
   if (tipA2 !== tipB2) throw new Error("second tip mismatch");
 
-  const bal2 = (await (
-    await fetch(`http://127.0.0.1:18546/balance/${bobAddr}`)
-  ).json()) as { balance: number };
+  const bal2 = (await (await fetch(`http://127.0.0.1:18546/balance/${bobAddr}`)).json()) as {
+    balance: number;
+  };
   if (bal2.balance !== 10) throw new Error(`bob want 10 got ${bal2.balance}`);
   console.log("▸ bob balance on B = 10 ✓");
 
