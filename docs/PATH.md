@@ -24,7 +24,7 @@ This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. 
 
 ---
 
-## 1. Where we are (Gate A — shipped)
+## 1. Where we are (Gates A–B — shipped)
 
 Runnable, tested, and framed as a **lab prototype with real crypto**:
 
@@ -35,8 +35,8 @@ Runnable, tested, and framed as a **lab prototype with real crypto**:
 - Diversity *policy* code; enforced when ≥7 providers registered
 - CI: crypto + protocol selftests + lint + build
 
-**Allowed claim:** *“Executable post-quantum-class UTXO lab with a clear upgrade path.”*  
-**Forbidden claim:** *“Production L1 / production bridge / AWS-proof network.”*
+**Allowed claim:** *“Executable post-quantum-class UTXO lab; multi-host tip extension (prototype).”*  
+**Forbidden claim:** *“Production L1 / production bridge / AWS-proof network / BFT mainnet.”*
 
 ---
 
@@ -60,12 +60,12 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 
 ### Gate B — Network that doesn’t flake
 **Build**
-- Two-machine (or two-VPS) `init` / `node` / `join` demo script in CI or documented with recorded logs
-- Persistent peer book; reconnect; `get_pixels` catch-up that fills holes
-- Tip stall detection: elected sequencer silent → skip/view-change proposal (even if simple timeout vote)
+- [x] Two-machine (or two-VPS) `init` / `node` / `join` demo — [`docs/demos/two-node.md`](./demos/two-node.md) + `bun run test:net`
+- [x] Persistent peer book; reconnect with backoff; `get_pixels` / `pixels` hole-fill + `/sync` join
+- [x] Tip stall **detection** (warn + catch-up probe when elected sequencer silent). Skip/replace = Gate C
 
-**Evidence:** `docs/demos/two-node.md` + passing networked selftest or published log bundle  
-**Claim unlock:** *“Multi-host Pixel network (prototype consensus).”*
+**Evidence:** `docs/demos/two-node.md` + `bun run test:net`  
+**Claim unlock:** *“Multi-host Pixel network (prototype tip extension).”* — not fault-tolerant consensus yet.
 
 ### Gate C — Consensus that survives fault
 **Build**
@@ -173,9 +173,9 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 
 ## 6. Immediate next actions (this repo)
 
-1. **Gate D (quantum, critical):** freeze ML-DSA vectors; persist `scheme` in nodekey/wallets; document `PIXEL_SIG_SCHEME`  
-2. Gate B: flake-free two-node demo + stall detection design note  
+1. **Gate D (quantum, critical):** freeze ML-DSA vectors; default genesis to ML-DSA when ready  
+2. **Gate C:** sequencer skip/replace when stall detection fires (B only warns + catch-up)  
 3. Gate E: Foundry ULA verifying **PQ** sigs (OTS or ML-DSA), not stub length checks  
 4. Keep `pix_protocolInfo.quantum` honest as gaps close  
 
-When Gate B + D + E are green, the skeptic meets a networked tip, NIST PQ signatures, and a verifying bridge — still a pilot, but not a costume.
+When D + E deepen and C lands, the skeptic meets a networked tip, NIST PQ signatures, fault recovery, and a verifying bridge — still a pilot, but not a costume.

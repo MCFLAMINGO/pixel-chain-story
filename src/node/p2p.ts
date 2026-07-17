@@ -6,7 +6,16 @@
 import type { LedgerPixel, Transaction } from "../lib/pixel/index";
 
 export type PeerMessage =
-  | { type: "hello"; nodeId: string; address: string; tip: number; tipHash: string }
+  | {
+      type: "hello";
+      nodeId: string;
+      address: string;
+      tip: number;
+      tipHash: string;
+      /** How peers should dial us back (ws://host:port/gossip) */
+      gossipUrl?: string;
+      publicKey?: string;
+    }
   | { type: "ping"; t: number }
   | { type: "pong"; t: number }
   | { type: "tx"; tx: Transaction }
@@ -18,7 +27,12 @@ export type MessageHandler = (msg: PeerMessage, peerUrl: string) => void | Promi
 
 export interface GossipNet {
   broadcast(msg: PeerMessage): void;
+  /** Unicast — used for catch-up replies so we don’t flood. */
+  sendTo(peerUrl: string, msg: PeerMessage): void;
   addPeer(url: string): void;
   peerCount(): number;
+  peerUrls(): string[];
   stop(): void;
+  /** Advertised dial URL for this node, if known. */
+  localGossipUrl(): string | null;
 }

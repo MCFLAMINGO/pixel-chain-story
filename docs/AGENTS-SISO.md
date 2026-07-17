@@ -43,7 +43,7 @@ Earn respect with evidence, not vibes. Ordered gates: [`PATH.md`](./PATH.md).
 
 Highest leverage right now:
 
-1. Flake-free two-node `pixel join` (Gate B)  
+1. ~~Flake-free two-node `pixel join` (Gate B)~~ — `bun run test:net` + [`demos/two-node.md`](./demos/two-node.md)  
 2. Frozen ML-DSA vectors + default scheme (Gate D)  
 3. Real `ULAVerifier` (Gate E) — no stub  
 4. Headers-first sync / benches (Gate F)

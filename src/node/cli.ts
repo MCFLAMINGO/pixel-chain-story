@@ -38,22 +38,22 @@ async function main() {
   if (cmd === "help" || flag("help")) {
     console.log(`${PIXEL_LEDGER_NAME} CLI
   init [--datadir DIR]
-  node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip]
-  join --peer http://HOST:RPC [--datadir DIR]
+  node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
+  join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip]
   wallet create NAME [--datadir DIR]
   wallet from-node [NAME] [--datadir DIR]   # use sequencer identity as a named wallet (holds genesis PIX)
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
   balance ADDR|--wallet NAME [--datadir DIR]
   interactions
 
-Day-one local (you are the sequencer):
+Gate B — two nodes (local):
+  # terminal A
   bun run pixel -- init --datadir ./data/a
-  bun run pixel -- wallet from-node sequencer --datadir ./data/a
-  bun run pixel -- wallet create bob --datadir ./data/a
-  bun run pixel -- send --from sequencer --to <bob-addr> --amount 10 --datadir ./data/a
-  bun run pixel -- balance --wallet bob --datadir ./data/a
   bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
-  bun run dev   # UI: Worldlight / Kindling / Access
+  # terminal B
+  bun run pixel -- join --peer http://127.0.0.1:8545 --datadir ./data/b
+  bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://127.0.0.1:9001/gossip
+  # see docs/demos/two-node.md
 `);
     return;
   }
@@ -88,59 +88,78 @@ Day-one local (you are the sequencer):
   if (cmd === "join") {
     const peer = arg("peer");
     if (!peer) throw new Error("--peer http://host:port required");
+    const base = peer.replace(/\/$/, "");
     await ensureDatadir(datadir);
     const { keypair } = await loadOrCreateIdentity(datadir, "joiner");
-    const pixels = (await fetch(`${peer.replace(/\/$/, "")}/pixels`).then((r) =>
-      r.json(),
-    )) as Awaited<ReturnType<typeof import("../lib/pixel/index").serializeChain>>["pixels"];
-    const info = await fetch(`${peer.replace(/\/$/, "")}/rpc`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "pix_protocolInfo" }),
-    }).then((r) => r.json());
-    void info;
-    const health = await fetch(`${peer.replace(/\/$/, "")}/health`).then((r) => r.json());
-    const sequencers: SequencerId[] = [
-      { address: health.address, publicKey: "unknown" },
-      { address: keypair.address, publicKey: keypair.publicKey },
-    ];
-    // Prefer sequencers from peer chain snapshot if available via RPC verify
-    const verify = await fetch(`${peer.replace(/\/$/, "")}/rpc`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "pix_verifyChain" }),
-    }).then((r) => r.json());
-    void verify;
 
-    // Pull full serialized chain if peer exposes it — rebuild from pixels + peer address
-    const peerChain = await fetch(`${peer.replace(/\/$/, "")}/rpc`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "pix_getLedgerPixels",
-      }),
-    }).then((r) => r.json());
-    void peerChain;
+    // Prefer /sync (Gate B); fall back to /pixels + /health
+    let sync: {
+      pixels: import("../lib/pixel/index").LedgerPixel[];
+      sequencers?: SequencerId[];
+      networkId?: number;
+      gossipUrl?: string | null;
+      address?: string;
+      publicKey?: string;
+    };
+    const syncRes = await fetch(`${base}/sync`);
+    if (syncRes.ok) {
+      sync = (await syncRes.json()) as typeof sync;
+    } else {
+      const pixels = (await fetch(`${base}/pixels`).then((r) => r.json())) as typeof sync.pixels;
+      const health = (await fetch(`${base}/health`).then((r) => r.json())) as {
+        address: string;
+        publicKey?: string;
+        gossipUrl?: string;
+      };
+      sync = {
+        pixels,
+        gossipUrl: health.gossipUrl,
+        address: health.address,
+        publicKey: health.publicKey,
+      };
+    }
+    if (!sync.pixels?.length) throw new Error("peer returned no pixels — is the node running?");
 
-    // Use full pixels from /pixels and inherit sequencers from genesis pixel proofs
     const seqSet = new Map<string, SequencerId>();
-    for (const p of pixels) {
+    for (const s of sync.sequencers ?? []) {
+      seqSet.set(s.address, s);
+    }
+    for (const p of sync.pixels) {
       seqSet.set(p.lightProof.sequencerAddress, {
         address: p.lightProof.sequencerAddress,
         publicKey: p.lightProof.sequencerPublicKey,
       });
     }
+    if (sync.address && sync.publicKey) {
+      seqSet.set(sync.address, { address: sync.address, publicKey: sync.publicKey });
+    }
     seqSet.set(keypair.address, {
       address: keypair.address,
       publicKey: keypair.publicKey,
     });
-    const chain = stateFromPixels(pixels, [...seqSet.values()]);
+
+    const chain = stateFromPixels(sync.pixels, [...seqSet.values()], sync.networkId);
+    const { verifyChain } = await import("../lib/pixel/index");
+    if (!(await verifyChain(chain))) {
+      throw new Error("joined chain failed verifyChain — refuse to save");
+    }
     await saveChain(datadir, chain);
-    console.log(`Joined ${PIXEL_LEDGER_NAME} from ${peer}`);
+
+    const gossipSeed = arg("gossip-seed") ?? sync.gossipUrl ?? undefined;
+    if (gossipSeed?.startsWith("ws")) {
+      const { savePeers } = await import("./store");
+      await savePeers(datadir, [gossipSeed]);
+      console.log(`  gossip seed saved: ${gossipSeed}`);
+    }
+
+    console.log(`Joined ${PIXEL_LEDGER_NAME} from ${base}`);
     console.log(`  pixels: ${chain.pixels.length}`);
+    console.log(`  sequencers: ${chain.sequencers.length}`);
     console.log(`  local: ${keypair.address}`);
+    console.log(`  next: bun run pixel -- node --datadir ${datadir} --rpc 8546 --gossip 9002 \\`);
+    console.log(
+      `          --seed ${gossipSeed ?? "ws://<peer-host>:<gossip>/gossip"} --advertise <your-host>`,
+    );
     return;
   }
 
@@ -148,13 +167,19 @@ Day-one local (you are the sequencer):
     const rpcPort = Number(arg("rpc", "8545"));
     const gossipPort = Number(arg("gossip", "9001"));
     const seed = arg("seed");
+    const advertise = arg("advertise");
     await mkdir(datadir, { recursive: true });
+    const { loadPeers } = await import("./store");
+    const saved = await loadPeers(datadir);
+    const seeds = seed ? [seed, ...saved.filter((s) => s !== seed)] : saved;
     const node = new PixelLedgerNode({
       datadir,
       rpcPort,
       gossipPort,
-      seeds: seed ? [seed] : undefined,
+      seeds: seeds.length ? seeds : undefined,
+      advertiseHost: advertise,
       autoSequenceMs: 1500,
+      stallCheckMs: 15_000,
     });
     await node.start();
     startRpcServer(node, rpcPort);

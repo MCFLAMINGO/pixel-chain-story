@@ -1,6 +1,6 @@
 /**
  * Pixel Ledger node — persistent UTXO light ledger with PoLS sequencing.
- * Not a “blockchain node”: it paints and gossips illuminated pixels.
+ * Gate B: catch-up, reconnect seeds, stall detection.
  */
 
 import {
@@ -44,6 +44,10 @@ export interface NodeOptions {
   label?: string;
   /** Auto-sequence when this node is elected and mempool nonempty */
   autoSequenceMs?: number;
+  /** Public host/IP peers should dial for gossip (VPS DNS or IP) */
+  advertiseHost?: string;
+  /** Warn when tip/pending stalls (ms). 0 = off */
+  stallCheckMs?: number;
 }
 
 export class PixelLedgerNode {
@@ -52,7 +56,14 @@ export class PixelLedgerNode {
   keypair!: LightKeypair;
   gossip!: GossipNet;
   private timer?: ReturnType<typeof setInterval>;
+  private stallTimer?: ReturnType<typeof setInterval>;
+  private catchUpTimer?: ReturnType<typeof setInterval>;
   private persistQueued = false;
+  private lastTipIndex = 0;
+  private lastTipChangeAt = Date.now();
+  private stallLoggedAt = 0;
+  /** Serialize peer apply so dual-link races cannot double-accept. */
+  private peerApply: Promise<void> = Promise.resolve();
 
   constructor(private opts: NodeOptions) {
     this.datadir = opts.datadir;
@@ -69,6 +80,8 @@ export class PixelLedgerNode {
     } else {
       this.chain = await createGenesis(keypair);
     }
+    this.lastTipIndex = this.chain.pixels.length - 1;
+    this.lastTipChangeAt = Date.now();
     await this.persist();
 
     const seeds = this.opts.seeds ?? (await loadPeers(this.datadir));
@@ -76,6 +89,8 @@ export class PixelLedgerNode {
       port: this.opts.gossipPort,
       nodeId: keypair.address.slice(0, 16),
       address: keypair.address,
+      publicKey: keypair.publicKey,
+      advertiseHost: this.opts.advertiseHost,
       seeds,
       getTip: () => ({
         height: this.chain.pixels.length - 1,
@@ -85,18 +100,46 @@ export class PixelLedgerNode {
     });
 
     const ms = this.opts.autoSequenceMs ?? 2000;
-    this.timer = setInterval(() => {
-      void this.trySequence();
-    }, ms);
+    if (ms > 0) {
+      this.timer = setInterval(() => {
+        void this.trySequence();
+      }, ms);
+    }
+
+    // Periodic catch-up probe — ask peers if we might be behind.
+    this.catchUpTimer = setInterval(() => {
+      this.requestCatchUp(this.chain.pixels.length);
+    }, 5000);
+
+    const stallMs = this.opts.stallCheckMs ?? 15_000;
+    if (stallMs > 0) {
+      this.stallTimer = setInterval(() => this.checkStall(stallMs), Math.min(5000, stallMs));
+    }
 
     console.log(`[pixel-ledger] node ${keypair.address}`);
     console.log(`[pixel-ledger] pixels=${this.chain.pixels.length} datadir=${this.datadir}`);
-    console.log(`[pixel-ledger] gossip ws://127.0.0.1:${this.opts.gossipPort}/gossip`);
+    console.log(`[pixel-ledger] gossip ${this.gossip.localGossipUrl()}`);
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
+    if (this.stallTimer) clearInterval(this.stallTimer);
+    if (this.catchUpTimer) clearInterval(this.catchUpTimer);
     this.gossip?.stop();
+  }
+
+  /** Snapshot for /sync — joiners pull this. */
+  syncSnapshot() {
+    return {
+      networkId: this.chain.networkId,
+      pixels: this.chain.pixels,
+      sequencers: this.chain.sequencers,
+      tip: this.chain.pixels.length - 1,
+      tipHash: tipHash(this.chain),
+      address: this.keypair.address,
+      publicKey: this.keypair.publicKey,
+      gossipUrl: this.gossip?.localGossipUrl() ?? null,
+    };
   }
 
   async persist(): Promise<void> {
@@ -116,12 +159,41 @@ export class PixelLedgerNode {
     }, 50);
   }
 
+  private noteTipProgress() {
+    const tip = this.chain.pixels.length - 1;
+    if (tip !== this.lastTipIndex) {
+      this.lastTipIndex = tip;
+      this.lastTipChangeAt = Date.now();
+    }
+  }
+
+  private checkStall(stallMs: number) {
+    const pending = this.chain.pending.length;
+    const elected = pending > 0 ? nextSequencerAddress(this.chain) : null;
+    const silent = Date.now() - this.lastTipChangeAt;
+    if (pending > 0 && elected && elected !== this.keypair.address && silent > stallMs) {
+      if (Date.now() - this.stallLoggedAt > stallMs) {
+        this.stallLoggedAt = Date.now();
+        console.warn(
+          `[pixel-ledger] STALL: pending=${pending} elected=${elected.slice(0, 12)}… ` +
+            `tip silent ${Math.round(silent / 1000)}s — requesting catch-up (Gate C: skip/replace later)`,
+        );
+        this.requestCatchUp(this.chain.pixels.length);
+      }
+    }
+  }
+
+  private requestCatchUp(from: number) {
+    if (!this.gossip) return;
+    this.gossip.broadcast({ type: "get_pixels", from });
+  }
+
   async rpc(req: JsonRpcRequest) {
     return handlePixelRpc(
       {
         chain: this.chain,
         networkId: this.chain.networkId,
-        clientVersion: "PixelLedger/0.2.0",
+        clientVersion: "PixelLedger/0.2.0-gateB",
       },
       req,
     );
@@ -141,7 +213,6 @@ export class PixelLedgerNode {
   ): Promise<Transaction> {
     const { state, tx } = await proposeTransfer(this.chain, from, outputs, metadata);
     this.chain = state;
-    // OTS leaf advanced during sign — persist wallet cursor when named wallets are used.
     if (from.address === this.keypair.address) {
       this.keypair.nextLeaf = from.nextLeaf;
     }
@@ -159,6 +230,7 @@ export class PixelLedgerNode {
       this.chain = await sequenceBlock(this.chain, this.keypair);
       const pixel = this.chain.pixels[this.chain.pixels.length - 1];
       this.gossip.broadcast({ type: "pixel", pixel });
+      this.noteTipProgress();
       this.queuePersist();
       console.log(`[pixel-ledger] illuminated pixel #${pixel.index}`);
       return true;
@@ -168,58 +240,93 @@ export class PixelLedgerNode {
     }
   }
 
+  private async acceptPixels(pixels: typeof this.chain.pixels): Promise<number> {
+    let n = 0;
+    for (const pixel of pixels) {
+      if (pixel.index < this.chain.pixels.length) continue;
+      if (pixel.index > this.chain.pixels.length) {
+        // Gap — ask for fill from our tip
+        this.requestCatchUp(this.chain.pixels.length);
+        break;
+      }
+      try {
+        this.chain = await acceptBlock(this.chain, pixel);
+        // Learn sequencer identities from proofs
+        this.chain = registerSequencer(this.chain, {
+          address: pixel.lightProof.sequencerAddress,
+          publicKey: pixel.lightProof.sequencerPublicKey,
+        });
+        n++;
+        this.noteTipProgress();
+        console.log(`[pixel-ledger] accepted pixel #${pixel.index} from peer`);
+      } catch (err) {
+        console.error("[pixel-ledger] reject pixel", err);
+        break;
+      }
+    }
+    if (n) this.queuePersist();
+    return n;
+  }
+
   async onPeerMessage(msg: PeerMessage, peerUrl: string): Promise<void> {
-    switch (msg.type) {
-      case "hello": {
-        if (msg.tip > this.chain.pixels.length - 1) {
-          this.gossip.broadcast({
-            type: "get_pixels",
-            from: this.chain.pixels.length,
-          });
-        }
-        if (peerUrl.startsWith("ws")) {
-          const peers = await loadPeers(this.datadir);
-          if (!peers.includes(peerUrl)) {
-            await savePeers(this.datadir, [...peers, peerUrl]);
-          }
-        }
-        break;
-      }
-      case "tx":
-        await this.submitTx(msg.tx);
-        break;
-      case "pixel":
-        try {
-          if (msg.pixel.index === this.chain.pixels.length) {
-            this.chain = await acceptBlock(this.chain, msg.pixel);
+    const run = async () => {
+      switch (msg.type) {
+        case "hello": {
+          if (msg.publicKey) {
+            this.chain = registerSequencer(this.chain, {
+              address: msg.address,
+              publicKey: msg.publicKey,
+            });
             this.queuePersist();
-            console.log(`[pixel-ledger] accepted pixel #${msg.pixel.index} from peer`);
           }
-        } catch (err) {
-          console.error("[pixel-ledger] reject pixel", err);
-        }
-        break;
-      case "get_pixels": {
-        const slice = this.chain.pixels.slice(msg.from);
-        if (slice.length) this.gossip.broadcast({ type: "pixels", pixels: slice });
-        break;
-      }
-      case "pixels": {
-        for (const pixel of msg.pixels) {
-          if (pixel.index === this.chain.pixels.length) {
-            try {
-              this.chain = await acceptBlock(this.chain, pixel);
-            } catch {
-              break;
+          if (msg.tip > this.chain.pixels.length - 1) {
+            this.gossip.sendTo(peerUrl, {
+              type: "get_pixels",
+              from: this.chain.pixels.length,
+            });
+          } else if (msg.tip < this.chain.pixels.length - 1) {
+            const slice = this.chain.pixels.slice(msg.tip + 1);
+            if (slice.length) {
+              this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
             }
           }
+          const dial = msg.gossipUrl;
+          if (dial?.startsWith("ws")) {
+            const peers = await loadPeers(this.datadir);
+            if (!peers.includes(dial)) {
+              await savePeers(this.datadir, [...peers, dial]);
+            }
+            this.gossip.addPeer(dial);
+          } else if (peerUrl.startsWith("ws")) {
+            const peers = await loadPeers(this.datadir);
+            if (!peers.includes(peerUrl)) {
+              await savePeers(this.datadir, [...peers, peerUrl]);
+            }
+          }
+          break;
         }
-        this.queuePersist();
-        break;
+        case "tx":
+          await this.submitTx(msg.tx);
+          break;
+        case "pixel":
+          await this.acceptPixels([msg.pixel]);
+          break;
+        case "get_pixels": {
+          const slice = this.chain.pixels.slice(msg.from);
+          if (slice.length) {
+            this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
+          }
+          break;
+        }
+        case "pixels":
+          await this.acceptPixels(msg.pixels);
+          break;
+        default:
+          break;
       }
-      default:
-        break;
-    }
+    };
+    this.peerApply = this.peerApply.then(run, run);
+    await this.peerApply;
   }
 
   balance(address: string): number {

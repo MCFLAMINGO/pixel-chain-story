@@ -123,7 +123,7 @@ export async function handlePixelRpc(
           name: "Pixel Ledger",
           status: "Gate A lab prototype — path to L1/bridge/sovereignty in docs/PATH.md",
           /** Earned claim badges — only append when PATH gate evidence exists. */
-          gates: ["A"],
+          gates: ["A", "B"],
           unit: "pixel (not block)",
           consensus: "Proof of Light Sequence (PoLS) — sequential tip extension, not BFT",
           signatures: "PIX-HASH-OTS-128 + PIX-ML-DSA-65 (NIST FIPS-204); no classical ECC",
