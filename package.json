@@ -24,8 +24,9 @@
     "test:mldsa": "bun scripts/mldsa-selftest.ts",
     "test:optical": "bun scripts/optical-selftest.ts",
     "test:net": "bun scripts/net-selftest.ts",
+    "test:fault": "bun scripts/fault-selftest.ts",
     "test:lumen": "bun scripts/lumen-selftest.ts",
-    "test:all": "bun run test:crypto && bun run test:mldsa && bun run test:optical && bun run test:lumen && bun run test:pixel && bun run test:l1 && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap && bun run test:net",
+    "test:all": "bun run test:crypto && bun run test:mldsa && bun run test:optical && bun run test:lumen && bun run test:pixel && bun run test:l1 && bun run test:fault && bun run test:scale && bun run test:siso && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap && bun run test:net",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {

@@ -124,7 +124,7 @@ export async function handlePixelRpc(
           name: "Pixel Ledger",
           status: "Gate A lab prototype — path to L1/bridge/sovereignty in docs/PATH.md",
           /** Earned claim badges — only append when PATH gate evidence exists. */
-          gates: ["A", "B"],
+          gates: ["A", "B", "C"],
           creed: {
             guide: Creed.guide,
             discipline: Creed.discipline,

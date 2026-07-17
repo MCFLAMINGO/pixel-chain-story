@@ -29,10 +29,9 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate C — consensus that survives fault
 
-- [ ] SPEC fork-choice / tip rules under partition
-- [ ] Sequencer timeout + replacement (tested)
-- [ ] Bounded reorg / tip-replace policy
-
+- [x] SPEC fork-choice / tip rules under stall (`docs/SPEC.md` §4.1)
+- [x] Sequencer timeout + skip replacement — `bun run test:fault`
+- [x] Bounded reorg / tip-replace policy (depth 1)
 ## Gate D — quantum security (critical)
 
 - [x] `signPixel` / `verifyPixel` scheme surface
