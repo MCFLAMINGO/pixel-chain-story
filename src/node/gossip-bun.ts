@@ -4,7 +4,7 @@
  * - Reconnect with backoff to seed peers
  * - Unicast sendTo for catch-up (get_pixels → pixels)
  * - Receive/broadcast dedupe (dual-link safe)
- * Prototype limits: no peer auth, no DHT — fine for 2–N lab hosts, not production fabric.
+ * Gate F: optional signed hello via getHelloAuth. Still lab mesh — not DHT.
  */
 
 import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
@@ -23,6 +23,8 @@ export function createBunGossip(opts: {
   /** Host others should use to dial us (VPS public IP/DNS). Default 127.0.0.1 */
   advertiseHost?: string;
   getTip: () => { height: number; hash: string };
+  /** Gate F — signature over tip claim */
+  getHelloAuth?: () => { helloSig: string } | null;
   onMessage: MessageHandler;
   seeds?: string[];
 }): GossipNet & { server: ReturnType<typeof Bun.serve> } {
@@ -74,6 +76,7 @@ export function createBunGossip(opts: {
 
   function helloMsg(): PeerMessage {
     const tip = opts.getTip();
+    const auth = opts.getHelloAuth?.() ?? null;
     return {
       type: "hello",
       nodeId: opts.nodeId,
@@ -82,6 +85,7 @@ export function createBunGossip(opts: {
       tipHash: tip.hash,
       gossipUrl: localUrl,
       publicKey: opts.publicKey,
+      helloSig: auth?.helloSig,
     };
   }
 
@@ -155,11 +159,12 @@ export function createBunGossip(opts: {
     return true;
   }
 
-  /** hello / get_pixels are idempotent probes — always handle; content msgs dedupe. */
+  /** hello / get_pixels / get_headers are idempotent probes — always handle. */
   function shouldHandle(msg: PeerMessage): boolean {
     if (
       msg.type === "hello" ||
       msg.type === "get_pixels" ||
+      msg.type === "get_headers" ||
       msg.type === "ping" ||
       msg.type === "pong"
     ) {
@@ -177,6 +182,7 @@ export function createBunGossip(opts: {
       if (
         msg.type !== "hello" &&
         msg.type !== "get_pixels" &&
+        msg.type !== "get_headers" &&
         msg.type !== "ping" &&
         msg.type !== "pong"
       ) {

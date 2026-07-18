@@ -3,7 +3,7 @@
  * Messages share txs and illuminated pixels (not “blocks”).
  */
 
-import type { LedgerPixel, Transaction } from "../lib/pixel/index";
+import type { LedgerPixel, PixelHeader, Transaction } from "../lib/pixel/index";
 
 export type PeerMessage =
   | {
@@ -15,13 +15,17 @@ export type PeerMessage =
       /** How peers should dial us back (ws://host:port/gossip) */
       gossipUrl?: string;
       publicKey?: string;
+      /** Gate F — signature over helloCanonical(...) */
+      helloSig?: string;
     }
   | { type: "ping"; t: number }
   | { type: "pong"; t: number }
   | { type: "tx"; tx: Transaction }
   | { type: "pixel"; pixel: LedgerPixel }
   | { type: "get_pixels"; from: number }
-  | { type: "pixels"; pixels: LedgerPixel[] };
+  | { type: "pixels"; pixels: LedgerPixel[] }
+  | { type: "get_headers"; from: number }
+  | { type: "headers"; headers: PixelHeader[] };
 
 export type MessageHandler = (msg: PeerMessage, peerUrl: string) => void | Promise<void>;
 

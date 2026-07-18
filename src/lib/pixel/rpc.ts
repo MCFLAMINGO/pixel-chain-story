@@ -7,6 +7,7 @@
  */
 
 import { balanceOf, type PixelChainState, type LedgerPixel, verifyChain } from "./chain";
+import { buildHeadersSync, proveBalance } from "./light-client";
 import { estimatePoLSCost } from "./pol";
 import type { Transaction } from "./transaction";
 
@@ -96,6 +97,18 @@ export async function handlePixelRpc(
         const address = String(params[0] ?? "");
         return ok(id, balanceOf(ctx.chain, address));
       }
+      case "pix_getBalanceProof": {
+        const address = String(params[0] ?? "");
+        return ok(id, await proveBalance(ctx.chain, address));
+      }
+      case "pix_getHeaders": {
+        const from = Number(params[0] ?? 0);
+        const pkg = await buildHeadersSync(ctx.chain);
+        return ok(id, {
+          ...pkg,
+          headers: pkg.headers.slice(from),
+        });
+      }
       case "pix_getPending":
         return ok(
           id,
@@ -122,9 +135,9 @@ export async function handlePixelRpc(
         const { Creed } = await import("./one");
         return ok(id, {
           name: "Pixel Ledger",
-          status: "Gate A lab prototype — path to L1/bridge/sovereignty in docs/PATH.md",
+          status: "Lab prototype — path to L1/bridge/sovereignty in docs/PATH.md",
           /** Earned claim badges — only append when PATH gate evidence exists. */
-          gates: ["A", "B", "C"],
+          gates: ["A", "B", "C", "E", "F"],
           creed: {
             guide: Creed.guide,
             discipline: Creed.discipline,
