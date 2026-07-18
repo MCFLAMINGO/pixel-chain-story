@@ -26,7 +26,7 @@ This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. 
 
 ---
 
-## 1. Where we are (Gates A–C shipped; E lab verify)
+## 1. Where we are (Gates A–C, E, F lab)
 
 Runnable, tested, and framed as a **lab prototype with real crypto**:
 
@@ -34,12 +34,14 @@ Runnable, tested, and framed as a **lab prototype with real crypto**:
 - Merkle-window PIX-HASH-OTS-128 (one-time leaves; weak verifier fail-closed)
 - One API, SISO model, Access invite-only, Kindling _simulated_ channel
 - Worldlight + lock feeder (local USDC rail / wire attestor)
-- **ULAVerifier** keccak-OTS twin (`IS_STUB=false`) + CosmWasm twin + frozen fixture (Gate E lab)
-- Diversity _policy_ code; enforced when ≥7 providers registered
+- **ULAVerifier** keccak-OTS twin (`IS_STUB=false`) + CosmWasm twin + custody inversion (Gate E)
+- Headers-first sync, balance merkle proofs, signed hello scoring, `docs/BENCH.md` (Gate F lab)
+- OTS leaf single-use at consensus + electable-bound lottery + 4-node lab mesh
+- Diversity *policy* code; enforced when ≥7 providers registered
 - CI: crypto + protocol selftests + Foundry + lint + build
 
-**Allowed claim:** _“Executable post-quantum-class UTXO lab; multi-host tip extension; ULA verify on EVM/CosmWasm twins (lab).”_  
-**Forbidden claim:** _“Production L1 / production bridge / AWS-proof network / BFT mainnet.”_
+**Allowed claim:** *“Executable post-quantum-class UTXO lab; multi-host tip extension; ULA verify + phone-capable light path (lab).”*  
+**Forbidden claim:** *“Production L1 / production bridge / AWS-proof network / BFT mainnet.”*
 
 ---
 
@@ -115,13 +117,13 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 ### Gate F — Light clients & gossip that scale past 3 peers
 
 **Build**
+- [x] Headers-first sync (`/sync/headers`, `get_headers` / `headers`, `verifyHeaderChain`)
+- [x] Merkle proofs for balances (`proveBalance` / `verifyBalanceProof`, `pix_getBalanceProof`)
+- [x] Peer keys + basic scoring / eclipse guard (signed hello + `peer-score.ts`)
+- [x] Bench harness → [`docs/BENCH.md`](./BENCH.md) via `bun run test:bench`
 
-- Headers-first sync; merkle proofs for balances
-- Peer keys + basic scoring / eclipse resistance
-- Bench harness: published tx/s and verify latency for N txs/pixel
-
-**Evidence:** `docs/BENCH.md` regenerated in CI artifact  
-**Claim unlock:** _“Phone-capable light client path.”_
+**Evidence:** `bun run test:light` + `docs/BENCH.md` from `test:bench`  
+**Claim unlock:** *“Phone-capable light client path (lab).”* — stateRoot at tip today; per-pixel historical state commits still open.
 
 ### Gate G — Sovereignty as protocol law on a live set
 

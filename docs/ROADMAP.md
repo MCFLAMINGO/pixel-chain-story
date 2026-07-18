@@ -57,9 +57,10 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate F — light clients & gossip
 
-- [ ] Headers-first sync + balance merkle proofs
-- [ ] Peer identity + scoring (eclipse basics)
-- [ ] Published bench harness (`docs/BENCH.md`)
+- [x] Headers-first sync + balance merkle proofs (`test:light`)
+- [x] Peer identity + scoring (eclipse basics)
+- [x] Published bench harness (`docs/BENCH.md` via `test:bench`)
+- [ ] Per-pixel historical stateRoot commits (hardening)
 
 ## Gate G — sovereignty on a live set
 

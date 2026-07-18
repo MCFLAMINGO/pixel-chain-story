@@ -106,16 +106,16 @@ No parallel-VM rewrite required.
 
 WebSocket JSON messages:
 
-- `hello`, `tx`, `pixel`, `get_pixels`, `pixels`
+- `hello` (optional `helloSig`), `tx`, `pixel`, `get_pixels`, `pixels`, `get_headers`, `headers`
 
 HTTP:
 
-- `POST /rpc` JSON-RPC (`pix_*`)
-- `GET /health`, `GET /pixels`, `GET /balance/:addr`
+- `POST /rpc` JSON-RPC (`pix_*` including `pix_getHeaders`, `pix_getBalanceProof`)
+- `GET /health`, `GET /sync`, `GET /sync/headers`, `GET /pixels`, `GET /balance/:addr[/proof]`
 
 ## 8. What this version does / does not claim
 
-**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS, diversity _policy_ when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip.
+**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS (ledger single-use), diversity *policy* when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip, Gate E ULA twin + custody inversion, Gate F headers-first + balance proofs + signed hello scoring (lab), 4-node lab mesh.
 
 **Does not yet:**
 

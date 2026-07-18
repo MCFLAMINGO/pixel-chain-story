@@ -47,7 +47,7 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
           pending: node.chain.pending.length,
           peers: node.gossip.peerCount(),
           gossipUrl: snap.gossipUrl,
-          gate: "B",
+          gate: "F",
         });
       }
 
@@ -56,12 +56,22 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
         return json(node.syncSnapshot());
       }
 
+      /** Headers-first sync — light clients verify tip without full bodies. */
+      if (req.method === "GET" && url.pathname === "/sync/headers") {
+        return json(await node.headersSyncSnapshot());
+      }
+
       if (req.method === "GET" && url.pathname === "/pixels") {
         return json(node.chain.pixels);
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/balance/")) {
-        const address = decodeURIComponent(url.pathname.slice("/balance/".length));
+        const rest = url.pathname.slice("/balance/".length);
+        if (rest.endsWith("/proof") || url.searchParams.get("proof") === "1") {
+          const addr = decodeURIComponent(rest.replace(/\/proof$/, ""));
+          return json(await node.balanceProof(addr));
+        }
+        const address = decodeURIComponent(rest);
         return json({ address, balance: node.balance(address) });
       }
 
@@ -89,7 +99,7 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
       }
 
       return text(
-        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /pixels | GET /balance/:addr",
+        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /sync/headers | GET /pixels | GET /balance/:addr[/proof]",
         { status: 200 },
       );
     },

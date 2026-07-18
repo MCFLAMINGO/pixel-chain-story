@@ -55,7 +55,7 @@ If mempool has pending txs and the tip is silent past `stallCheckMs` / `POLS_STA
 
 ## What Gate B does *not* claim
 
-- No peer authentication / eclipse resistance (Gate F)
+- Peer hello signatures + basic scoring ship (Gate F lab); full eclipse resistance still thin
 - Stall detection **warns + catch-up**; sequencer skip/replace is Gate C
 - Not “BFT mainnet” — multi-host prototype tip extension only
 

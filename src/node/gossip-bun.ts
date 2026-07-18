@@ -4,7 +4,7 @@
  * - Reconnect with backoff to seed peers
  * - Unicast sendTo for catch-up (get_pixels → pixels)
  * - Receive/broadcast dedupe (dual-link safe)
- * Prototype limits: no peer auth, no DHT — fine for 2–N lab hosts, not production fabric.
+ * Gate F: optional signed hello via getHelloAuth. Still lab mesh — not DHT.
  */
 
 import type { SequencerId } from "../lib/pixel/index";
@@ -26,6 +26,8 @@ export function createBunGossip(opts: {
   getTip: () => { height: number; hash: string };
   /** Current sequencer registry for hello gossip (electable convergence). */
   getSequencers?: () => SequencerId[];
+  /** Gate F — signature over tip claim */
+  getHelloAuth?: () => { helloSig: string } | null;
   onMessage: MessageHandler;
   seeds?: string[];
 }): GossipNet & { server: ReturnType<typeof Bun.serve> } {
@@ -77,6 +79,7 @@ export function createBunGossip(opts: {
 
   function helloMsg(): PeerMessage {
     const tip = opts.getTip();
+    const auth = opts.getHelloAuth?.() ?? null;
     return {
       type: "hello",
       nodeId: opts.nodeId,
@@ -86,6 +89,7 @@ export function createBunGossip(opts: {
       gossipUrl: localUrl,
       publicKey: opts.publicKey,
       sequencers: opts.getSequencers?.() ?? [],
+      helloSig: auth?.helloSig,
     };
   }
 
@@ -159,11 +163,12 @@ export function createBunGossip(opts: {
     return true;
   }
 
-  /** hello / get_pixels are idempotent probes — always handle; content msgs dedupe. */
+  /** hello / get_pixels / get_headers are idempotent probes — always handle. */
   function shouldHandle(msg: PeerMessage): boolean {
     if (
       msg.type === "hello" ||
       msg.type === "get_pixels" ||
+      msg.type === "get_headers" ||
       msg.type === "ping" ||
       msg.type === "pong"
     ) {
@@ -191,6 +196,7 @@ export function createBunGossip(opts: {
       if (
         msg.type !== "hello" &&
         msg.type !== "get_pixels" &&
+        msg.type !== "get_headers" &&
         msg.type !== "ping" &&
         msg.type !== "pong"
       ) {
