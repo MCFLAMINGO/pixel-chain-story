@@ -86,6 +86,7 @@ Invariants:
 - Cap: 21_000_000 PIX
 - No burn
 - Bridge value uses **lock/escrow**, not destruction
+- **Bridge custody inversion:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX (`BRIDGE_CUSTODY_AXIOM`, `bun run test:bridge-custody`)
 - Dev/agent/SISO ops spend **Light Credits**, not the hard cap
 
 ## 6. SISO / Continuity

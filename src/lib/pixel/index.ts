@@ -23,6 +23,7 @@ export * from "./economics";
 export * from "./bootstrap";
 export * from "./sovereignty";
 export * from "./bridge";
+export * from "./bridge-custody";
 export * from "./ula-evm";
 export * from "./siso";
 export * from "./access";

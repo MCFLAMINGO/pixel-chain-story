@@ -96,10 +96,11 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Replace `ULAVerifier` stub with real verify of frozen ULA fixture (`PIX-HASH-OTS-128-KECCAK`)
 - [x] Foundry tests + CosmWasm twin (`contracts/cosmwasm/ula-verifier`)
 - [x] Relayer: anvil `PixelUsdcLock` `Locked` → `LockFeeder.feed` → shineIn (`bun run test:ula-relayer`)
+- [x] Custody inversion law: foreign = receipt, Pixel = vault (`BRIDGE_CUSTODY_AXIOM`, `test:bridge-custody`)
 - [ ] Public testnet tx links (Sepolia or equiv.) — still open
 
 **Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) (public tx links pending)  
-**Claim unlock (partial):** *“ULA verify real on EVM/CosmWasm twins (lab); local lock→shineIn.”* Full *“Testnet ULA bridge”* when public links land.
+**Claim unlock (partial):** *“ULA verify real on EVM/CosmWasm twins (lab); local lock→shineIn; foreign verify ≠ vault release.”* Full *“Testnet ULA bridge”* when public links land.
 
 ### Gate F — Light clients & gossip that scale past 3 peers
 **Build**
