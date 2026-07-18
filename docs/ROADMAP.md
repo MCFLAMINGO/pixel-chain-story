@@ -32,6 +32,7 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [x] SPEC fork-choice / tip rules under stall (`docs/SPEC.md` §4.1)
 - [x] Sequencer timeout + skip replacement — `bun run test:fault`
 - [x] Bounded reorg / tip-replace policy (depth 1)
+
 ## Gate D — quantum security (critical)
 
 - [x] `signPixel` / `verifyPixel` scheme surface
@@ -81,7 +82,8 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 - [ ] Named public network + genesis notes
 - [ ] Subnet checkpoints / multi-committee
-- [ ] SISO chaos drill (origin dark, mirrors serve)
+- [x] SISO chaos drill (lab) — McFlamingo origin kill + mirror serve + PIX settle (`bun run test:continuity`; [`docs/demos/mcflamingo-continuity.md`](./demos/mcflamingo-continuity.md))
+- [ ] Public multi-rung mirrors (Nebius/Hetzner/private) + DNS/gateway failover
 - [ ] No required CDN for ledger use
 
 ## Never (kills respect)

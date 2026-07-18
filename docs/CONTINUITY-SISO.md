@@ -15,13 +15,13 @@ each runtime, or stay locked in one silo.
 
 **Pixel rejects the trap.**
 
-| | Parallel-build platforms | **SISO** |
-|---|---|---|
-| Calculator | Rewrite for their VM | Keep your code; shine digest + mirrors |
-| Facebook / McFlamingo | Second codebase | One codebase; continuity if origin dies |
-| Agent / MCP | Re-tool for each host | `kind: agent_mcp` — schema digest + mirrors |
-| Languages | Constrained | Any — TS, Python, Rust, Go, Java, … |
-| Host | Their subnet or nothing | AWS today, peers tomorrow |
+|                       | Parallel-build platforms | **SISO**                                    |
+| --------------------- | ------------------------ | ------------------------------------------- |
+| Calculator            | Rewrite for their VM     | Keep your code; shine digest + mirrors      |
+| Facebook / McFlamingo | Second codebase          | One codebase; continuity if origin dies     |
+| Agent / MCP           | Re-tool for each host    | `kind: agent_mcp` — schema digest + mirrors |
+| Languages             | Constrained              | Any — TS, Python, Rust, Go, Java, …         |
+| Host                  | Their subnet or nothing  | AWS today, peers tomorrow                   |
 
 ---
 
@@ -39,6 +39,8 @@ Shine Out — Pixel light → foreign world (proofs, unlocks, wake mirrors)
 
 If AWS goes dark and you **believed in Pixel** (illuminated + mirrors), peers can still serve you. Continuity by light — not a second product.
 
+**Lab evidence:** kill a McFlamingo origin process → same menu from mirror → 3 PIX checkout on Pixel — `bun run test:continuity` ([demo notes](./demos/mcflamingo-continuity.md)).
+
 ---
 
 ## What you register
@@ -47,7 +49,7 @@ A language-agnostic `LightArtifact`:
 
 - `name`, `kind`, `digest` (sha512 of deployable)
 - `languages[]` — never an allowlist gate
-- `originHost` / `originUrl` — where it runs *today*
+- `originHost` / `originUrl` — where it runs _today_
 - `mirrors[]` — where peers fetch when origin is dark
 - `mcpSchemaDigest` — if `kind === agent_mcp`
 
@@ -82,10 +84,10 @@ Post this. Paste it. Make it the first message:
 
 Rules for agent help (so “without us” doesn’t mean “chaos”):
 
-1. **Green CI or it didn’t happen** — `test:all` + lint + build  
-2. **PATH gates only** — no invented marketing claims  
-3. **INVENT.md** — invent or extend; don’t rename wallets as Kindling  
-4. **Self-custody law** — agents never hold user seeds  
+1. **Green CI or it didn’t happen** — `test:all` + lint + build
+2. **PATH gates only** — no invented marketing claims
+3. **INVENT.md** — invent or extend; don’t rename wallets as Kindling
+4. **Self-custody law** — agents never hold user seeds
 5. **SISO first for apps** — shine in; don’t fork a second Facebook
 
 ---
