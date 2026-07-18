@@ -3,12 +3,7 @@
  * Messages share txs and illuminated pixels (not “blocks”).
  */
 
-import type {
-  LedgerPixel,
-  PixelHeader,
-  SequencerId,
-  Transaction,
-} from "../lib/pixel/index";
+import type { LedgerPixel, PixelHeader, SequencerId, Transaction } from "../lib/pixel/index";
 
 export type PeerMessage =
   | {
