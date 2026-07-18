@@ -56,6 +56,7 @@ async function main() {
   }
   if (!threw) throw new Error("expected OTS_EXHAUSTED after window");
   console.log(`▸ OTS window (${OTS_LEAF_COUNT}) enforced ✓`);
+  console.log("▸ (ledger reuse guard: bun run test:ots-reuse)");
 
   console.log("\n═══ PASS — crypto landmines closed ═══");
 }

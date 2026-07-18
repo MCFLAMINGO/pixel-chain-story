@@ -12,6 +12,7 @@ import {
   POLS_STALL_MS,
   preferPixel,
   proposeTransfer,
+  rebuildUsedOtsLeaves,
   registerSequencer,
   sequenceBlock,
   skipCountForAddress,
@@ -100,6 +101,7 @@ async function main() {
     pending: [tx],
     pendingSince: stallSince,
     utxos: utxosFromPixels(parentPixels),
+    usedOtsLeaves: rebuildUsedOtsLeaves(parentPixels),
   };
   const accepted = await acceptBlock(parentState, tip);
   if (balanceOf(accepted, carol.address) !== 5) throw new Error("peer accept balance");
