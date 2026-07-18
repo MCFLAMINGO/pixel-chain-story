@@ -25,6 +25,7 @@
     "test:election": "bun scripts/election-selftest.ts",
     "test:four-node": "bun scripts/four-node-selftest.ts",
     "test:mldsa": "bun scripts/mldsa-selftest.ts",
+    "test:vectors": "bun scripts/vectors-selftest.ts",
     "test:optical": "bun scripts/optical-selftest.ts",
     "test:net": "bun scripts/net-selftest.ts",
     "test:fault": "bun scripts/fault-selftest.ts",
@@ -37,7 +38,7 @@
     "test:continuity-ops": "bun scripts/continuity-ops-selftest.ts",
     "test:forge": "forge test",
     "test:cosmwasm-ula": "cargo test --manifest-path contracts/cosmwasm/ula-verifier/Cargo.toml",
-    "test:all": "bun run test:crypto && bun run test:ots-reuse && bun run test:election && bun run test:mldsa && bun run test:optical && bun run test:lumen && bun run test:pixel && bun run test:l1 && bun run test:fault && bun run test:scale && bun run test:siso && bun run test:continuity-ops && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap && bun run test:net && bun run test:four-node && bun run test:ula && bun run test:bridge-custody && bun run test:light && bun run test:bench",
+    "test:all": "bun run test:crypto && bun run test:ots-reuse && bun run test:election && bun run test:mldsa && bun run test:vectors && bun run test:optical && bun run test:lumen && bun run test:pixel && bun run test:l1 && bun run test:fault && bun run test:scale && bun run test:siso && bun run test:continuity-ops && bun run test:one && bun run test:access && bun run test:kindling && bun run test:worldlight && bun run test:lock && bun run test:bootstrap && bun run test:net && bun run test:four-node && bun run test:ula && bun run test:bridge-custody && bun run test:light && bun run test:bench",
     "pixel": "bun src/node/cli.ts"
   },
   "dependencies": {

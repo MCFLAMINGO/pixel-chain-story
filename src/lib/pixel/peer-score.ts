@@ -6,7 +6,8 @@
  * another peer agrees with the local chain.
  */
 
-import { signLightFull, verifyLightFull, type Hex, type LightKeypair } from "./crypto";
+import { type Hex, type LightKeypair } from "./crypto";
+import { signPixel, verifyPixel } from "./scheme";
 
 export interface PeerRecord {
   peerUrl: string;
@@ -43,7 +44,8 @@ export async function signHello(
   tipHash: Hex,
   gossipUrl?: string,
 ): Promise<string> {
-  return signLightFull(
+  // Gate D: hello must follow keypair scheme (ML-DSA default; OTS still ok).
+  return signPixel(
     helloCanonical({
       address: keypair.address,
       tip,
@@ -63,7 +65,7 @@ export async function verifyHelloAuth(params: {
   signature: string;
 }): Promise<boolean> {
   const msg = helloCanonical(params);
-  return verifyLightFull(msg, params.signature, params.publicKey);
+  return verifyPixel(msg, params.signature, params.publicKey);
 }
 
 export function notePeerHello(

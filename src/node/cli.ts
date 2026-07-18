@@ -13,7 +13,7 @@
 import { mkdir } from "node:fs/promises";
 import {
   PIXEL_LEDGER_NAME,
-  generateLightKeypair,
+  generatePixelKeypair,
   stateFromPixels,
   type SequencerId,
 } from "../lib/pixel/index";
@@ -197,7 +197,7 @@ Gate B — two nodes (local):
       console.log(`Wallet ${name} exists: ${existing.address}`);
       return;
     }
-    const kp = await generateLightKeypair();
+    const kp = await generatePixelKeypair();
     await saveWallet(datadir, name, kp);
     console.log(`Created wallet ${name}`);
     console.log(`  address: ${kp.address}`);

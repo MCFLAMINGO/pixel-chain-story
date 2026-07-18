@@ -485,8 +485,8 @@ export class PixelLedgerNode {
   async ensureWallet(name: string): Promise<LightKeypair> {
     const existing = await loadWallet(this.datadir, name);
     if (existing) return existing;
-    const { generateLightKeypair } = await import("../lib/pixel/index");
-    const kp = await generateLightKeypair();
+    const { generatePixelKeypair } = await import("../lib/pixel/index");
+    const kp = await generatePixelKeypair();
     await saveWallet(this.datadir, name, kp);
     return kp;
   }

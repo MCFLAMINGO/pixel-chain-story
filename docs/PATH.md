@@ -94,12 +94,12 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] `signPixel` / `verifyPixel` scheme surface
 - [x] **PIX-ML-DSA-65** (NIST FIPS-204 via `@noble/post-quantum`) on tx + PoLS
 - [x] PIX-HASH-OTS-128 retained (one-time leaves)
-- [ ] Freeze public test vectors file in CI
-- [ ] Wallet/node persist `scheme` + ML-DSA secret / OTS `nextLeaf`
-- [ ] Optional: default `PIXEL_SIG_SCHEME=PIX-ML-DSA-65` for new genesis
+- [x] Freeze public test vectors file in CI (`src/lib/pixel/vectors/quantum-v1.json` + `test:vectors`)
+- [x] Wallet/node persist `scheme` + ML-DSA secret / OTS `nextLeaf`
+- [x] Default `PIXEL_SIG_SCHEME` / `DEFAULT_SCHEME=PIX-ML-DSA-65` for new genesis
 
-**Evidence:** `bun run test:mldsa` green; [`QUANTUM.md`](./QUANTUM.md)  
-**Claim unlock:** _“Crypto-agile PQ signatures (hash-OTS + NIST ML-DSA-65).”_ — partial unlock now for in-process ML-DSA.
+**Evidence:** `bun run test:mldsa` + `bun run test:vectors` green; [`QUANTUM.md`](./QUANTUM.md)  
+**Claim unlock:** *“Crypto-agile PQ signatures — ML-DSA-65 default birth, hash-OTS retained.”*
 
 ### Gate E — Bridge that verifies
 
@@ -200,9 +200,9 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 
 ## 6. Immediate next actions (this repo)
 
-1. **Gate D (quantum, critical):** freeze ML-DSA vectors; default genesis to ML-DSA when ready
-2. Gate E: Foundry ULA verifying **PQ** sigs (OTS or ML-DSA), not stub length checks
-3. Lumen depth + SISO chaos drill
+1. Gate E deepen: Foundry ULA verifying **ML-DSA** (keccak-OTS twin already ships)
+2. Continuity agentic deploy jobs + public mirror pilots
+3. Lumen depth + SISO chaos drill on real hosts
 4. Keep `pix_protocolInfo` gates honest as evidence lands
 
-When D + E deepen, the skeptic meets a networked tip with stall-skip, NIST PQ signatures, and a verifying bridge — still a pilot, but not a costume.
+Gate D (ML-DSA default + frozen vectors) is in. The skeptic meets NIST PQ birth, networked tip, and a verifying bridge twin — still a pilot, but not a costume.
