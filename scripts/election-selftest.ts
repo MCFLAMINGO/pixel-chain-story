@@ -89,7 +89,7 @@ async function main() {
   if (!(await verifyChain(chain))) throw new Error("registry growth rewrote tip lottery");
   console.log("▸ electable binding survives registry growth ✓");
 
-  let peer = await acceptBlock(peerBase, tip);
+  const peer = await acceptBlock(peerBase, tip);
   if (!(await verifyChain(peer))) throw new Error("peer accept verify failed");
   console.log("▸ peer accept with bound electable ✓");
 
