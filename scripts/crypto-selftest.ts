@@ -7,6 +7,7 @@ import {
   OTS_LEAF_COUNT,
   addressFromPublicKey,
   generateLightKeypair,
+  isPixelAddress,
   signLightFull,
   verifyLight,
   verifyLightFull,
@@ -41,7 +42,11 @@ async function main() {
   // 3) Address ↔ master public key
   const addr = await addressFromPublicKey(alice.publicKey);
   if (addr !== alice.address) throw new Error("address mismatch");
+  if (!isPixelAddress(addr)) throw new Error("isPixelAddress rejected valid addr");
+  if (isPixelAddress("PASTE_BOB_ADDRESS_HERE")) throw new Error("placeholder must fail");
+  if (isPixelAddress("pix1…bob")) throw new Error("ellipsis placeholder must fail");
   console.log("▸ address binds master public key ✓");
+  console.log("▸ isPixelAddress rejects placeholders ✓");
 
   // 4) One-time leaves — exhaust window refuses reuse beyond count
   const bob = await generateLightKeypair();

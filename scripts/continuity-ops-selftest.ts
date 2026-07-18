@@ -51,9 +51,12 @@ async function main() {
   if (state.stores[0].step !== "rungs_assigned") throw new Error("rungs");
   console.log("▸ step4 rungs assigned ✓");
 
-  state = goLive(state, store.id);
-  if (state.stores[0].step !== "live" || stepIndex("live") !== 4) throw new Error("live");
-  console.log("▸ step5 live ✓");
+  state = await goLive(state, store.id, { pixelIndex: 3 });
+  const live = state.stores[0];
+  if (live.step !== "live" || stepIndex("live") !== 4) throw new Error("live");
+  if (live.continuity?.state !== "in_the_light") throw new Error("siso not in light");
+  if (!live.deployPlan?.length) throw new Error("missing deploy plan");
+  console.log("▸ step5 live + SISO + deploy checklist ✓", live.deployPlan.length, "items");
 
   console.log("\n═══ PASS — continuity ops pipeline ═══");
 }

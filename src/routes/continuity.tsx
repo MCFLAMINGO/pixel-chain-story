@@ -10,6 +10,7 @@ import {
   probeRung,
   stepIndex,
   stepLabel,
+  toggleDeployItem,
   updateRung,
   type ContinuityStore,
 } from "@/lib/pixel/continuity-ops";
@@ -256,11 +257,20 @@ function ContinuityAdmin() {
                       }
                     }}
                     onLive={() => {
+                      void (async () => {
+                        try {
+                          setState(await goLive(state, selected.id));
+                          setMsg("Store live — SISO in the light. Run the deploy checklist.");
+                        } catch (err) {
+                          setMsg(err instanceof Error ? err.message : "Go live failed");
+                        }
+                      })();
+                    }}
+                    onToggleDeploy={(itemId) => {
                       try {
-                        setState(goLive(state, selected.id));
-                        setMsg("Store live on your ladder.");
+                        setState(toggleDeployItem(state, selected.id, itemId));
                       } catch (err) {
-                        setMsg(err instanceof Error ? err.message : "Go live failed");
+                        setMsg(err instanceof Error ? err.message : "Toggle failed");
                       }
                     }}
                   />
@@ -305,6 +315,7 @@ function StorePanel({
   onInviteSent,
   onAssign,
   onLive,
+  onToggleDeploy,
 }: {
   store: ContinuityStore;
   inviteUrl: string;
@@ -313,6 +324,7 @@ function StorePanel({
   onInviteSent: () => void;
   onAssign: (ids: string[]) => void;
   onLive: () => void;
+  onToggleDeploy: (itemId: string) => void;
 }) {
   const [picked, setPicked] = useState<string[]>(
     store.rungIds.length ? store.rungIds : rungIds.slice(0, 2),
@@ -393,7 +405,8 @@ function StorePanel({
           Step 5 · Go live
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Requires merchant digest (step 3) + rungs. Then fail traffic over on your DNS/LB.
+          Shines digest into SISO and opens the deploy checklist (rsync / DNS). Agentic runners come
+          next — for now you (or sales ops) tick the boxes.
         </p>
         <button
           type="button"
@@ -404,6 +417,58 @@ function StorePanel({
           {store.step === "live" ? "Already live" : "Mark live on ladder"}
         </button>
       </div>
+
+      {store.continuity && (
+        <div>
+          <h3 className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">SISO map</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            state <span className="text-foreground">{store.continuity.state}</span>
+            {store.continuity.commitment && (
+              <> · commitment {store.continuity.commitment.slice(0, 20)}…</>
+            )}
+          </p>
+          <ul className="mt-2 text-xs text-muted-foreground">
+            {(store.continuity.artifact.mirrors ?? []).map((m) => (
+              <li key={m} className="truncate">
+                mirror {m}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {store.deployPlan && store.deployPlan.length > 0 && (
+        <div>
+          <h3 className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">
+            Deploy checklist (agentic later)
+          </h3>
+          <ul className="mt-3 space-y-3">
+            {store.deployPlan.map((item) => (
+              <li key={item.id} className="border-t border-foreground/10 pt-2">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={item.done}
+                    onChange={() => onToggleDeploy(item.id)}
+                  />
+                  <span>
+                    <span className="font-medium">{item.title}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {item.detail}
+                    </span>
+                    {item.commandHint && (
+                      <code className="mt-1 block break-all font-mono text-[11px] text-muted-foreground">
+                        {item.commandHint}
+                      </code>
+                    )}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

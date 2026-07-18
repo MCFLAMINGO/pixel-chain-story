@@ -66,6 +66,19 @@ export async function addressFromPublicKey(publicKey: Hex): Promise<string> {
   return `pix1${digest.slice(0, 38)}`;
 }
 
+/** Bech32-ish lab address: pix1 + 38 lowercase hex chars (40 total after prefix). */
+export function isPixelAddress(address: string): boolean {
+  return /^pix1[a-f0-9]{38}$/.test(address);
+}
+
+export function assertPixelAddress(address: string, label = "address"): void {
+  if (!isPixelAddress(address)) {
+    throw new Error(
+      `Invalid ${label}: expected pix1 + 38 hex chars (got ${JSON.stringify(address.slice(0, 48))})`,
+    );
+  }
+}
+
 /**
  * Compact hash-based one-time signature (Lamport-style on 128-bit digest)
  * under a Merkle window so an address can authorize multiple spends without

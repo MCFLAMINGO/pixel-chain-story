@@ -20,11 +20,15 @@ Open:
 2. **Copy secure link** — send to the merchant
 3. **Merchant joins** — they open `/continuity/join/<token>`, upload/paste snapshot → digest
 4. **Assign rungs** — pick which of your 5 mirror base URLs serve them
-5. **Go live** — mark on ladder; you still point DNS/LB / rsync on real VPSs
+5. **Go live** — shines digest into SISO (`in_the_light`) and opens a **deploy checklist** (rsync/DNS hints). Tick boxes as you (or a future agent) finish each job.
 
 ## Merchant experience
 
 Secure link only. Confirm origin + digest. No admin chrome.
+
+## CLI hardening
+
+`pixel send --to` now requires a real `pix1` + 38 hex address (rejects placeholders like `PASTE_BOB_ADDRESS_HERE`).
 
 ## Money shape
 

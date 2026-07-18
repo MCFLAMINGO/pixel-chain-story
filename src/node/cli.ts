@@ -228,6 +228,8 @@ Gate B — two nodes (local):
     if (!fromName || !to || !Number.isFinite(amount)) {
       throw new Error("--from --to --amount required");
     }
+    const { assertPixelAddress } = await import("../lib/pixel/crypto");
+    assertPixelAddress(to, "--to");
     const from = await loadWallet(datadir, fromName);
     if (!from) throw new Error(`wallet ${fromName} not found`);
     const node = new PixelLedgerNode({
@@ -245,9 +247,13 @@ Gate B — two nodes (local):
     node.chain = chain;
     node.gossip = {
       broadcast() {},
+      sendTo() {},
+      announce() {},
       addPeer() {},
       peerCount: () => 0,
+      peerUrls: () => [],
       stop() {},
+      localGossipUrl: () => null,
     };
     const tx = await node.send(from, [{ amount, address: to }], {
       description: memo,

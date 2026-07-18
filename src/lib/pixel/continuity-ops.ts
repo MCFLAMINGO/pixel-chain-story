@@ -7,6 +7,7 @@
  */
 
 import { sha512Hex, type Hex } from "./crypto";
+import { acceptIntoLight, comeTowardLight, type ContinuityRecord } from "./siso";
 
 export type ContinuityStep =
   | "draft"
@@ -27,6 +28,15 @@ export interface MirrorRung {
   lastCheckedAt?: number;
 }
 
+export interface DeployChecklistItem {
+  id: string;
+  title: string;
+  detail: string;
+  /** shell-ish hint for operators / future agents */
+  commandHint?: string;
+  done: boolean;
+}
+
 export interface ContinuityStore {
   id: string;
   /** Business display name */
@@ -44,6 +54,10 @@ export interface ContinuityStore {
   digest?: Hex;
   /** Rung ids assigned to this store */
   rungIds: string[];
+  /** SISO continuity record after go-live (map in the light) */
+  continuity?: ContinuityRecord;
+  /** Operator deploy checklist (rsync / DNS) — agentic jobs later */
+  deployPlan?: DeployChecklistItem[];
   /** When merchant accepted the invite */
   joinedAt?: number;
   createdAt: number;
@@ -180,13 +194,94 @@ export function assignRungs(
   return patchStore(state, storeId, { rungIds: [...rungIds], step: "rungs_assigned" });
 }
 
-/** Step 5 — go live after rungs assigned + digest present. */
-export function goLive(state: ContinuityOpsState, storeId: string): ContinuityOpsState {
+/** Build rsync/DNS checklist for a store + selected rungs. */
+export function buildDeployPlan(
+  store: ContinuityStore,
+  rungs: MirrorRung[],
+): DeployChecklistItem[] {
+  const selected = rungs.filter((r) => store.rungIds.includes(r.id));
+  const slug = store.domain.replace(/[^a-z0-9.-]+/gi, "-");
+  const items: DeployChecklistItem[] = [
+    {
+      id: "snapshot",
+      title: "Hold merchant snapshot locally",
+      detail: `Keep the file whose sha512 is ${store.digest?.slice(0, 16) ?? "…"}…`,
+      done: Boolean(store.digest),
+    },
+  ];
+  for (const r of selected) {
+    items.push({
+      id: `rsync-${r.id}`,
+      title: `Rsync to ${r.label}`,
+      detail: `Publish site under ${r.baseUrl} (vhost for ${store.domain}).`,
+      commandHint: `rsync -avz ./snapshot/ ${r.provider.toLowerCase()}:/var/www/${slug}/`,
+      done: false,
+    });
+  }
+  items.push({
+    id: "dns",
+    title: "Point failover DNS / LB",
+    detail: "Origin first; your rungs as pool members (Cloudflare LB or similar).",
+    commandHint: `# health-check origin → failover to rung1…rungN`,
+    done: false,
+  });
+  items.push({
+    id: "verify-digest",
+    title: "Verify live mirror digest",
+    detail: "Fetched bytes must match the shone-in digest.",
+    commandHint: `curl -sL <mirror-url> | shasum -a 512`,
+    done: false,
+  });
+  return items;
+}
+
+/**
+ * Step 5 — go live: SISO record into the light + deploy checklist.
+ * Does not rsync by itself (operator/agent runs the plan).
+ */
+export async function goLive(
+  state: ContinuityOpsState,
+  storeId: string,
+  opts?: { pixelIndex?: number },
+): Promise<ContinuityOpsState> {
   const store = state.stores.find((s) => s.id === storeId);
   if (!store) throw new Error("Store not found");
   if (!store.digest) throw new Error("Need artifact digest before live");
   if (store.rungIds.length < 1) throw new Error("Assign rungs before live");
-  return patchStore(state, storeId, { step: "live" });
+
+  const mirrors = state.rungs.filter((r) => store.rungIds.includes(r.id)).map((r) => r.baseUrl);
+
+  let continuity = await comeTowardLight({
+    name: store.domain,
+    kind: "static_site",
+    digest: store.digest,
+    languages: ["html"],
+    originHost: "unknown",
+    originUrl: store.originUrl,
+    mirrors,
+  });
+  continuity = acceptIntoLight(continuity, opts?.pixelIndex ?? 0);
+  const deployPlan = buildDeployPlan(store, state.rungs);
+
+  return patchStore(state, storeId, {
+    step: "live",
+    continuity,
+    deployPlan,
+  });
+}
+
+export function toggleDeployItem(
+  state: ContinuityOpsState,
+  storeId: string,
+  itemId: string,
+  done?: boolean,
+): ContinuityOpsState {
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store?.deployPlan) throw new Error("No deploy plan — go live first");
+  const deployPlan = store.deployPlan.map((item) =>
+    item.id === itemId ? { ...item, done: done ?? !item.done } : item,
+  );
+  return patchStore(state, storeId, { deployPlan });
 }
 
 export function updateRung(
