@@ -26,18 +26,19 @@ This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. 
 
 ---
 
-## 1. Where we are (Gates A–C — shipped)
+## 1. Where we are (Gates A–C shipped; E lab verify)
 
 Runnable, tested, and framed as a **lab prototype with real crypto**:
 
-- UTXO ledger + PoLS sequential tip + multi-process accept
+- UTXO ledger + PoLS sequential tip + multi-process accept + stall skip (Gate C)
 - Merkle-window PIX-HASH-OTS-128 (one-time leaves; weak verifier fail-closed)
 - One API, SISO model, Access invite-only, Kindling *simulated* channel
 - Worldlight + lock feeder (local USDC rail / wire attestor)
+- **ULAVerifier** keccak-OTS twin (`IS_STUB=false`) + CosmWasm twin + frozen fixture (Gate E lab)
 - Diversity *policy* code; enforced when ≥7 providers registered
-- CI: crypto + protocol selftests + lint + build
+- CI: crypto + protocol selftests + Foundry + lint + build
 
-**Allowed claim:** *“Executable post-quantum-class UTXO lab; multi-host tip extension (prototype).”*  
+**Allowed claim:** *“Executable post-quantum-class UTXO lab; multi-host tip extension; ULA verify on EVM/CosmWasm twins (lab).”*  
 **Forbidden claim:** *“Production L1 / production bridge / AWS-proof network / BFT mainnet.”*
 
 ---
@@ -92,12 +93,13 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 
 ### Gate E — Bridge that verifies
 **Build**
-- Replace `ULAVerifier` stub with real verify of frozen ULA fixture (hash-OTS or ML-DSA)
-- Foundry (or Hardhat) tests; one second chain (CosmWasm *or* Move) twin
-- Relayer: watch `PixelUsdcLock` testnet `Locked` → `LockFeeder.feed` → shineIn
+- [x] Replace `ULAVerifier` stub with real verify of frozen ULA fixture (`PIX-HASH-OTS-128-KECCAK`)
+- [x] Foundry tests + CosmWasm twin (`contracts/cosmwasm/ula-verifier`)
+- [x] Relayer: anvil `PixelUsdcLock` `Locked` → `LockFeeder.feed` → shineIn (`bun run test:ula-relayer`)
+- [ ] Public testnet tx links (Sepolia or equiv.) — still open
 
-**Evidence:** green Foundry suite + one public testnet tx links in `docs/BRIDGE-STATUS.md`  
-**Claim unlock:** *“Testnet Universal Light Attestation bridge.”*
+**Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) (public tx links pending)  
+**Claim unlock (partial):** *“ULA verify real on EVM/CosmWasm twins (lab); local lock→shineIn.”* Full *“Testnet ULA bridge”* when public links land.
 
 ### Gate F — Light clients & gossip that scale past 3 peers
 **Build**

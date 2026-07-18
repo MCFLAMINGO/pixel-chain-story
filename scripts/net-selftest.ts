@@ -10,7 +10,8 @@ import { deserializeChain, proposeTransfer, type SerializedChain } from "../src/
 import { loadWallet, saveWallet } from "../src/node/store";
 
 const ROOT = join(import.meta.dir, "..");
-const BASE = "/tmp/pixel-gate-b-net";
+// PID-scoped so parallel CI jobs (push + PR) cannot share one /tmp tree.
+const BASE = `/tmp/pixel-gate-b-net-${process.pid}`;
 const A = join(BASE, "a");
 const B = join(BASE, "b");
 

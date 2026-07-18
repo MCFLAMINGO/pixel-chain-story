@@ -136,7 +136,7 @@ export function bridgeThesis(): {
 } {
   return {
     status:
-      "PROTOTYPE — off-chain ULA packages verify in TS; contracts/ULAVerifier.sol is an explicit stub (no real sig check).",
+      "LAB — ULAVerifier.sol verifies PIX-HASH-OTS-128-KECCAK (IS_STUB=false); CosmWasm twin + frozen fixture; public testnet links still pending (see docs/BRIDGE-STATUS.md).",
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
     shineOut:

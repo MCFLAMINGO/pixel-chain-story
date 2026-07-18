@@ -40,7 +40,8 @@ export async function ensureDatadir(datadir: string): Promise<void> {
 }
 
 async function writeJsonAtomic(path: string, data: unknown): Promise<void> {
-  const tmp = `${path}.tmp`;
+  // Unique tmp — concurrent persist must not share `${path}.tmp` (rename ENOENT race).
+  const tmp = `${path}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
   await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
   await rename(tmp, path);
 }

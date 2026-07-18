@@ -15,7 +15,7 @@
 | Fake sequencer | Forge pixels | PoLS election + sig verify | Need ≥7 diverse providers live |
 | Cloud capture | Kill RPC/CDN | Diversity policy in code | Need real geo/provider set |
 | Quantum attacker | Break classical sigs | No ECC; hash-OTS + **NIST ML-DSA-65** shipped | Default wallets to ML-DSA; audit; ULA on-chain PQ verify |
-| Lying bridge relayer | Fake foreign mint | Off-chain ULA verify in TS | `ULAVerifier.sol` is a stub — do not deploy for value |
+| Lying bridge relayer | Fake foreign mint | Keccak-OTS twin on-chain + CosmWasm twin + frozen fixture | Do not deploy for mainnet value; public testnet links pending (`BRIDGE-STATUS.md`) |
 | Eclipse / peer lie | Isolate node | Multi-peer design intent | Need peer scoring + headers-first sync |
 | Remote Kindling phish | Forge presence seal | Distinct `partyId` + commitment match | Simulated optical channel ≠ physical presence |
 | Forgeable verifyLight | Any-msg accept | Removed (fail-closed); use verifyLightFull | Keep weak API out of public surface forever |

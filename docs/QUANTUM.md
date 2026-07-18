@@ -29,7 +29,7 @@ Env default override: `PIXEL_SIG_SCHEME=PIX-ML-DSA-65`.
 | Allowed | Forbidden until evidence |
 | --- | --- |
 | “PQ-class signatures (hash-OTS + NIST ML-DSA-65)” | “Quantum-proof forever / audited production crypto” |
-| “No ECDSA dependency for Pixel tx/PoLS” | “On-chain ULA verifies Dilithium” (Solidity stub still) |
+| “No ECDSA dependency for Pixel tx/PoLS” | “On-chain ULA verifies Dilithium” (EVM twin is keccak-OTS today; ML-DSA on-chain later) |
 | “OTS leaves cannot be reused” | “Optical path is PQ-complete custody UX” |
 
 `quantumStatus()` and `pix_protocolInfo.quantum` expose this to clients.
@@ -44,7 +44,7 @@ Env default override: `PIXEL_SIG_SCHEME=PIX-ML-DSA-65`.
 ## Path gates
 
 - **Gate D (priority):** ML-DSA shipped in-process ✓ — remaining: default wallets to ML-DSA when ready, CI vectors freeze, wallet persist `scheme`  
-- **Gate E:** foreign verifier must verify PQ sigs (not stub)  
+- **Gate E:** foreign verifier verifies real sigs (keccak-OTS twin shipped; ML-DSA on-chain optional later)  
 - **Gate I:** external audit of OTS + noble ML-DSA integration  
 
 See [`PATH.md`](./PATH.md). Quantum is **critical priority** — network flake-fixes (Gate B) run in parallel, not ahead of PQ hardening.
