@@ -16,6 +16,15 @@ dist-ssr
 .nitro
 *.local
 
+# Foundry
+contracts/out
+contracts/cache
+cache
+broadcast
+
+# CosmWasm / Rust twin
+contracts/cosmwasm/ula-verifier/target
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

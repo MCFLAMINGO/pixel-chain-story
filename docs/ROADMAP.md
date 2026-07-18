@@ -44,10 +44,11 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate E — bridge that verifies
 
-- [ ] Real `ULAVerifier` (no stub accept for value)
-- [ ] Foundry tests + frozen ULA fixture
-- [ ] Second-chain twin (CosmWasm or Move)
-- [ ] Testnet relayer: `Locked` → feed → shineIn
+- [x] Real `ULAVerifier` (no stub accept for value) — keccak-OTS twin
+- [x] Foundry tests + frozen ULA fixture (`fixtures/ula-evm-v1.json`)
+- [x] Second-chain twin (CosmWasm)
+- [x] Local relayer: anvil `Locked` → feed → shineIn
+- [ ] Public testnet tx links in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md)
 
 ## Gate F — light clients & gossip
 
@@ -85,7 +86,7 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 ## Never (kills respect)
 
 - Claiming “AWS-proof” without Gate G evidence
-- Claiming “production bridge” while `ULAVerifier` is a stub
+- Claiming “production bridge” or “testnet live” without public links in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md)
 - Burn theater, empty whitepapers, forced rewrites
 - Hiding failing tests behind metaphors
 - Asking for respect in marketing before the gate is green

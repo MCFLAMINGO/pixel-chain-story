@@ -114,7 +114,7 @@ HTTP:
 - ML-DSA defaulted for all new wallets / on-chain ULA verify of Dilithium (in-process ML-DSA **does** ship)
 - Two-phone field hardening / device attestation beyond raster+getUserMedia path
 - Kindling anti-phishing complete — `optical-capture` channel ships; remote device attestation still thin
-- Audited on-chain bridge verifier — `ULAVerifier.sol` is an explicit stub
+- Audited production bridge — lab `ULAVerifier.sol` verifies keccak-OTS twin (`IS_STUB=false`); public testnet links + audit still open (see `BRIDGE-STATUS.md`)
 - Production gossip (no peer auth, fragile catch-up)
 
 Frame this honestly: a coherent lab prototype with real running crypto and UTXO settlement — **Gate A** on the path to an L1 / bridge / sovereignty regime.  

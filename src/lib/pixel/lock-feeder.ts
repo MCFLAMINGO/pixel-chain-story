@@ -308,12 +308,50 @@ export async function receiptToForeignLock(receipt: LockReceipt): Promise<Foreig
  * Verify receipt, reject replays, build PreparedIngress for shine-in.
  * Call `consumeLockReceipt` only after illuminate succeeds.
  */
+/**
+ * Build a LockReceipt from a PixelUsdcLock `Locked` event
+ * (relayer path: watch logs → feed → shineIn).
+ */
+export function receiptFromLockedEvent(params: {
+  lockId: number;
+  locker: string;
+  amountRaw: string;
+  pixelRecipient: string;
+  salt: Hex;
+  lockDigest: Hex;
+  chainId: string;
+  contractAddress: string;
+  lockedAt?: number;
+}): LockReceipt {
+  const amount = Number(params.amountRaw) / 1e6;
+  return {
+    version: 1,
+    venue: "ethereum",
+    asset: "USDC",
+    amount,
+    amountRaw: params.amountRaw,
+    foreignRef: `${params.contractAddress}:${params.lockId}`,
+    lockDigest: params.lockDigest.replace(/^0x/, "") as Hex,
+    pixelRecipient: params.pixelRecipient,
+    locker: params.locker,
+    chainId: params.chainId,
+    lockedAt: params.lockedAt ?? Date.now(),
+    proof: `Locked|${params.lockId}|on-chain`,
+    salt: params.salt.replace(/^0x/, "") as Hex,
+  };
+}
+
 export async function feedLockToWorldlight(params: {
   receipt: LockReceipt;
   ownerLocalId: string;
   feeder: FeederState;
   /** Rail verification for USDC */
   rail?: LocalUsdcRail;
+  /**
+   * Relayer already verified the `Locked` log against PixelUsdcLock
+   * (on-chain keccak digest ≠ local-rail SHA-512 twin).
+   */
+  ethereumLogVerified?: boolean;
   /** Bank verification */
   attestor?: BankWireAttestor;
 }): Promise<PreparedIngress> {
@@ -326,9 +364,16 @@ export async function feedLockToWorldlight(params: {
   }
 
   if (receipt.venue === "ethereum") {
-    if (!params.rail) throw new Error("USDC feed needs rail");
-    const v = await verifyUsdcReceipt(params.rail, receipt);
-    if (!v.ok) throw new Error(`USDC receipt invalid: ${v.reason}`);
+    if (params.ethereumLogVerified) {
+      if (!receipt.proof.startsWith("Locked|")) {
+        throw new Error("ethereum log receipt missing Locked proof tag");
+      }
+    } else if (params.rail) {
+      const v = await verifyUsdcReceipt(params.rail, receipt);
+      if (!v.ok) throw new Error(`USDC receipt invalid: ${v.reason}`);
+    } else {
+      throw new Error("USDC feed needs rail or ethereumLogVerified");
+    }
   } else {
     if (!params.attestor) throw new Error("bank feed needs attestor");
     const v = await verifyBankWireReceipt(params.attestor, receipt);
@@ -359,6 +404,7 @@ export const LockFeeder = {
   mintUsdc: mintLocalUsdc,
   lockUsdc: lockUsdcOnRail,
   verifyUsdc: verifyUsdcReceipt,
+  fromLockedEvent: receiptFromLockedEvent,
   createBankAttestor: createBankWireAttestor,
   attestWire: attestBankWire,
   verifyWire: verifyBankWireReceipt,
