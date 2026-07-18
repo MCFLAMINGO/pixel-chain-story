@@ -7,6 +7,7 @@
  * Prototype limits: no peer auth, no DHT — fine for 2–N lab hosts, not production fabric.
  */
 
+import type { SequencerId } from "../lib/pixel/index";
 import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
 
 interface PeerSock {
@@ -23,6 +24,8 @@ export function createBunGossip(opts: {
   /** Host others should use to dial us (VPS public IP/DNS). Default 127.0.0.1 */
   advertiseHost?: string;
   getTip: () => { height: number; hash: string };
+  /** Current sequencer registry for hello gossip (electable convergence). */
+  getSequencers?: () => SequencerId[];
   onMessage: MessageHandler;
   seeds?: string[];
 }): GossipNet & { server: ReturnType<typeof Bun.serve> } {
@@ -82,6 +85,7 @@ export function createBunGossip(opts: {
       tipHash: tip.hash,
       gossipUrl: localUrl,
       publicKey: opts.publicKey,
+      sequencers: opts.getSequencers?.() ?? [],
     };
   }
 
@@ -171,6 +175,16 @@ export function createBunGossip(opts: {
   return {
     server,
     localGossipUrl: () => localUrl,
+    announce() {
+      const raw = JSON.stringify(helloMsg());
+      for (const peer of peers.values()) {
+        try {
+          if (peer.ws.readyState === WebSocket.OPEN) peer.ws.send(raw);
+        } catch {
+          /* ignore */
+        }
+      }
+    },
     broadcast(msg: PeerMessage) {
       // Mark seen so dual-link echoes are dropped on receive — do not gate the send
       // (receiver may call broadcast to relay after shouldHandle already remembered).

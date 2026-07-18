@@ -96,6 +96,7 @@ export class PixelLedgerNode {
       publicKey: keypair.publicKey,
       advertiseHost: this.opts.advertiseHost,
       seeds,
+      getSequencers: () => this.chain.sequencers,
       getTip: () => ({
         height: this.chain.pixels.length - 1,
         hash: tipHash(this.chain),
@@ -271,12 +272,12 @@ export class PixelLedgerNode {
         break;
       }
       try {
-        this.chain = await acceptBlock(this.chain, pixel);
-        // Learn sequencer identities from proofs
+        // Learn producer before accept — electable ⊆ registry requires it.
         this.chain = registerSequencer(this.chain, {
           address: pixel.lightProof.sequencerAddress,
           publicKey: pixel.lightProof.sequencerPublicKey,
         });
+        this.chain = await acceptBlock(this.chain, pixel);
         n++;
         this.noteTipProgress();
         console.log(`[pixel-ledger] accepted pixel #${pixel.index} from peer`);
@@ -293,12 +294,24 @@ export class PixelLedgerNode {
     const run = async () => {
       switch (msg.type) {
         case "hello": {
+          let learned = false;
           if (msg.publicKey) {
+            const before = this.chain.sequencers.length;
             this.chain = registerSequencer(this.chain, {
               address: msg.address,
               publicKey: msg.publicKey,
             });
+            learned = this.chain.sequencers.length > before;
+          }
+          for (const s of msg.sequencers ?? []) {
+            const before = this.chain.sequencers.length;
+            this.chain = registerSequencer(this.chain, s);
+            if (this.chain.sequencers.length > before) learned = true;
+          }
+          if (learned) {
             this.queuePersist();
+            // Flood updated registry so electable sets converge across the hub mesh.
+            this.gossip.announce();
           }
           if (msg.tip > this.chain.pixels.length - 1) {
             this.gossip.sendTo(peerUrl, {

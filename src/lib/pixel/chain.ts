@@ -3,7 +3,7 @@
  * Looking at all transactions paints a picture of pixels; each block is one pixel.
  */
 
-import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
+import { otsUsageKey, parseOtsLeafIndex, sha512Hex, type Hex, type LightKeypair } from "./crypto";
 import { ABSENT_COLOR, composePixelColor, revealProximity, type PixelColor } from "./light-color";
 import {
   createLightProof,
@@ -65,6 +65,96 @@ export interface PixelChainState {
   providers?: NodeProvider[];
   /** Wall time when pending first became non-empty — Gate C stall anchor. */
   pendingSince?: number;
+  /**
+   * OTS one-time leaf usages: `${publicKey}:${leafIndex}`.
+   * Consensus rejects reuse (Lamport forgery class). ML-DSA leaves no entry.
+   */
+  usedOtsLeaves: Set<string>;
+}
+
+export class OtsLeafReuseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OtsLeafReuseError";
+  }
+}
+
+/** Collect OTS (publicKey, leafIndex) usages from txs + optional PoLS proof. */
+export function collectOtsUsages(
+  txs: Transaction[],
+  lightProof?: LightProof,
+): Array<{ publicKey: Hex; leafIndex: number; source: string }> {
+  const out: Array<{ publicKey: Hex; leafIndex: number; source: string }> = [];
+  for (const tx of txs) {
+    for (const input of tx.inputs) {
+      if (!input.signature || !input.publicKey) continue;
+      const leaf = parseOtsLeafIndex(input.signature);
+      if (leaf === null) continue;
+      out.push({
+        publicKey: input.publicKey,
+        leafIndex: leaf,
+        source: `tx:${tx.txid.slice(0, 12)}`,
+      });
+    }
+  }
+  if (lightProof?.signature) {
+    const leaf = parseOtsLeafIndex(lightProof.signature);
+    if (leaf !== null) {
+      out.push({
+        publicKey: lightProof.sequencerPublicKey,
+        leafIndex: leaf,
+        source: `pols:${lightProof.sequence}`,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Reject if any usage collides with prior set or within the batch.
+ * Returns the merged set (copy) — does not mutate `prior`.
+ */
+export function assertAndMergeOtsLeaves(
+  prior: Set<string>,
+  usages: Array<{ publicKey: Hex; leafIndex: number; source: string }>,
+): Set<string> {
+  const next = new Set(prior ?? []);
+  const batch = new Set<string>();
+  for (const u of usages) {
+    const key = otsUsageKey(u.publicKey, u.leafIndex);
+    if (next.has(key) || batch.has(key)) {
+      throw new OtsLeafReuseError(
+        `OTS_LEAF_REUSED: leaf ${u.leafIndex} for ${u.publicKey.slice(0, 16)}… (${u.source})`,
+      );
+    }
+    batch.add(key);
+  }
+  for (const k of batch) next.add(k);
+  return next;
+}
+
+/** Rebuild used-leaf set by replaying pixels in order (join / deserialize). */
+export function rebuildUsedOtsLeaves(pixels: LedgerPixel[]): Set<string> {
+  let used = new Set<string>();
+  for (const pixel of pixels) {
+    const usages = collectOtsUsages(pixel.transactions, pixel.lightProof);
+    used = assertAndMergeOtsLeaves(used, usages);
+  }
+  return used;
+}
+
+/**
+ * Advance a local OTS cursor past leaves already spent on-chain.
+ * Stale wallets (copied before genesis / prior signs) self-heal against the ledger.
+ */
+export function advancePastUsedOtsLeaves(keypair: LightKeypair, used: Set<string>): void {
+  if (keypair.scheme === "PIX-ML-DSA-65") return;
+  while (
+    keypair.nextLeaf < keypair.leafCount &&
+    used.has(otsUsageKey(keypair.publicKey, keypair.nextLeaf))
+  ) {
+    keypair.nextLeaf += 1;
+  }
 }
 
 function utxoKey(txid: string, vout: number): string {
@@ -140,6 +230,7 @@ export async function createGenesis(
     sequence: 0,
     prevHash,
     sequencer,
+    electable: [sequencer.address],
   });
   const root = await merkleRoot([revealed.txid]);
   const timestamp = Date.now();
@@ -185,12 +276,15 @@ export async function createGenesis(
     });
   });
 
+  const usedOtsLeaves = assertAndMergeOtsLeaves(new Set(), collectOtsUsages([revealed], proof));
+
   return {
     pixels: [genesis],
     utxos,
     pending: [],
     sequencers: [{ address: sequencer.address, publicKey: sequencer.publicKey }],
     networkId,
+    usedOtsLeaves,
   };
 }
 
@@ -273,6 +367,9 @@ export async function proposeTransfer(
     outputs: allOutputs,
     metadata,
   });
+  // Ledger is source of truth — skip leaves already on-chain or in mempool.
+  const reserved = assertAndMergeOtsLeaves(state.usedOtsLeaves, collectOtsUsages(state.pending));
+  advancePastUsedOtsLeaves(from, reserved);
   tx = await signTransaction(tx, from);
 
   // Spend locally from mempool view so double-spends fail early.
@@ -399,15 +496,25 @@ export async function sequenceBlock(
     if (!ok) throw new Error(`Invalid signature on ${tx.txid}`);
   }
 
+  // Reject OTS leaf reuse in pending txs before burning a sequencer leaf.
+  const afterTxs = assertAndMergeOtsLeaves(state.usedOtsLeaves, collectOtsUsages(revealed));
+  advancePastUsedOtsLeaves(localSequencer, afterTxs);
+
   const proof = await createLightProof({
     sequence,
     prevHash: tip.hash,
     sequencer: localSequencer,
     skipCount,
+    electable: addresses,
   });
   if (!(await verifyLightProof(proof, chosen))) {
     throw new Error("Invalid light proof");
   }
+
+  const usedOtsLeaves = assertAndMergeOtsLeaves(
+    state.usedOtsLeaves,
+    collectOtsUsages(revealed, proof),
+  );
 
   const root = await merkleRoot(revealed.map((t) => t.txid));
   const timestamp = now;
@@ -450,6 +557,7 @@ export async function sequenceBlock(
     utxos: applyTxUtxos(state.utxos, revealed),
     pending: [],
     pendingSince: undefined,
+    usedOtsLeaves,
   };
 }
 
@@ -472,8 +580,14 @@ export async function acceptBlock(
   }
 
   const skipCount = block.lightProof.skipCount ?? 0;
-  const addresses = state.sequencers.map((s) => s.address);
-  const chosen = selectSequencerWithSkip(tip.hash, block.sequence, addresses, skipCount);
+  const registry = new Set(state.sequencers.map((s) => s.address));
+  const electable = resolveElectable(block, state.pixels, tip.index + 1, state);
+  for (const addr of electable) {
+    if (!registry.has(addr)) {
+      throw new Error(`Electable sequencer ${addr} not in local registry`);
+    }
+  }
+  const chosen = selectSequencerWithSkip(tip.hash, block.sequence, electable, skipCount);
   if (!(await verifyLightProof(block.lightProof, chosen))) {
     throw new Error("Invalid PoLS light proof");
   }
@@ -522,6 +636,11 @@ export async function acceptBlock(
     }
   }
 
+  const usedOtsLeaves = assertAndMergeOtsLeaves(
+    state.usedOtsLeaves,
+    collectOtsUsages(block.transactions, block.lightProof),
+  );
+
   // Drop pending txs included or conflicting
   const included = new Set(block.transactions.map((t) => t.txid));
   const spent = new Set(
@@ -538,6 +657,7 @@ export async function acceptBlock(
     utxos: applyTxUtxos(state.utxos, block.transactions),
     pending,
     pendingSince: pending.length ? state.pendingSince : undefined,
+    usedOtsLeaves,
   };
 }
 
@@ -555,17 +675,19 @@ export async function replaceTipIfBetter(
   if (preferPixel(tip, candidate) === tip) return null;
   if (state.pixels.length < 2) return null;
   const parent = state.pixels[state.pixels.length - 2];
+  const rolledPixels = state.pixels.slice(0, -1);
   const rolled: PixelChainState = {
     ...state,
-    pixels: state.pixels.slice(0, -1),
+    pixels: rolledPixels,
     // Rebuild utxos from parent chain — replay remaining tip out
     utxos: (() => {
       let map = new Map<string, Utxo>();
-      for (const p of state.pixels.slice(0, -1)) {
+      for (const p of rolledPixels) {
         map = applyTxUtxos(map, p.transactions);
       }
       return map;
     })(),
+    usedOtsLeaves: rebuildUsedOtsLeaves(rolledPixels),
     pending: [...state.pending, ...tip.transactions.filter((t) => t.inputs.length > 0)],
     pendingSince: state.pendingSince ?? Date.now(),
   };
@@ -586,6 +708,8 @@ export interface SerializedChain {
   sequencers: SequencerId[];
   providers?: NodeProvider[];
   pendingSince?: number;
+  /** Optional; always rebuilt from pixels on deserialize for safety. */
+  usedOtsLeaves?: string[];
 }
 
 export function serializeChain(state: PixelChainState): SerializedChain {
@@ -597,6 +721,7 @@ export function serializeChain(state: PixelChainState): SerializedChain {
     sequencers: state.sequencers,
     providers: state.providers,
     pendingSince: state.pendingSince,
+    usedOtsLeaves: [...state.usedOtsLeaves],
   };
 }
 
@@ -608,6 +733,7 @@ export function deserializeChain(
     utxos.set(utxoKey(u.txid, u.vout), u);
   }
   const pixels = data.pixels ?? data.blocks ?? [];
+  const usedOtsLeaves = rebuildUsedOtsLeaves(pixels);
   // If snapshot omitted utxos, rebuild by replay.
   if (utxos.size === 0 && pixels.length > 0) {
     let map = new Map<string, Utxo>();
@@ -622,6 +748,7 @@ export function deserializeChain(
       sequencers: data.sequencers,
       providers: data.providers,
       pendingSince: data.pendingSince,
+      usedOtsLeaves,
     };
   }
   return {
@@ -632,6 +759,7 @@ export function deserializeChain(
     sequencers: data.sequencers,
     providers: data.providers,
     pendingSince: data.pendingSince,
+    usedOtsLeaves,
   };
 }
 
@@ -645,12 +773,56 @@ export function stateFromPixels(
   for (const pixel of pixels) {
     utxos = applyTxUtxos(utxos, pixel.transactions);
   }
-  return { pixels, utxos, pending: [], sequencers, networkId };
+  return {
+    pixels,
+    utxos,
+    pending: [],
+    sequencers,
+    networkId,
+    usedOtsLeaves: rebuildUsedOtsLeaves(pixels),
+  };
+}
+
+/**
+ * Legacy fallback when a pixel has no bound `lightProof.electable`.
+ * Prefer proof-bound sets — registry growth must not rewrite lottery history.
+ */
+export function electableSequencersAt(pixels: LedgerPixel[], height: number): string[] {
+  if (height <= 0) {
+    return pixels[0] ? [pixels[0].lightProof.sequencerAddress] : [];
+  }
+  const seen: string[] = [];
+  const set = new Set<string>();
+  for (let j = 0; j < height; j++) {
+    const a = pixels[j].lightProof.sequencerAddress;
+    if (!set.has(a)) {
+      set.add(a);
+      seen.push(a);
+    }
+  }
+  return seen;
+}
+
+/** Electable set for a pixel: proof-bound first, else legacy producer prefix. */
+export function resolveElectable(
+  block: LedgerPixel,
+  pixels: LedgerPixel[],
+  height: number,
+  state?: PixelChainState,
+): string[] {
+  const bound = block.lightProof.electable;
+  if (bound && bound.length > 0) return [...bound];
+  if (state && height > 0) {
+    // Pre-binding pixels: tip-era used full registry; keep accept path working.
+    return state.sequencers.map((s) => s.address);
+  }
+  return electableSequencersAt(pixels, height);
 }
 
 export async function verifyChain(state: PixelChainState): Promise<boolean> {
   if (state.pixels.length === 0) return false;
-  const addresses = state.sequencers.map((s) => s.address);
+  const registry = new Set(state.sequencers.map((s) => s.address));
+  let usedOts = new Set<string>();
 
   for (let i = 0; i < state.pixels.length; i++) {
     const block = state.pixels[i];
@@ -658,12 +830,19 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
 
     const skipCount = block.lightProof.skipCount ?? 0;
     const prevHash = i === 0 ? "0".repeat(128) : state.pixels[i - 1].hash;
+    const electable = resolveElectable(block, state.pixels, i);
+    if (!electable.includes(block.lightProof.sequencerAddress)) return false;
+    if (!registry.has(block.lightProof.sequencerAddress)) return false;
+    for (const addr of electable) {
+      if (!registry.has(addr)) return false;
+    }
     const expectedSequencer = selectSequencerWithSkip(
       prevHash,
       block.sequence,
-      addresses,
+      electable,
       skipCount,
     );
+    if (block.lightProof.sequencerAddress !== expectedSequencer) return false;
     if (!(await verifyLightProof(block.lightProof, expectedSequencer))) return false;
     if (skipCount > 0 && i > 0) {
       const parent = state.pixels[i - 1];
@@ -703,6 +882,15 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     for (const tx of block.transactions) {
       if (tx.state !== "final" && tx.state !== "revealed") return false;
       if (!(await verifyTransactionSignatures(tx))) return false;
+    }
+
+    try {
+      usedOts = assertAndMergeOtsLeaves(
+        usedOts,
+        collectOtsUsages(block.transactions, block.lightProof),
+      );
+    } catch {
+      return false;
     }
   }
   return true;
