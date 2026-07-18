@@ -5,15 +5,38 @@
 import type { PixelLedgerNode } from "./node";
 import type { JsonRpcRequest, Transaction } from "../lib/pixel/index";
 
+const CORS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+function json(data: unknown, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers);
+  for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+  headers.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(data), { ...init, headers });
+}
+
+function text(body: string, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers);
+  for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+  return new Response(body, { ...init, headers });
+}
+
 export function startRpcServer(node: PixelLedgerNode, port: number) {
   const server = Bun.serve({
     port,
     async fetch(req) {
+      if (req.method === "OPTIONS") {
+        return text("", { status: 204 });
+      }
+
       const url = new URL(req.url);
 
       if (req.method === "GET" && url.pathname === "/health") {
         const snap = node.syncSnapshot();
-        return Response.json({
+        return json({
           ok: true,
           name: "Pixel Ledger",
           address: snap.address,
@@ -28,30 +51,30 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
         });
       }
 
-      /** Full sync package for `pixel join` — pixels + sequencers + gossip dial. */
+      /** Full sync package for `pixel join` — joiners pull this. */
       if (req.method === "GET" && url.pathname === "/sync") {
-        return Response.json(node.syncSnapshot());
+        return json(node.syncSnapshot());
       }
 
       if (req.method === "GET" && url.pathname === "/pixels") {
-        return Response.json(node.chain.pixels);
+        return json(node.chain.pixels);
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/balance/")) {
         const address = decodeURIComponent(url.pathname.slice("/balance/".length));
-        return Response.json({ address, balance: node.balance(address) });
+        return json({ address, balance: node.balance(address) });
       }
 
       /** Submit a signed tx into mempool + gossip (Gate B live path). */
       if (req.method === "POST" && url.pathname === "/tx") {
         const tx = (await req.json()) as Transaction;
         if (!tx?.txid || !Array.isArray(tx.inputs)) {
-          return Response.json({ ok: false, error: "bad tx" }, { status: 400 });
+          return json({ ok: false, error: "bad tx" }, { status: 400 });
         }
         await node.submitTx(tx);
         // Elected sequencer may be this node — try illuminate
         await node.trySequence();
-        return Response.json({
+        return json({
           ok: true,
           tip: node.chain.pixels.length - 1,
           pending: node.chain.pending.length,
@@ -62,10 +85,10 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
       if (req.method === "POST" && (url.pathname === "/" || url.pathname === "/rpc")) {
         const body = (await req.json()) as JsonRpcRequest;
         const result = await node.rpc(body);
-        return Response.json(result);
+        return json(result);
       }
 
-      return new Response(
+      return text(
         "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /pixels | GET /balance/:addr",
         { status: 200 },
       );
