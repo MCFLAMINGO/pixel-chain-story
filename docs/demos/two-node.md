@@ -49,9 +49,9 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 \
 
 `join` pulls `/sync` (pixels + sequencers + `gossipUrl`) and saves the gossip seed into the peer book. Nodes reconnect with backoff if the socket drops, and periodically `get_pixels` for hole-fill.
 
-## Stall detection (Gate B scope)
+## Stall detection (Gate B) → skip (Gate C)
 
-If mempool has pending txs, another address is elected, and the tip is silent past `stallCheckMs` (default 15s), the node logs `STALL` and broadcasts `get_pixels` for catch-up. It does **not** yet skip or replace the sequencer — that is Gate C.
+If mempool has pending txs and the tip is silent past `stallCheckMs` / `POLS_STALL_MS` (default 15s), a standby sequencer may illuminate with `skipCount ≥ 1`. Peers accept only after the stall window; fork-choice prefers lower skip at the same height. See SPEC §4.1 and `bun run test:fault`.
 
 ## What Gate B does *not* claim
 

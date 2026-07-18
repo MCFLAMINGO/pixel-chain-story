@@ -9,9 +9,13 @@ import {
   createGenesis,
   handlePixelRpc,
   nextSequencerAddress,
+  POLS_STALL_MS,
   proposeTransfer,
   registerSequencer,
+  replaceTipIfBetter,
   sequenceBlock,
+  skipCountForAddress,
+  stallAnchorMs,
   tipHash,
   verifyChain,
   type JsonRpcRequest,
@@ -169,17 +173,20 @@ export class PixelLedgerNode {
 
   private checkStall(stallMs: number) {
     const pending = this.chain.pending.length;
-    const elected = pending > 0 ? nextSequencerAddress(this.chain) : null;
-    const silent = Date.now() - this.lastTipChangeAt;
-    if (pending > 0 && elected && elected !== this.keypair.address && silent > stallMs) {
+    if (pending === 0) return;
+    const elected = nextSequencerAddress(this.chain, 0);
+    const anchor = stallAnchorMs(this.chain);
+    const silent = Date.now() - Math.max(this.lastTipChangeAt, anchor);
+    if (elected !== this.keypair.address && silent > stallMs) {
       if (Date.now() - this.stallLoggedAt > stallMs) {
         this.stallLoggedAt = Date.now();
         console.warn(
           `[pixel-ledger] STALL: pending=${pending} elected=${elected.slice(0, 12)}… ` +
-            `tip silent ${Math.round(silent / 1000)}s — requesting catch-up (Gate C: skip/replace later)`,
+            `silent ${Math.round(silent / 1000)}s — trying Gate C skip illuminate`,
         );
         this.requestCatchUp(this.chain.pixels.length);
       }
+      void this.trySequence(); // may skip-illuminate if we are next
     }
   }
 
@@ -193,7 +200,7 @@ export class PixelLedgerNode {
       {
         chain: this.chain,
         networkId: this.chain.networkId,
-        clientVersion: "PixelLedger/0.2.0-gateB",
+        clientVersion: "PixelLedger/0.3.0-gateC",
       },
       req,
     );
@@ -201,7 +208,12 @@ export class PixelLedgerNode {
 
   async submitTx(tx: Transaction): Promise<void> {
     if (this.chain.pending.some((p) => p.txid === tx.txid)) return;
-    this.chain = { ...this.chain, pending: [...this.chain.pending, tx] };
+    this.chain = {
+      ...this.chain,
+      pending: [...this.chain.pending, tx],
+      pendingSince:
+        this.chain.pending.length === 0 ? Date.now() : (this.chain.pendingSince ?? Date.now()),
+    };
     this.gossip.broadcast({ type: "tx", tx });
     this.queuePersist();
   }
@@ -225,15 +237,23 @@ export class PixelLedgerNode {
 
   async trySequence(): Promise<boolean> {
     if (this.chain.pending.length === 0) return false;
-    const elected = nextSequencerAddress(this.chain);
-    if (elected !== this.keypair.address) return false;
+    const skip = skipCountForAddress(this.chain, this.keypair.address);
+    if (skip === null) return false;
+    if (skip > 0) {
+      const ready = Date.now() >= stallAnchorMs(this.chain) + POLS_STALL_MS;
+      if (!ready) return false;
+    } else if (nextSequencerAddress(this.chain, 0) !== this.keypair.address) {
+      return false;
+    }
     try {
-      this.chain = await sequenceBlock(this.chain, this.keypair);
+      this.chain = await sequenceBlock(this.chain, this.keypair, { skipCount: skip });
       const pixel = this.chain.pixels[this.chain.pixels.length - 1];
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
       this.queuePersist();
-      console.log(`[pixel-ledger] illuminated pixel #${pixel.index}`);
+      console.log(
+        `[pixel-ledger] illuminated pixel #${pixel.index}` + (skip > 0 ? ` (skip=${skip})` : ""),
+      );
       return true;
     } catch (err) {
       console.error("[pixel-ledger] sequence failed", err);
@@ -309,9 +329,21 @@ export class PixelLedgerNode {
         case "tx":
           await this.submitTx(msg.tx);
           break;
-        case "pixel":
+        case "pixel": {
+          const tip = this.chain.pixels[this.chain.pixels.length - 1];
+          if (tip && msg.pixel.index === tip.index) {
+            const replaced = await replaceTipIfBetter(this.chain, msg.pixel);
+            if (replaced) {
+              this.chain = replaced;
+              this.noteTipProgress();
+              this.queuePersist();
+              console.log(`[pixel-ledger] tip replaced at #${msg.pixel.index} (fork-choice)`);
+            }
+            break;
+          }
           await this.acceptPixels([msg.pixel]);
           break;
+        }
         case "get_pixels": {
           const slice = this.chain.pixels.slice(msg.from);
           if (slice.length) {

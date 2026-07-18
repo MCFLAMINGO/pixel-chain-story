@@ -8,7 +8,10 @@ import { ABSENT_COLOR, composePixelColor, revealProximity, type PixelColor } fro
 import {
   createLightProof,
   merkleRoot,
-  selectSequencer,
+  POLS_MAX_SKIP,
+  POLS_STALL_MS,
+  preferPixel,
+  selectSequencerWithSkip,
   verifyLightProof,
   type LightProof,
 } from "./pol";
@@ -60,6 +63,8 @@ export interface PixelChainState {
    * on registry updates. Absent in single-node prototypes.
    */
   providers?: NodeProvider[];
+  /** Wall time when pending first became non-empty — Gate C stall anchor. */
+  pendingSince?: number;
 }
 
 function utxoKey(txid: string, vout: number): string {
@@ -281,19 +286,35 @@ export async function proposeTransfer(
       ...state,
       utxos: nextUtxos,
       pending: [...state.pending, tx],
+      pendingSince: state.pending.length === 0 ? Date.now() : (state.pendingSince ?? Date.now()),
     },
     tx,
   };
 }
 
-/** Who should sequence next — deterministic from tip hash. */
-export function nextSequencerAddress(state: PixelChainState): string {
+/** Who should sequence next — deterministic from tip hash (+ optional Gate C skip). */
+export function nextSequencerAddress(state: PixelChainState, skipCount = 0): string {
   const tip = state.pixels[state.pixels.length - 1];
-  return selectSequencer(
+  return selectSequencerWithSkip(
     tip.hash,
     tip.sequence + 1,
     state.sequencers.map((s) => s.address),
+    skipCount,
   );
+}
+
+/** Stall anchor for skip justification. */
+export function stallAnchorMs(state: PixelChainState): number {
+  const tip = state.pixels[state.pixels.length - 1];
+  return state.pendingSince ?? tip?.timestamp ?? 0;
+}
+
+/** Smallest skipCount at which `address` is elected, or null if none within max. */
+export function skipCountForAddress(state: PixelChainState, address: string): number | null {
+  for (let skip = 0; skip <= POLS_MAX_SKIP; skip++) {
+    if (nextSequencerAddress(state, skip) === address) return skip;
+  }
+  return null;
 }
 
 function applyTxUtxos(utxos: Map<string, Utxo>, txs: Transaction[]): Map<string, Utxo> {
@@ -314,20 +335,37 @@ function applyTxUtxos(utxos: Map<string, Utxo>, txs: Transaction[]): Map<string,
   return next;
 }
 
-/** Shine light locally: only the elected sequencer key may produce the block. */
+export interface SequenceOpts {
+  /** Gate C — how many elected sequencers to skip (0 = on-time). */
+  skipCount?: number;
+  /** Injected clock for tests. */
+  now?: number;
+}
+
+/** Shine light locally: elected sequencer (or skip-elected after stall) may produce. */
 export async function sequenceBlock(
   state: PixelChainState,
   localSequencer: LightKeypair,
+  opts: SequenceOpts = {},
 ): Promise<PixelChainState> {
   if (state.pending.length === 0) {
     throw new Error("Nothing in superposition to reveal");
   }
 
+  const skipCount = opts.skipCount ?? 0;
+  const now = opts.now ?? Date.now();
   const tip = state.pixels[state.pixels.length - 1];
   const sequence = tip.sequence + 1;
-  const chosen = nextSequencerAddress(state);
+  const addresses = state.sequencers.map((s) => s.address);
+  const chosen = selectSequencerWithSkip(tip.hash, sequence, addresses, skipCount);
   if (localSequencer.address !== chosen) {
-    throw new Error(`Not this node's turn to sequence (need ${chosen})`);
+    throw new Error(`Not this node's turn to sequence (need ${chosen}, skip=${skipCount})`);
+  }
+  if (skipCount > 0) {
+    const anchor = stallAnchorMs(state);
+    if (now < anchor + POLS_STALL_MS) {
+      throw new Error(`Skip not justified yet — stall ${POLS_STALL_MS}ms required (Gate C)`);
+    }
   }
 
   const nextIndex = tip.index + 1;
@@ -340,7 +378,10 @@ export async function sequenceBlock(
         inputs: [],
         outputs: [{ amount: reward, address: localSequencer.address }],
         metadata: {
-          description: `Light reward for illuminating pixel #${nextIndex}`,
+          description:
+            skipCount > 0
+              ? `Light reward (skip=${skipCount}) for illuminating pixel #${nextIndex}`
+              : `Light reward for illuminating pixel #${nextIndex}`,
           reference: `LIGHT-${nextIndex}`,
         },
       }),
@@ -362,13 +403,14 @@ export async function sequenceBlock(
     sequence,
     prevHash: tip.hash,
     sequencer: localSequencer,
+    skipCount,
   });
   if (!(await verifyLightProof(proof, chosen))) {
     throw new Error("Invalid light proof");
   }
 
   const root = await merkleRoot(revealed.map((t) => t.txid));
-  const timestamp = Date.now();
+  const timestamp = now;
   const hash = await hashBlock({
     index: nextIndex,
     prevHash: tip.hash,
@@ -407,15 +449,15 @@ export async function sequenceBlock(
     pixels: [...state.pixels, block],
     utxos: applyTxUtxos(state.utxos, revealed),
     pending: [],
+    pendingSince: undefined,
   };
 }
 
 /**
  * Accept the next sequential pixel from a peer (full validation, no private key).
  *
- * Honesty: this is sequential tip-extension, not BFT fork-choice. An elected
- * sequencer going offline stalls illumination until that turn can be skipped
- * by a future protocol upgrade. Fine for a networked prototype; not a finished L1.
+ * Gate C: skipCount > 0 allowed when stall window elapsed (lab clocks).
+ * Not BFT — honest majority / synchronized enough clocks assumed.
  */
 export async function acceptBlock(
   state: PixelChainState,
@@ -429,13 +471,17 @@ export async function acceptBlock(
     throw new Error("Block does not link to tip");
   }
 
-  const chosen = selectSequencer(
-    tip.hash,
-    block.sequence,
-    state.sequencers.map((s) => s.address),
-  );
+  const skipCount = block.lightProof.skipCount ?? 0;
+  const addresses = state.sequencers.map((s) => s.address);
+  const chosen = selectSequencerWithSkip(tip.hash, block.sequence, addresses, skipCount);
   if (!(await verifyLightProof(block.lightProof, chosen))) {
     throw new Error("Invalid PoLS light proof");
+  }
+  if (skipCount > 0) {
+    const anchor = stallAnchorMs(state);
+    if (block.timestamp < anchor + POLS_STALL_MS) {
+      throw new Error("Skip pixel rejected — stall window not elapsed");
+    }
   }
 
   const root = await merkleRoot(block.transactions.map((t) => t.txid));
@@ -491,7 +537,44 @@ export async function acceptBlock(
     pixels: [...state.pixels, block],
     utxos: applyTxUtxos(state.utxos, block.transactions),
     pending,
+    pendingSince: pending.length ? state.pendingSince : undefined,
   };
+}
+
+/**
+ * Depth-1 tip replace: if we already have height H and a peer offers another
+ * pixel at H with better fork-choice (lower skip / hash), replace tip.
+ * Parent must match our tip-1. Lab only — not a reorg market.
+ */
+export async function replaceTipIfBetter(
+  state: PixelChainState,
+  candidate: LedgerPixel,
+): Promise<PixelChainState | null> {
+  const tip = state.pixels[state.pixels.length - 1];
+  if (!tip || candidate.index !== tip.index) return null;
+  if (preferPixel(tip, candidate) === tip) return null;
+  if (state.pixels.length < 2) return null;
+  const parent = state.pixels[state.pixels.length - 2];
+  const rolled: PixelChainState = {
+    ...state,
+    pixels: state.pixels.slice(0, -1),
+    // Rebuild utxos from parent chain — replay remaining tip out
+    utxos: (() => {
+      let map = new Map<string, Utxo>();
+      for (const p of state.pixels.slice(0, -1)) {
+        map = applyTxUtxos(map, p.transactions);
+      }
+      return map;
+    })(),
+    pending: [...state.pending, ...tip.transactions.filter((t) => t.inputs.length > 0)],
+    pendingSince: state.pendingSince ?? Date.now(),
+  };
+  void parent;
+  try {
+    return await acceptBlock(rolled, candidate);
+  } catch {
+    return null;
+  }
 }
 
 /** Persistable snapshot (Maps → arrays). */
@@ -502,6 +585,7 @@ export interface SerializedChain {
   pending: Transaction[];
   sequencers: SequencerId[];
   providers?: NodeProvider[];
+  pendingSince?: number;
 }
 
 export function serializeChain(state: PixelChainState): SerializedChain {
@@ -512,6 +596,7 @@ export function serializeChain(state: PixelChainState): SerializedChain {
     pending: state.pending,
     sequencers: state.sequencers,
     providers: state.providers,
+    pendingSince: state.pendingSince,
   };
 }
 
@@ -536,6 +621,7 @@ export function deserializeChain(
       pending: data.pending ?? [],
       sequencers: data.sequencers,
       providers: data.providers,
+      pendingSince: data.pendingSince,
     };
   }
   return {
@@ -545,6 +631,7 @@ export function deserializeChain(
     pending: data.pending ?? [],
     sequencers: data.sequencers,
     providers: data.providers,
+    pendingSince: data.pendingSince,
   };
 }
 
@@ -569,12 +656,19 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     const block = state.pixels[i];
     if (i > 0 && block.prevHash !== state.pixels[i - 1].hash) return false;
 
-    const expectedSequencer = selectSequencer(
-      i === 0 ? "0".repeat(128) : state.pixels[i - 1].hash,
+    const skipCount = block.lightProof.skipCount ?? 0;
+    const prevHash = i === 0 ? "0".repeat(128) : state.pixels[i - 1].hash;
+    const expectedSequencer = selectSequencerWithSkip(
+      prevHash,
       block.sequence,
       addresses,
+      skipCount,
     );
     if (!(await verifyLightProof(block.lightProof, expectedSequencer))) return false;
+    if (skipCount > 0 && i > 0) {
+      const parent = state.pixels[i - 1];
+      if (block.timestamp < parent.timestamp + POLS_STALL_MS) return false;
+    }
 
     const root = await merkleRoot(block.transactions.map((t) => t.txid));
     if (root !== block.merkleRoot) return false;

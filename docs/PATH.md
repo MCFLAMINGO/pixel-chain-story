@@ -26,7 +26,7 @@ This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. 
 
 ---
 
-## 1. Where we are (Gates A–B — shipped)
+## 1. Where we are (Gates A–C — shipped)
 
 Runnable, tested, and framed as a **lab prototype with real crypto**:
 
@@ -64,18 +64,18 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 **Build**
 - [x] Two-machine (or two-VPS) `init` / `node` / `join` demo — [`docs/demos/two-node.md`](./demos/two-node.md) + `bun run test:net`
 - [x] Persistent peer book; reconnect with backoff; `get_pixels` / `pixels` hole-fill + `/sync` join
-- [x] Tip stall **detection** (warn + catch-up probe when elected sequencer silent). Skip/replace = Gate C
+- [x] Tip stall **detection** (warn + catch-up). Skip/replace = Gate C (shipped)
 
 **Evidence:** `docs/demos/two-node.md` + `bun run test:net`  
 **Claim unlock:** *“Multi-host Pixel network (prototype tip extension).”* — not fault-tolerant consensus yet.
 
 ### Gate C — Consensus that survives fault
 **Build**
-- Explicit fork-choice / tip rules in SPEC (not only `index === tip+1`)
-- Sequencer timeout + replacement without manual reset
-- Reorg depth policy (even if depth 1–2 at first) with tests
+- [x] Explicit fork-choice / tip rules in SPEC (§4.1 — prefer lower skip, depth-1 replace)
+- [x] Sequencer timeout + skip replacement (`skipCount` in light proof; `bun run test:fault`)
+- [x] Reorg depth policy depth 1 (`replaceTipIfBetter`)
 
-**Evidence:** SPEC §PoLS fault section + tests for offline sequencer  
+**Evidence:** SPEC §4.1 + `bun run test:fault`  
 **Claim unlock:** *“Fault-tolerant PoLS (lab).”* Still not “BFT mainnet.”
 
 ### Gate D — Quantum security (critical priority — parallel with B)
@@ -176,8 +176,8 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 ## 6. Immediate next actions (this repo)
 
 1. **Gate D (quantum, critical):** freeze ML-DSA vectors; default genesis to ML-DSA when ready  
-2. **Gate C:** sequencer skip/replace when stall detection fires (B only warns + catch-up)  
-3. Gate E: Foundry ULA verifying **PQ** sigs (OTS or ML-DSA), not stub length checks  
-4. Keep `pix_protocolInfo.quantum` honest as gaps close  
+2. Gate E: Foundry ULA verifying **PQ** sigs (OTS or ML-DSA), not stub length checks  
+3. Lumen depth + SISO chaos drill  
+4. Keep `pix_protocolInfo` gates honest as evidence lands  
 
-When D + E deepen and C lands, the skeptic meets a networked tip, NIST PQ signatures, fault recovery, and a verifying bridge — still a pilot, but not a costume.
+When D + E deepen, the skeptic meets a networked tip with stall-skip, NIST PQ signatures, and a verifying bridge — still a pilot, but not a costume.

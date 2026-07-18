@@ -56,16 +56,28 @@ State = {
 ## 4. PoLS
 
 1. Pending txs sit in superposition (no color).
-2. `nextSequencer = H(tipHash, sequence) mod |sequencers|`
+2. `nextSequencer = H(tipHash, sequence) mod |sequencers|` (skip=0).
 3. Elected sequencer builds pixel: coinbase light-reward + pending txs.
 4. Signs light proof; peers `acceptPixel` with full verify.
 5. UTXO set updates; pending cleared/conflict-dropped.
 
+### 4.1 Fault path (Gate C — lab)
+
+If the elected sequencer is silent past `POLS_STALL_MS` (default 15s) after pending appears:
+
+1. `skipCount` advances: elected = rotate `skipCount` steps from the skip=0 choice.
+2. Light-proof message binds `skip=N` (`pols|…|skip=N`).
+3. Peers accept only if stall window elapsed (`pendingSince` or parent tip time + `POLS_STALL_MS`).
+4. **Fork-choice (depth 1):** at equal height prefer lower `skipCount`, then lower hash (`preferPixel` / `replaceTipIfBetter`).
+
+This is **not BFT**. Assumed: loosely synchronized clocks, honest majority of sequencers over time. Max skip per height: `POLS_MAX_SKIP`.
+
 Invariants:
 
-- Only elected sequencer may produce pixel `n+1`
-- Peers reject bad merkle, bad proof, bad color composition, bad linkage
+- Only the skip-elected sequencer may produce pixel `n+1` for that `skipCount`
+- Peers reject bad merkle, bad proof, bad color composition, bad linkage, unjustified skip
 - Light reward obeys emission schedule and hard cap
+- On-time (`skip=0`) always preferred over skip tips at the same height
 
 ## 5. Economics
 
@@ -95,10 +107,10 @@ HTTP:
 
 ## 8. What this version does / does not claim
 
-**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS, diversity *policy* when ≥7 providers registered.
+**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS, diversity *policy* when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip.
 
 **Does not yet:**
-- Global provider mesh / BFT fork-choice / reorgs (offline elected sequencer stalls the tip)
+- Global provider mesh / full BFT under partition (Gate C is timeout-skip + depth-1 tip replace, not quorum)
 - ML-DSA defaulted for all new wallets / on-chain ULA verify of Dilithium (in-process ML-DSA **does** ship)
 - Two-phone field hardening / device attestation beyond raster+getUserMedia path
 - Kindling anti-phishing complete — `optical-capture` channel ships; remote device attestation still thin
