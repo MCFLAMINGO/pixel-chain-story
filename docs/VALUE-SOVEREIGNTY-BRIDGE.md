@@ -58,7 +58,10 @@ It emits **Universal Light Attestations (ULA)**:
 | **shineOut** | Lock/escrow PIX → attest → unlock on ETH / BTC / Cosmos / Solana / ICP / … |
 | **shineIn**  | Lock on foreign chain → commitment on Pixel → release PIX                |
 
-Targets are peers: Ethereum, Bitcoin, Cosmos, Solana, Polkadot, ICP, other.
+**Custody inversion (law):** foreign chain = receipt; Pixel = vault.  
+`ULAVerifier.accept` / foreign verify never releases master PIX. Release is only `illuminateIngress` after a bound foreign receipt (`BRIDGE_CUSTODY_AXIOM`, `bun run test:bridge-custody`).
+
+Targets are peers for receipts: Ethereum, Bitcoin, Cosmos, Solana, Polkadot, ICP, other. Pixel remains the vault.
 
 **Apps do not need a second Facebook.** Build on AWS (or anywhere); come into the
 light via SISO. See `docs/CONTINUITY-SISO.md`.

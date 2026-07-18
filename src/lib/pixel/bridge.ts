@@ -128,6 +128,7 @@ export async function verifyAttestation(
 
 export function bridgeThesis(): {
   principle: string;
+  custody: string;
   shineOut: string;
   shineIn: string;
   targets: ForeignChain[];
@@ -139,13 +140,15 @@ export function bridgeThesis(): {
       "LAB — ULAVerifier.sol verifies PIX-HASH-OTS-128-KECCAK (IS_STUB=false); CosmWasm twin + frozen fixture; public testnet links still pending (see docs/BRIDGE-STATUS.md).",
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
+    custody:
+      "Foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX.",
     shineOut:
-      "Lock/escrow PIX → illuminate bridge intent → foreign chain verifies ULA → mint/unlock. Locked PIX is releasable.",
+      "Lock/escrow PIX on Pixel (vault) → attest → foreign chain verifies ULA receipt → mint/unlock mirror. Master PIX stays under Pixel release rules.",
     shineIn:
-      "Lock on foreign chain → commitment on Pixel → illuminate → release. Apps shine in via SISO without rewriting for a Pixel VM.",
+      "Lock on foreign chain (receipt) → LockFeeder / commitment → illuminateIngress on Pixel vault → PIX to Personal Source.",
     targets: ["ethereum", "bitcoin", "cosmos", "solana", "polkadot", "icp", "other"],
     neutrality:
-      "No privileged hub chain. No parallel-build requirement. Ethereum/Bitcoin/Cosmos/ICP are peers for value; any host is a peer for app continuity.",
+      "No privileged hub chain. No parallel-build requirement. Ethereum/Bitcoin/Cosmos/ICP are peers for receipts; Pixel is the vault for master PIX.",
   };
 }
 

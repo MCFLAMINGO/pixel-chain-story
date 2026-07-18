@@ -2,6 +2,8 @@
 
 **Claim unlock (lab):** Universal Light Attestation verify is real on the EVM twin — `ULAVerifier.IS_STUB == false`. CosmWasm twin verifies the same frozen fixture. Relayer path proven on local anvil.
 
+**Custody law:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX. Enforced in `illuminateIngress` + `bun run test:bridge-custody`.
+
 **Forbidden claim:** production bridge / mainnet value movement.
 
 ---
@@ -15,6 +17,7 @@
 | TS parity | `bun run test:ula` |
 | CosmWasm twin | `contracts/cosmwasm/ula-verifier` — `cargo test` |
 | Relayer (local) | `bun run test:ula-relayer` — anvil `Locked` → `LockFeeder.feed` → shineIn |
+| Custody inversion | `bun run test:bridge-custody` — ULA verify alone → Δbalance=0; vault release only via illuminateIngress |
 
 ### Scheme honesty
 

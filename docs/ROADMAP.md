@@ -48,6 +48,7 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [x] Foundry tests + frozen ULA fixture (`fixtures/ula-evm-v1.json`)
 - [x] Second-chain twin (CosmWasm)
 - [x] Local relayer: anvil `Locked` → feed → shineIn
+- [x] Custody inversion: foreign receipt / Pixel vault (`test:bridge-custody`)
 - [ ] Public testnet tx links in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md)
 
 ## Gate F — light clients & gossip

@@ -31,6 +31,7 @@ import { Kindling } from "./kindling";
 import { energyTruthForIlluminate, formatEnergyTruth, datacenterRebuke } from "./energy-truth";
 import { Uptake } from "./uptake";
 import { Custody, SELF_CUSTODY_AXIOM } from "./custody";
+import { BRIDGE_CUSTODY_AXIOM } from "./bridge-custody";
 import { Worldlight } from "./worldlight";
 import { LockFeeder } from "./lock-feeder";
 import { Bootstrap } from "./bootstrap";
@@ -157,7 +158,10 @@ export const One = {
     format: formatEnergyTruth,
     rebuke: datacenterRebuke,
   },
-  law: { selfCustody: SELF_CUSTODY_AXIOM },
+  law: {
+    selfCustody: SELF_CUSTODY_AXIOM,
+    bridgeCustody: BRIDGE_CUSTODY_AXIOM,
+  },
   /** Day-one paths — hard cap ≠ dollar FDV; illuminate to start. */
   Bootstrap,
   reveal,

@@ -25,6 +25,7 @@ import {
   type LightArtifact,
 } from "./siso";
 import { createAttestation, type BridgeMessage, type ForeignChain } from "./bridge";
+import { assertVaultReleaseAuthorized } from "./bridge-custody";
 import { proposeTransfer, sequenceBlock, type LedgerPixel, type PixelChainState } from "./chain";
 import { BOOTSTRAP_INGRESS_PIX_PER_USD } from "./bootstrap";
 
@@ -192,6 +193,9 @@ export async function illuminateIngress(params: {
 }): Promise<IlluminatedIngress> {
   const { prepared } = params;
   let state = params.state;
+
+  // Custody inversion: foreign receipt bound + Pixel vault release only.
+  assertVaultReleaseAuthorized(prepared);
 
   let pixCredited = 0;
   if (prepared.pixCredit > 0 && prepared.bridgeMessage) {
