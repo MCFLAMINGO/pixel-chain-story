@@ -26,6 +26,7 @@ export * from "./bridge";
 export * from "./bridge-custody";
 export * from "./ula-evm";
 export * from "./siso";
+export * from "./continuity-ops";
 export * from "./access";
 export * from "./kindling";
 export * from "./energy-truth";

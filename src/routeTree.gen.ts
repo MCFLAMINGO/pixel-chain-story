@@ -10,12 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LabRouteImport } from './routes/lab'
+import { Route as ContinuityRouteImport } from './routes/continuity'
 import { Route as BillboardRouteImport } from './routes/billboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ContinuityJoinTokenRouteImport } from './routes/continuity.join.$token'
 
 const LabRoute = LabRouteImport.update({
   id: '/lab',
   path: '/lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContinuityRoute = ContinuityRouteImport.update({
+  id: '/continuity',
+  path: '/continuity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillboardRoute = BillboardRouteImport.update({
@@ -28,34 +35,57 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContinuityJoinTokenRoute = ContinuityJoinTokenRouteImport.update({
+  id: '/join/$token',
+  path: '/join/$token',
+  getParentRoute: () => ContinuityRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
+  '/continuity': typeof ContinuityRouteWithChildren
   '/lab': typeof LabRoute
+  '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
+  '/continuity': typeof ContinuityRouteWithChildren
   '/lab': typeof LabRoute
+  '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
+  '/continuity': typeof ContinuityRouteWithChildren
   '/lab': typeof LabRoute
+  '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/billboard' | '/lab'
+  fullPaths:
+    | '/'
+    | '/billboard'
+    | '/continuity'
+    | '/lab'
+    | '/continuity/join/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/billboard' | '/lab'
-  id: '__root__' | '/' | '/billboard' | '/lab'
+  to: '/' | '/billboard' | '/continuity' | '/lab' | '/continuity/join/$token'
+  id:
+    | '__root__'
+    | '/'
+    | '/billboard'
+    | '/continuity'
+    | '/lab'
+    | '/continuity/join/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BillboardRoute: typeof BillboardRoute
+  ContinuityRoute: typeof ContinuityRouteWithChildren
   LabRoute: typeof LabRoute
 }
 
@@ -66,6 +96,13 @@ declare module '@tanstack/react-router' {
       path: '/lab'
       fullPath: '/lab'
       preLoaderRoute: typeof LabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/continuity': {
+      id: '/continuity'
+      path: '/continuity'
+      fullPath: '/continuity'
+      preLoaderRoute: typeof ContinuityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/billboard': {
@@ -82,12 +119,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/continuity/join/$token': {
+      id: '/continuity/join/$token'
+      path: '/join/$token'
+      fullPath: '/continuity/join/$token'
+      preLoaderRoute: typeof ContinuityJoinTokenRouteImport
+      parentRoute: typeof ContinuityRoute
+    }
   }
 }
+
+interface ContinuityRouteChildren {
+  ContinuityJoinTokenRoute: typeof ContinuityJoinTokenRoute
+}
+
+const ContinuityRouteChildren: ContinuityRouteChildren = {
+  ContinuityJoinTokenRoute: ContinuityJoinTokenRoute,
+}
+
+const ContinuityRouteWithChildren = ContinuityRoute._addFileChildren(
+  ContinuityRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillboardRoute: BillboardRoute,
+  ContinuityRoute: ContinuityRouteWithChildren,
   LabRoute: LabRoute,
 }
 export const routeTree = rootRouteImport

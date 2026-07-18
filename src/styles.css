@@ -4,6 +4,82 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Continuity operator desk — lagoon/sand atmosphere, not purple/cream-AI defaults */
+.continuity-desk {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 90% 55% at 10% -10%, oklch(0.72 0.12 75 / 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 100%, oklch(0.55 0.1 195 / 0.28), transparent 50%),
+    oklch(0.97 0.02 95);
+  color: oklch(0.22 0.03 55);
+}
+.continuity-desk .text-muted-foreground {
+  color: oklch(0.42 0.03 55);
+}
+.continuity-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, oklch(0.97 0.02 95 / 0.85));
+  z-index: 0;
+}
+.continuity-input {
+  width: 100%;
+  border: 1px solid oklch(0.22 0.03 55 / 0.18);
+  background: oklch(1 0 0 / 0.55);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+  outline: none;
+}
+.continuity-input:focus {
+  border-color: oklch(0.45 0.1 195);
+  box-shadow: 0 0 0 1px oklch(0.45 0.1 195 / 0.35);
+}
+.continuity-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: oklch(0.45 0.12 35);
+  color: oklch(0.98 0.02 95);
+  padding: 0.7rem 1.1rem;
+  font-family: var(--font-pixel, ui-sans-serif);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+.continuity-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.continuity-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.continuity-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid oklch(0.22 0.03 55 / 0.25);
+  background: transparent;
+  color: oklch(0.22 0.03 55);
+  padding: 0.65rem 1rem;
+  font-family: var(--font-pixel, ui-sans-serif);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+}
+.continuity-btn-ghost:hover {
+  background: oklch(0.22 0.03 55 / 0.06);
+}
+
 /*
  * Design system definition.
  *
@@ -187,8 +263,16 @@
   background:
     radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.95 0.07 85 / 0.9), transparent 55%),
     radial-gradient(ellipse 50% 40% at 90% 20%, oklch(0.9 0.05 155 / 0.45), transparent 50%),
-    linear-gradient(180deg, oklch(0.98 0.02 95), oklch(0.94 0.025 145 / 0.35) 45%, oklch(0.97 0.015 95));
-  background-size: 100% 100%, 100% 100%, 200% 200%;
+    linear-gradient(
+      180deg,
+      oklch(0.98 0.02 95),
+      oklch(0.94 0.025 145 / 0.35) 45%,
+      oklch(0.97 0.015 95)
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    200% 200%;
   animation: light-sweep 14s ease-in-out infinite;
 }
 

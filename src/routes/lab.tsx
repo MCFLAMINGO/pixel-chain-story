@@ -35,12 +35,20 @@ function Lab() {
   return (
     <main className="min-h-screen overflow-x-hidden text-foreground">
       <div className="mx-auto max-w-5xl px-6 pt-10">
-        <Link
-          to="/"
-          className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
-        >
-          ← Live field
-        </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link
+            to="/"
+            className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
+          >
+            ← Live field
+          </Link>
+          <Link
+            to="/continuity"
+            className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
+          >
+            Continuity desk →
+          </Link>
+        </div>
         <h1 className="font-pixel mt-6 text-4xl font-bold tracking-tight md:text-5xl">Lab</h1>
         <p className="mt-3 max-w-xl text-muted-foreground">
           SISO — Build anywhere. Shine in once. No second you. Build on / for / into Pixel. Agents:
