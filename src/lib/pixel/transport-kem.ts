@@ -59,7 +59,9 @@ export function decapsulate(kemCiphertext: Hex, recipientSecretKey: Hex): Hex {
 
 /** Derive 32-byte AEAD key from KEM shared secret (domain-separated). */
 export async function aeadKeyFromShared(sharedSecret: Hex): Promise<Uint8Array> {
-  const digest = await sha512Hex(`pix-transport|${TRANSPORT_KEM}|${TRANSPORT_AEAD}|${sharedSecret}`);
+  const digest = await sha512Hex(
+    `pix-transport|${TRANSPORT_KEM}|${TRANSPORT_AEAD}|${sharedSecret}`,
+  );
   return hexToBytes(digest.slice(0, 64));
 }
 
