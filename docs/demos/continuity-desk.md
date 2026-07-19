@@ -4,6 +4,13 @@
 **Merchant:** one secure link → **Turn on Continuity** — no DNS/rsync vocabulary.  
 **Held:** agentic publish/failover runners (booth jobs stay operator-side for now).
 
+## Before you send invites (lab)
+
+1. Create the offer on `/continuity` first (mints the token).  
+2. **Same browser** — ops state is `localStorage`; another device will say “Link not found.”  
+3. Merchant does **not** need DNS or a digest.  
+4. Shortcut: **Demo: McFlamingo shines in** seeds a live store from `public/mcflamingo/index.html`.
+
 ## Run
 
 ```bash
@@ -12,8 +19,11 @@ bun run dev
 
 Open:
 
-- Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)
-- Merchant invite: `/continuity/join/<token>`
+- Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)  
+- One-click: **Demo: McFlamingo shines in**  
+- Storefront preview: [/mcflamingo/](http://localhost:8080/mcflamingo/)  
+- Merchant invite: `/continuity/join/<token>` (same browser)  
+- Kill-origin CLI: `bun run test:mcflamingo` — see [`mcflamingo-continuity.md`](./mcflamingo-continuity.md)
 
 ## Money shape
 

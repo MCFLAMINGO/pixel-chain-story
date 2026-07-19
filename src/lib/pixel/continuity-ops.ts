@@ -165,6 +165,61 @@ export function emptyOpsState(operatorName = "McFlamingo Continuity"): Continuit
   };
 }
 
+export const MCFLAMINGO_DEMO_DOMAIN = "mcflamingo.com";
+
+/**
+ * One-click lab seed: McFlamingo storefront HTML → Continuity live + SISO.
+ * No DNS homework. Merchant invite already “joined” for the demo.
+ */
+export async function seedMcFlamingoDemo(
+  state: ContinuityOpsState,
+  html: string,
+  opts?: { originUrl?: string; mirrorUrls?: string[] },
+): Promise<ContinuityOpsState> {
+  if (!html.trim()) throw new Error("Need McFlamingo HTML artifact");
+  const originUrl = opts?.originUrl ?? "https://mcflamingo.com";
+  let next = createStoreOffer(state, {
+    name: "McFlamingo",
+    domain: MCFLAMINGO_DEMO_DOMAIN,
+    originUrl,
+    priceUsdPerMonth: 20,
+  });
+  const storeId = next.stores[0]!.id;
+  const token = next.stores[0]!.inviteToken;
+  next = markInviteSent(next, storeId);
+  next = merchantJoin(next, token, { originUrl });
+  next = attachStoreDigest(next, storeId, await digestArtifactText(html));
+
+  const mirrors = opts?.mirrorUrls ?? [];
+  if (mirrors[0]) {
+    next = updateRung(next, next.rungs[0]!.id, {
+      baseUrl: mirrors[0],
+      label: "Demo booth A — McFlamingo",
+      provider: "Lab",
+    });
+  }
+  if (mirrors[1]) {
+    next = updateRung(next, next.rungs[1]!.id, {
+      baseUrl: mirrors[1],
+      label: "Demo booth B — McFlamingo",
+      provider: "Lab",
+    });
+  }
+
+  next = assignRungs(next, storeId, [next.rungs[0]!.id, next.rungs[1]!.id]);
+  return goLive(next, storeId, { pixelIndex: 1 });
+}
+
+/** Invite prerequisites — what operators must know before sending a link. */
+export function continuityInvitePrerequisites(): string[] {
+  return [
+    "Create the offer on /continuity first (that mints the secure token).",
+    "Lab today: invite only works in the same browser profile (ops state is localStorage).",
+    "Merchant taps Turn on Continuity — no DNS / digest homework.",
+    "You attach the storefront digest + booths before Go live (or use Demo: McFlamingo shines in).",
+  ];
+}
+
 function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(18));
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");

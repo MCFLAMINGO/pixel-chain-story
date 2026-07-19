@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>McFlamingo — continuity demo</title>
+    <style>
+      :root {
+        --ink: #1a1410;
+        --sand: #f3e6d4;
+        --flame: #e85d04;
+        --lagoon: #0d7377;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+        color: var(--ink);
+        background:
+          radial-gradient(ellipse 80% 60% at 20% 0%, #ffd6a5 0%, transparent 55%),
+          radial-gradient(ellipse 70% 50% at 100% 100%, #94d2bd 0%, transparent 50%), var(--sand);
+      }
+      main {
+        max-width: 28rem;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+      .brand {
+        font-size: clamp(2.4rem, 8vw, 3.4rem);
+        letter-spacing: -0.03em;
+        line-height: 0.95;
+        margin: 0 0 0.5rem;
+      }
+      .lede {
+        margin: 0 0 2rem;
+        font-size: 1.05rem;
+        line-height: 1.4;
+        opacity: 0.85;
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        padding: 0.85rem 0;
+        border-top: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+      }
+      .item:last-of-type {
+        border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+        margin-bottom: 1.5rem;
+      }
+      .price {
+        font-variant-numeric: tabular-nums;
+        color: var(--lagoon);
+        font-weight: 600;
+      }
+      button {
+        width: 100%;
+        border: none;
+        cursor: pointer;
+        padding: 0.95rem 1.1rem;
+        font: inherit;
+        font-size: 1.05rem;
+        background: var(--flame);
+        color: #fff8f0;
+        transition:
+          transform 0.15s ease,
+          filter 0.15s ease;
+      }
+      button:hover {
+        filter: brightness(1.05);
+        transform: translateY(-1px);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      #status {
+        margin-top: 1rem;
+        min-height: 1.4em;
+        font-size: 0.95rem;
+      }
+      .meta {
+        margin-top: 2.5rem;
+        font-size: 0.8rem;
+        opacity: 0.65;
+        line-height: 1.35;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 class="brand">McFlamingo</h1>
+      <p class="lede">Grill menu. Same page from origin or mirror — settle on Pixel.</p>
+
+      <div class="item">
+        <span>Flamingo smash burger</span>
+        <span class="price">3 PIX</span>
+      </div>
+      <div class="item">
+        <span>Lagoon fries</span>
+        <span class="price">1 PIX</span>
+      </div>
+      <div class="item">
+        <span>Sunset shake</span>
+        <span class="price">2 PIX</span>
+      </div>
+
+      <button type="button" id="pay">Pay 3 PIX — smash burger</button>
+      <p id="status" aria-live="polite"></p>
+
+      <p class="meta">
+        Continuity demo artifact. Host may die; mirrors keep this menu alive. Payments settle on
+        Pixel Ledger — not a second McFlamingo.
+      </p>
+    </main>
+    <script>
+      const status = document.getElementById("status");
+      document.getElementById("pay").addEventListener("click", () => {
+        status.textContent =
+          "Checkout intent: 3 PIX for smash burger. In the lab demo, settlement runs on Pixel sequencers after shine-in.";
+      });
+    </script>
+  </body>
+</html>
