@@ -38,7 +38,9 @@ function MerchantJoin() {
         <div className="continuity-glow" aria-hidden />
         <h1 className="font-pixel relative text-3xl font-bold">Link not found</h1>
         <p className="relative mt-3 max-w-md text-center text-sm text-muted-foreground">
-          Ask your Continuity partner for a fresh invite link.
+          Lab invites live in the operator’s browser storage. Open this link in the <em>same</em>{" "}
+          browser where they created the offer (or ask them to re-send after creating it again).
+          Cross-phone invites need shared ops later.
         </p>
       </main>
     );

@@ -11,10 +11,12 @@ import {
   goLive,
   markInviteSent,
   markStoreOriginDark,
+  continuityInvitePrerequisites,
   merchantOfferCopy,
   probeRung,
   recordTillSettlement,
   runChaosDrill,
+  seedMcFlamingoDemo,
   stepIndex,
   stepLabel,
   tillAccruedPix,
@@ -54,6 +56,7 @@ function ContinuityAdmin() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [probing, setProbing] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
 
   const selected = useMemo(
     () => state.stores.find((s) => s.id === selectedId) ?? state.stores[0] ?? null,
@@ -123,10 +126,63 @@ function ContinuityAdmin() {
               {continuityThesis()} Admin desk: sell the ladder, send a secure link, load each store.
               You worry about health + sales; the merchant follows steps.
             </p>
+            <button
+              type="button"
+              className="continuity-btn mt-4"
+              disabled={demoBusy}
+              onClick={() => {
+                void (async () => {
+                  setDemoBusy(true);
+                  setMsg("");
+                  try {
+                    const origin =
+                      typeof window !== "undefined"
+                        ? `${window.location.origin}/mcflamingo/`
+                        : "https://mcflamingo.com";
+                    const res = await fetch("/mcflamingo/index.html");
+                    if (!res.ok)
+                      throw new Error("Could not load /mcflamingo/index.html — run bun run dev");
+                    const html = await res.text();
+                    const next = await seedMcFlamingoDemo(state, html, {
+                      originUrl: origin,
+                      mirrorUrls: [origin, origin],
+                    });
+                    setState(next);
+                    setSelectedId(next.stores[0]?.id ?? null);
+                    setMsg(
+                      "McFlamingo shone in — live on the ladder. Open the join link in this same browser, or Run lab chaos drill.",
+                    );
+                  } catch (err) {
+                    setMsg(err instanceof Error ? err.message : "McFlamingo demo failed");
+                  } finally {
+                    setDemoBusy(false);
+                  }
+                })();
+              }}
+            >
+              {demoBusy ? "Shining in…" : "Demo: McFlamingo shines in"}
+            </button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              One click · real menu HTML · no DNS. Preview:{" "}
+              <a className="underline" href="/mcflamingo/" target="_blank" rel="noreferrer">
+                /mcflamingo/
+              </a>
+            </p>
           </div>
           <p className="font-pixel text-xs tracking-[0.2em] text-muted-foreground uppercase">
             {state.operatorName}
           </p>
+        </div>
+
+        <div className="mt-8 max-w-xl rounded-none border border-foreground/10 bg-foreground/[0.03] px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="font-pixel text-[11px] tracking-[0.18em] text-primary uppercase">
+            Before you send invites
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            {continuityInvitePrerequisites().map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
         </div>
 
         {/* Step strip */}

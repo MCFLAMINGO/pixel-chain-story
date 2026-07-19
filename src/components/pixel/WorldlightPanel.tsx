@@ -210,8 +210,14 @@ export function WorldlightPanel() {
           }
           className="font-pixel rounded-md border border-border px-4 py-2 text-xs font-semibold"
         >
-          Shine in mcflamingo.com
+          Shine in mcflamingo.com (domain record)
         </button>
+        <a
+          href="/continuity"
+          className="font-pixel inline-flex items-center rounded-md border border-primary/50 px-4 py-2 text-xs font-semibold"
+        >
+          Easy Continuity: McFlamingo demo →
+        </a>
         <button
           type="button"
           disabled={busy || !you}

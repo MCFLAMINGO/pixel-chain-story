@@ -2,10 +2,13 @@
  * Continuity ops — merchant handshake + map/till economics.
  * bun run test:continuity-ops
  */
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   activeTillBps,
   assignRungs,
   attachStoreDigest,
+  continuityInvitePrerequisites,
   createStoreOffer,
   digestArtifactText,
   emptyOpsState,
@@ -14,6 +17,7 @@ import {
   markStoreOriginDark,
   merchantJoin,
   merchantOfferCopy,
+  seedMcFlamingoDemo,
   stepIndex,
   storeByInvite,
   tillFeePix,
@@ -79,6 +83,19 @@ async function main() {
   if (activeTillBps(live) !== 100) throw new Error("till bps");
   if (tillFeePix(live, 10_000) !== 100) throw new Error("1% of 10000 = 100");
   console.log("▸ origin dark → till 100 bps on PIX volume ✓");
+
+  if (continuityInvitePrerequisites().length < 3) throw new Error("invite prereqs");
+  const html = await readFile(join(import.meta.dir, "../public/mcflamingo/index.html"), "utf8");
+  let demo = emptyOpsState("McFlamingo Continuity");
+  demo = await seedMcFlamingoDemo(demo, html, {
+    originUrl: "http://127.0.0.1:4100/mcflamingo/",
+    mirrorUrls: ["http://127.0.0.1:4100/mcflamingo/", "http://127.0.0.1:4101/mcflamingo/"],
+  });
+  if (demo.stores[0]?.step !== "live") throw new Error("mcflamingo seed not live");
+  if (demo.stores[0]?.name !== "McFlamingo") throw new Error("name");
+  if (!demo.stores[0]?.digest) throw new Error("digest missing");
+  if (demo.stores[0]?.continuity?.state !== "in_the_light") throw new Error("siso");
+  console.log("▸ seedMcFlamingoDemo one-click shine-in ✓");
 
   console.log("\n═══ PASS — continuity handshake + map/till ═══");
 }
