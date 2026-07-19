@@ -28,13 +28,14 @@ Not Amazon the company — a **storefront that shone in**. Claim shape:
 3. Honest line: _continuity of settlement & mirrored artifact_, not “we replace AWS compute.”
 
 Lab today: `test:four-node` + kill one node mid-tip — peers still extend (Gate C skip).  
-Public “AWS went dark, store didn’t” needs Gate G diversity + Gate J chaos drill ([`CONTINUITY-SISO.md`](./CONTINUITY-SISO.md)).
+Continuity lab: `bun run test:chaos-drill` — origin_dark → mirrors serve flag → till accrues (bookkeeping).  
+Public “AWS went dark, store didn’t” still needs Gate G diversity + Gate J real-host drill ([`CONTINUITY-SISO.md`](./CONTINUITY-SISO.md)).
 
 ## Next to become attackable
 
 1. Publish a long-lived 4+ node host set (home/VPS mix) with fixed seeds.
 2. Real VRF or BFT quorum over that set.
-3. SISO chaos drill: origin_dark while mirrors serve a real checkout path.
+3. Real-host SISO chaos drill (beyond lab `test:chaos-drill`).
 4. Equivocation slash + explorer.
 
 Until then: clone, run `test:four-node`, try to break tip agreement.

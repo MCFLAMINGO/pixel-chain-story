@@ -22,7 +22,16 @@ Open:
 | **Map fee** | Always while covered | ~$15–30/mo (`priceUsdPerMonth`) |
 | **Till** | Origin dark + sales still clear | Default **100 bps (1%)** of PIX volume (`tillCutBpsWhenOriginDark`) |
 
-Till is bookkeeping today — marks `origin_dark` on the SISO record and computes `tillFeePix`. Not on-chain settlement yet.
+Till is **local bookkeeping** (`tillEvents` / `recordTillSettlement`) — not on-chain settlement. Accrues only while till is active.
+
+## Lab chaos drill
+
+```bash
+bun run test:chaos-drill
+```
+
+Walks: live → origin dark → `canServeWithoutOrigin` → till accrues on simulated PIX.  
+Desk button: **Run lab chaos drill**. This is Continuity lab evidence — **not** Gate J public-regime drill.
 
 ## Admin steps
 

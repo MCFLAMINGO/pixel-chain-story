@@ -13,8 +13,11 @@ import {
   markStoreOriginDark,
   merchantOfferCopy,
   probeRung,
+  recordTillSettlement,
+  runChaosDrill,
   stepIndex,
   stepLabel,
+  tillAccruedPix,
   tillIsActive,
   toggleDeployItem,
   updateRung,
@@ -295,6 +298,31 @@ function ContinuityAdmin() {
                         setMsg(err instanceof Error ? err.message : "Failover mark failed");
                       }
                     }}
+                    onRecordTill={(amountPix) => {
+                      try {
+                        setState(
+                          recordTillSettlement(state, selected.id, amountPix, {
+                            via: "simulated",
+                          }),
+                        );
+                        setMsg(`Till recorded ${amountPix} PIX volume (lab bookkeeping).`);
+                      } catch (err) {
+                        setMsg(err instanceof Error ? err.message : "Till record failed");
+                      }
+                    }}
+                    onChaosDrill={() => {
+                      void (async () => {
+                        try {
+                          const { state: next, report } = await runChaosDrill(state, selected.id);
+                          setState(next);
+                          setMsg(
+                            `Chaos drill: originDark=${report.originDark} mirrorsServe=${report.mirrorsServe} fee=${report.feePix} accrued=${report.accruedPix}`,
+                          );
+                        } catch (err) {
+                          setMsg(err instanceof Error ? err.message : "Drill failed");
+                        }
+                      })();
+                    }}
                   />
                 )}
               </>
@@ -340,6 +368,8 @@ function StorePanel({
   onToggleDeploy,
   onAttachDigest,
   onOriginDark,
+  onRecordTill,
+  onChaosDrill,
 }: {
   store: ContinuityStore;
   inviteUrl: string;
@@ -351,11 +381,14 @@ function StorePanel({
   onToggleDeploy: (itemId: string) => void;
   onAttachDigest: (digest: string) => void;
   onOriginDark: () => void;
+  onRecordTill: (amountPix: number) => void;
+  onChaosDrill: () => void;
 }) {
   const [picked, setPicked] = useState<string[]>(
     store.rungIds.length ? store.rungIds : rungIds.slice(0, 2),
   );
   const [digestPaste, setDigestPaste] = useState("");
+  const [tillAmount, setTillAmount] = useState("10000");
 
   return (
     <div className="mt-6 space-y-8">
@@ -376,6 +409,7 @@ function StorePanel({
           <p className="mt-2 text-xs">
             Till {tillIsActive(store) ? "ACTIVE" : "idle"} · {activeTillBps(store)} bps
             {store.continuity?.state === "origin_dark" ? " (origin dark)" : ""}
+            {" · "}accrued {tillAccruedPix(store)} PIX
           </p>
         )}
       </div>
@@ -495,6 +529,49 @@ function StorePanel({
             <button type="button" className="continuity-btn mt-3" onClick={onOriginDark}>
               Mark origin dark (activate till)
             </button>
+          )}
+          {store.step === "live" && (
+            <div className="mt-4 space-y-2">
+              <button type="button" className="continuity-btn" onClick={onChaosDrill}>
+                Run lab chaos drill
+              </button>
+              <p className="text-xs text-muted-foreground">
+                origin dark → mirrors serve → till accrues (lab bookkeeping, not Gate J)
+              </p>
+            </div>
+          )}
+          {tillIsActive(store) && (
+            <div className="mt-4 space-y-2">
+              <h4 className="font-pixel text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Record till (simulated PIX volume)
+              </h4>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="continuity-input w-32"
+                  value={tillAmount}
+                  onChange={(e) => setTillAmount(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="continuity-btn-ghost"
+                  onClick={() => onRecordTill(Number(tillAmount) || 0)}
+                >
+                  Accrue till
+                </button>
+              </div>
+              {(store.tillEvents?.length ?? 0) > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {[...(store.tillEvents ?? [])]
+                    .reverse()
+                    .slice(0, 5)
+                    .map((e) => (
+                      <li key={e.id}>
+                        +{e.feePix} PIX fee on {e.amountPix} · {e.via} · {e.bps} bps
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
       )}

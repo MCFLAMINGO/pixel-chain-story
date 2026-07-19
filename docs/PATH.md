@@ -210,6 +210,7 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 2. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
 3. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
 4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
-5. Keep `pix_protocolInfo` gates honest as evidence lands
+5. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
+6. Keep `pix_protocolInfo` gates honest as evidence lands
 
-Gate D is in. Gate I package is preparing. KEM wire is opt-in lab. Continuity handshake is merchant-simple — still a pilot, not a costume.
+Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume.
