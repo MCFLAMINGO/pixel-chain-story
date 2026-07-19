@@ -147,6 +147,7 @@ export async function handlePixelRpc(
           consensus: "Proof of Light Sequence (PoLS) — sequential tip extension, not BFT",
           signatures: "PIX-HASH-OTS-128 + PIX-ML-DSA-65 (NIST FIPS-204); no classical ECC",
           quantum: (await import("./scheme")).quantumStatus(),
+          transport: (await import("./transport-kem")).transportStatus(),
           hash: "SHA-512 via lightDigest labels",
           model: "UTXO",
           language: "Lumen (light-native) + TypeScript host",

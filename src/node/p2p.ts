@@ -19,6 +19,9 @@ export type PeerMessage =
       sequencers?: SequencerId[];
       /** Gate F — signature over helloCanonical(...) */
       helloSig?: string;
+      /** Opt-in PQ transport — peer's ML-KEM-768 public key (PIXEL_TRANSPORT_KEM=1) */
+      kemPublicKey?: string;
+      kemScheme?: "PIX-ML-KEM-768";
     }
   | { type: "ping"; t: number }
   | { type: "pong"; t: number }
@@ -27,7 +30,21 @@ export type PeerMessage =
   | { type: "get_pixels"; from: number }
   | { type: "pixels"; pixels: LedgerPixel[] }
   | { type: "get_headers"; from: number }
-  | { type: "headers"; headers: PixelHeader[] };
+  | { type: "headers"; headers: PixelHeader[] }
+  /** Initiator → responder: ML-KEM ciphertext for session AEAD key */
+  | {
+      type: "kem_session";
+      kemCt: string;
+      fromAddress: string;
+      kemScheme: "PIX-ML-KEM-768";
+    }
+  /** Application payload sealed under established session */
+  | {
+      type: "sealed";
+      nonce: string;
+      ciphertext: string;
+      kemScheme: "PIX-ML-KEM-768";
+    };
 
 export type MessageHandler = (msg: PeerMessage, peerUrl: string) => void | Promise<void>;
 

@@ -48,6 +48,7 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
           peers: node.gossip.peerCount(),
           gossipUrl: snap.gossipUrl,
           gate: "F",
+          transport: snap.transport,
         });
       }
 

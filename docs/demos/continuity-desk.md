@@ -1,7 +1,8 @@
-# Continuity desk — sell the ladder (lab)
+# Continuity desk — merchant handshake (lab)
 
 **For:** you as operator (sales + health).  
-**Not yet:** fully agentic rsync/DNS — that comes after this wizard works by hand.
+**Merchant:** one secure link → **Turn on Continuity** — no DNS/rsync vocabulary.  
+**Held:** agentic publish/failover runners (booth jobs stay operator-side for now).
 
 ## Run
 
@@ -12,35 +13,32 @@ bun run dev
 Open:
 
 - Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)
-- From Lab: **Continuity desk →**
-
-## Admin steps (1–5)
-
-1. **Create offer** — business name, domain, price
-2. **Copy secure link** — send to the merchant
-3. **Merchant joins** — they open `/continuity/join/<token>`, upload/paste snapshot → digest
-4. **Assign rungs** — pick which of your 5 mirror base URLs serve them
-5. **Go live** — shines digest into SISO (`in_the_light`) and opens a **deploy checklist** (rsync/DNS hints). Tick boxes as you (or a future agent) finish each job.
-
-## Merchant experience
-
-Secure link only. Confirm origin + digest. No admin chrome.
-
-## CLI hardening
-
-`pixel send --to` now requires a real `pix1` + 38 hex address (rejects placeholders like `PASTE_BOB_ADDRESS_HERE`).
+- Merchant invite: `/continuity/join/<token>`
 
 ## Money shape
 
-You charge ~$15–30/mo. Rungs cost you VPS. Pixel = map (digest) + later till.  
-See conversation thesis: toll on map/till, not forever landlord of every booth.
+| Piece | When | What |
+| --- | --- | --- |
+| **Map fee** | Always while covered | ~$15–30/mo (`priceUsdPerMonth`) |
+| **Till** | Origin dark + sales still clear | Default **100 bps (1%)** of PIX volume (`tillCutBpsWhenOriginDark`) |
+
+Till is bookkeeping today — marks `origin_dark` on the SISO record and computes `tillFeePix`. Not on-chain settlement yet.
+
+## Admin steps
+
+1. **Create offer** — business name, domain, map fee  
+2. **Copy secure link** — send to merchant  
+3. **Merchant turns on** — one button (digest optional; you may attach later)  
+4. **Assign booths** — which of your 5 rung URLs serve them  
+5. **Go live** — SISO digest in the light + **operator booth jobs** checklist  
+6. **Mark origin dark** (when failover happens) — till activates  
+
+## Merchant experience
+
+Secure link only. Offer copy + **Turn on Continuity**. No digest upload required. No admin chrome.
 
 ## Tests
 
 ```bash
 bun run test:continuity-ops
 ```
-
-## Next (agentic)
-
-Secure link that also: pulls export, rsyncs to rungs, configures failover — so sales only shares a link and you watch health.

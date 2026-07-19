@@ -9,7 +9,7 @@ This is not a marketing adjective. It is a **hard design constraint**.
 | --- | --- | --- | --- |
 | **PIX-ML-DSA-65** | NIST **FIPS-204** ML-DSA (Dilithium) via `@noble/post-quantum` | **Default** genesis / wallets / sequencers | Shipped + CI + frozen vectors |
 | **PIX-HASH-OTS-128** | Hash-based Lamport + Merkle window (32 leaves) | Constrained / optical / ceremony | Shipped + CI + frozen vectors + ledger single-use |
-| **PIX-ML-KEM-768** | NIST **FIPS-203** ML-KEM (Kyber) + XChaCha20-Poly1305 | Lab transport sessions | Shipped in `transport-kem.ts`; **mesh default still plaintext** |
+| **PIX-ML-KEM-768** | NIST **FIPS-203** ML-KEM (Kyber) + XChaCha20-Poly1305 | Lab transport sessions | Opt-in sealed gossip via `PIXEL_TRANSPORT_KEM=1`; **default mesh still plaintext** |
 
 **Classical ECC is not used for Pixel signatures.**
 
@@ -42,7 +42,7 @@ CI: `bun run test:vectors` must stay green. Do not edit casually.
 | “PQ-class signatures (NIST ML-DSA-65 default + hash-OTS)” | “Quantum-proof forever / audited production crypto” |
 | “No ECDSA dependency for Pixel tx/PoLS” | “On-chain ULA verifies Dilithium” (EVM twin is keccak-OTS; gate is off-chain verify + commit) |
 | “OTS leaves cannot be reused (ledger + wallet)” | “Optical path is PQ-complete custody UX” |
-| “Lab ML-KEM-768 session crypto available” | “Gossip/RPC is PQ-encrypted by default” |
+| “Opt-in lab ML-KEM-768 gossip (`PIXEL_TRANSPORT_KEM=1`)” | “Gossip/RPC is PQ-encrypted by default / TLS replacement” |
 | “Scoped audit package prepared” | “Audited” (see [`AUDIT.md`](./AUDIT.md) — PREPARING) |
 
 `quantumStatus()` and `pix_protocolInfo.quantum` expose this to clients.
@@ -52,7 +52,7 @@ CI: `bun run test:vectors` must stay green. Do not edit casually.
 1. **Shor** breaks RSA/ECC → we never depended on them for Pixel sigs.
 2. **Grover** weakens hashes → SHA-512 + 128-bit OTS digest is the lab choice; monitor.
 3. **Leaf reuse** destroys Lamport → wallet `OTS_EXHAUSTED` + ledger `usedOtsLeaves` / `OTS_LEAF_REUSED` (`bun run test:ots-reuse`).
-4. **Harvest-now-decrypt-later** on encrypted channels → lab `bun run test:kem`; wire not default-on.
+4. **Harvest-now-decrypt-later** on encrypted channels → lab `bun run test:kem` + `test:kem-wire`; wire opt-in only.
 
 ## Bridge × ML-DSA
 

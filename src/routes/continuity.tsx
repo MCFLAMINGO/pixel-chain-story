@@ -2,14 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useContinuityOps } from "@/hooks/use-continuity-ops";
 import {
+  activeTillBps,
   assignRungs,
+  attachStoreDigest,
   continuityThesis,
   createStoreOffer,
+  digestArtifactText,
   goLive,
   markInviteSent,
+  markStoreOriginDark,
+  merchantOfferCopy,
   probeRung,
   stepIndex,
   stepLabel,
+  tillIsActive,
   toggleDeployItem,
   updateRung,
   type ContinuityStore,
@@ -21,7 +27,7 @@ export const Route = createFileRoute("/continuity")({
       { title: "PIXEL — Continuity admin" },
       {
         name: "description",
-        content: "Sell store continuity: invite → digest → assign rungs → live ladder.",
+        content: "Sell store continuity: secure link → merchant turns on → assign booths → live.",
       },
     ],
   }),
@@ -260,7 +266,7 @@ function ContinuityAdmin() {
                       void (async () => {
                         try {
                           setState(await goLive(state, selected.id));
-                          setMsg("Store live — SISO in the light. Run the deploy checklist.");
+                          setMsg("Store live — SISO in the light. Finish operator booth jobs.");
                         } catch (err) {
                           setMsg(err instanceof Error ? err.message : "Go live failed");
                         }
@@ -271,6 +277,22 @@ function ContinuityAdmin() {
                         setState(toggleDeployItem(state, selected.id, itemId));
                       } catch (err) {
                         setMsg(err instanceof Error ? err.message : "Toggle failed");
+                      }
+                    }}
+                    onAttachDigest={(digest) => {
+                      try {
+                        setState(attachStoreDigest(state, selected.id, digest));
+                        setMsg("Digest attached.");
+                      } catch (err) {
+                        setMsg(err instanceof Error ? err.message : "Digest failed");
+                      }
+                    }}
+                    onOriginDark={() => {
+                      try {
+                        setState(markStoreOriginDark(state, selected.id));
+                        setMsg("Origin dark — till cut active on surviving checkouts.");
+                      } catch (err) {
+                        setMsg(err instanceof Error ? err.message : "Failover mark failed");
                       }
                     }}
                   />
@@ -287,9 +309,9 @@ function ContinuityAdmin() {
         )}
 
         <p className="mt-16 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-          Honesty: this desk books offers, digests, and rung assignment. Pushing files to VPS
-          (rsync) and DNS failover still happen on your hosts — or later via an agentic link that
-          runs those jobs for you. Pixel proves the room; rungs are the booths.
+          Merchants only see the secure link and “Turn on Continuity.” Booth jobs (publish /
+          failover) stay on this desk — operator backstage. Map fee + till-on-outage is the money
+          shape; Pixel holds the digest map, not a second AWS.
         </p>
       </div>
     </main>
@@ -316,6 +338,8 @@ function StorePanel({
   onAssign,
   onLive,
   onToggleDeploy,
+  onAttachDigest,
+  onOriginDark,
 }: {
   store: ContinuityStore;
   inviteUrl: string;
@@ -325,22 +349,33 @@ function StorePanel({
   onAssign: (ids: string[]) => void;
   onLive: () => void;
   onToggleDeploy: (itemId: string) => void;
+  onAttachDigest: (digest: string) => void;
+  onOriginDark: () => void;
 }) {
   const [picked, setPicked] = useState<string[]>(
     store.rungIds.length ? store.rungIds : rungIds.slice(0, 2),
   );
+  const [digestPaste, setDigestPaste] = useState("");
 
   return (
     <div className="mt-6 space-y-8">
       <div>
         <p className="font-pixel text-2xl font-bold">{store.name}</p>
         <p className="text-sm text-muted-foreground">
-          {store.domain} · ${store.priceUsdPerMonth}/mo · {stepLabel(store.step)}
+          {store.domain} · ${store.priceUsdPerMonth}/mo · till{" "}
+          {(store.tillCutBpsWhenOriginDark / 100).toFixed(0)}% on outage · {stepLabel(store.step)}
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">{merchantOfferCopy(store)}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">{store.originUrl}</p>
         {store.digest && (
           <p className="mt-2 font-mono text-[11px] break-all text-muted-foreground">
             digest {store.digest.slice(0, 48)}…
+          </p>
+        )}
+        {store.step === "live" && (
+          <p className="mt-2 text-xs">
+            Till {tillIsActive(store) ? "ACTIVE" : "idle"} · {activeTillBps(store)} bps
+            {store.continuity?.state === "origin_dark" ? " (origin dark)" : ""}
           </p>
         )}
       </div>
@@ -402,11 +437,33 @@ function StorePanel({
 
       <div>
         <h3 className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">
+          Operator · Attach digest (if merchant skipped upload)
+        </h3>
+        <textarea
+          className="continuity-input mt-2 min-h-[4rem] font-mono text-xs"
+          placeholder="Paste homepage HTML — we digest it here (merchant never sees this)."
+          value={digestPaste}
+          onChange={(e) => setDigestPaste(e.target.value)}
+        />
+        <button
+          type="button"
+          className="continuity-btn-ghost mt-2"
+          disabled={!digestPaste.trim()}
+          onClick={() => {
+            void digestArtifactText(digestPaste).then(onAttachDigest);
+          }}
+        >
+          Digest & attach
+        </button>
+      </div>
+
+      <div>
+        <h3 className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">
           Step 5 · Go live
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Shines digest into SISO and opens the deploy checklist (rsync / DNS). Agentic runners come
-          next — for now you (or sales ops) tick the boxes.
+          Shines digest into SISO and opens operator booth jobs. Merchants already turned Continuity
+          on via the secure link.
         </p>
         <button
           type="button"
@@ -430,17 +487,22 @@ function StorePanel({
           <ul className="mt-2 text-xs text-muted-foreground">
             {(store.continuity.artifact.mirrors ?? []).map((m) => (
               <li key={m} className="truncate">
-                mirror {m}
+                booth {m}
               </li>
             ))}
           </ul>
+          {store.continuity.state === "in_the_light" && (
+            <button type="button" className="continuity-btn mt-3" onClick={onOriginDark}>
+              Mark origin dark (activate till)
+            </button>
+          )}
         </div>
       )}
 
       {store.deployPlan && store.deployPlan.length > 0 && (
         <div>
           <h3 className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">
-            Deploy checklist (agentic later)
+            Operator booth jobs (not merchant-facing)
           </h3>
           <ul className="mt-3 space-y-3">
             {store.deployPlan.map((item) => (

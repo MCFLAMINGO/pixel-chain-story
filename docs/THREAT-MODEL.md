@@ -19,7 +19,7 @@
 | Fake sequencer | Forge pixels | PoLS election + sig verify (`acceptBlock`) | Need ≥7 diverse providers live |
 | Cloud capture | Kill RPC/CDN | Diversity policy in code | Need real geo/provider set |
 | Quantum attacker | Break classical sigs | No ECC; hash-OTS + **NIST ML-DSA-65** default birth | External audit (Gate I); full on-chain Dilithium deferred — see [`ULA-MLDSA.md`](./ULA-MLDSA.md) |
-| Harvest-now-decrypt-later | Decrypt future captures of today’s traffic | Lab **ML-KEM-768** + XChaCha20-Poly1305 (`transport-kem.ts`) | Default gossip/RPC still **plaintext** |
+| Harvest-now-decrypt-later | Decrypt future captures of today’s traffic | Lab **ML-KEM-768** sealed gossip via `PIXEL_TRANSPORT_KEM=1` (`test:kem-wire`) | Default gossip/RPC still **plaintext**; not a TLS replacement |
 | Lying bridge relayer | Fake foreign mint | Keccak-OTS twin on-chain + CosmWasm + frozen fixture; ML-DSA gate is trusted-submitter | Do not deploy for mainnet value; public testnet links pending (`BRIDGE-STATUS.md`) |
 | Foreign ULA accept treated as spend | Unlock master PIX without Pixel vault | `BRIDGE_CUSTODY_AXIOM` + `assertVaultReleaseAuthorized` in `illuminateIngress` | `bun run test:bridge-custody` — verify alone leaves balances unchanged |
 | Eclipse / peer lie | Isolate node | Signed hello + peer scoring + headers-first (Gate F lab) | Stronger eclipse resistance under adversarial mesh |
