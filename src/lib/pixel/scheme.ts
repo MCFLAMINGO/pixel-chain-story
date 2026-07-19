@@ -168,8 +168,9 @@ export function quantumStatus(): {
     claim:
       "PQ signatures available now: NIST ML-DSA-65 is the default birth of a node; hash-OTS retained for constrained/optical paths. Classical ECC/ECDSA is not used.",
     gaps: [
-      "ULA Solidity verifier does not yet verify ML-DSA on-chain (Gate E)",
-      "External audit of noble ML-DSA integration still pending (Gate I)",
+      "Full on-chain Dilithium verify deferred (gas); lab uses off-chain ML-DSA + ULAOffchainMldsaGate commit — see docs/ULA-MLDSA.md",
+      "External audit pending — docs/AUDIT.md status PREPARING (Gate I)",
+      "Gossip/RPC default plaintext; lab ML-KEM-768 in transport-kem.ts not default-on",
     ],
   };
 }

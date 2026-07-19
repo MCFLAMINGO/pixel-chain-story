@@ -137,7 +137,7 @@ export function bridgeThesis(): {
 } {
   return {
     status:
-      "LAB — ULAVerifier.sol verifies PIX-HASH-OTS-128-KECCAK (IS_STUB=false); CosmWasm twin + frozen fixture; public testnet links still pending (see docs/BRIDGE-STATUS.md).",
+      "LAB — ULAVerifier.sol verifies PIX-HASH-OTS-128-KECCAK (IS_STUB=false); native ULAs verify ML-DSA off-chain; ULAOffchainMldsaGate commits PQ receipts (not full on-chain Dilithium); CosmWasm twin + frozen fixture; public testnet links still pending (see docs/BRIDGE-STATUS.md, docs/ULA-MLDSA.md).",
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
     custody:

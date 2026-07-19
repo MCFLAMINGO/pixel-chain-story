@@ -25,6 +25,8 @@ export * from "./sovereignty";
 export * from "./bridge";
 export * from "./bridge-custody";
 export * from "./ula-evm";
+export * from "./ula-mldsa";
+export * from "./transport-kem";
 export * from "./siso";
 export * from "./continuity-ops";
 export * from "./access";
