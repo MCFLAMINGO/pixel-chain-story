@@ -9,8 +9,9 @@ import {
   sequenceBlock,
   verifyChain,
   generateLightKeypair,
-  signLightFull,
-  verifyLightFull,
+  generatePixelKeypair,
+  signPixel,
+  verifyPixel,
   encodeHexAsLight,
   simulateCameraCapture,
   verifyCapturedPattern,
@@ -48,14 +49,24 @@ function round(n: number): number {
 export async function runPixelBenchmarks(): Promise<BenchRow[]> {
   const rows: BenchRow[] = [];
 
-  const keyTimes = await timeMany(3, async () => {
+  const otsKeyTimes = await timeMany(3, async () => {
     await generateLightKeypair();
   });
   rows.push({
     op: "generateLightKeypair (hash-OTS)",
     samples: 3,
-    ...stats(keyTimes),
-    note: "quantum-resistant keygen; once per wallet",
+    ...stats(otsKeyTimes),
+    note: "constrained / optical OTS keygen",
+  });
+
+  const mlKeyTimes = await timeMany(3, async () => {
+    await generatePixelKeypair("PIX-ML-DSA-65");
+  });
+  rows.push({
+    op: "generatePixelKeypair (ML-DSA-65)",
+    samples: 3,
+    ...stats(mlKeyTimes),
+    note: "default node/wallet birth (Gate D)",
   });
 
   const alice = await createDemoWallet("Alice");
@@ -64,22 +75,22 @@ export async function runPixelBenchmarks(): Promise<BenchRow[]> {
 
   const msg = "pix-bench-message";
   const signTimes = await timeMany(5, async () => {
-    await signLightFull(msg, alice);
+    await signPixel(msg, alice);
   });
   rows.push({
-    op: "signLightFull",
+    op: "signPixel (default scheme)",
     samples: 5,
     ...stats(signTimes),
     note: "per-transaction signature",
   });
 
-  const sig = await signLightFull(msg, alice);
+  const sig = await signPixel(msg, alice);
   const verifyTimes = await timeMany(5, async () => {
-    const ok = await verifyLightFull(msg, sig, alice.publicKey);
+    const ok = await verifyPixel(msg, sig, alice.publicKey);
     if (!ok) throw new Error("verify failed");
   });
   rows.push({
-    op: "verifyLightFull",
+    op: "verifyPixel (default scheme)",
     samples: 5,
     ...stats(verifyTimes),
     note: "phone-capable verification",

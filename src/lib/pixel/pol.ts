@@ -9,6 +9,7 @@
  * address in the rotation may illuminate with skipCount ≥ 1 (lab fault path).
  */
 
+import { createHash } from "node:crypto";
 import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
 import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
 import { opticalBeacon } from "./optical";
@@ -18,6 +19,13 @@ export const POLS_STALL_MS = 15_000;
 
 /** Max skips per height — bounds griefing; still lab, not Byzantine quorum. */
 export const POLS_MAX_SKIP = 8;
+
+/** Sync SHA-512 for leader lottery (public inputs only — not a private VRF). */
+function lotteryScore(prevHash: Hex, sequence: number, address: string): string {
+  return createHash("sha512")
+    .update(`pols-lottery|${prevHash}|${sequence}|${address}`)
+    .digest("hex");
+}
 
 export interface LightProof {
   sequence: number;
@@ -35,9 +43,26 @@ export interface LightProof {
    * Bound into the signed message so peers can verify election + stall.
    */
   skipCount?: number;
+  /**
+   * Ordered electable set used for this height's lottery (lab).
+   * Bound into the signed message so join/registry growth cannot rewrite history.
+   */
+  electable?: string[];
 }
 
-/** Deterministic sequencer rotation from the previous block hash — no stake grind. */
+/** Commitment over ordered electable addresses (bound into PoLS message). */
+export function electableCommitment(electable: string[]): string {
+  return createHash("sha512")
+    .update(`pols-electable|${electable.join("|")}`)
+    .digest("hex");
+}
+
+/**
+ * Lab leader lottery — lowest SHA-512(prevHash|sequence|address) wins.
+ *
+ * Deterministic and checkable from public inputs. Not a cryptographic VRF
+ * (no unbiasable private proof) and not BFT. Permissioned sequencer set only.
+ */
 export function selectSequencer(
   prevHash: Hex,
   sequence: number,
@@ -46,8 +71,17 @@ export function selectSequencer(
   if (sequencerAddresses.length === 0) {
     throw new Error("No sequencers registered");
   }
-  const n = parseInt(prevHash.slice(0, 8), 16) ^ sequence;
-  return sequencerAddresses[Math.abs(n) % sequencerAddresses.length];
+  let best = sequencerAddresses[0];
+  let bestScore = lotteryScore(prevHash, sequence, best);
+  for (let i = 1; i < sequencerAddresses.length; i++) {
+    const addr = sequencerAddresses[i];
+    const score = lotteryScore(prevHash, sequence, addr);
+    if (score < bestScore || (score === bestScore && addr < best)) {
+      best = addr;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 /**
@@ -79,8 +113,10 @@ export function polsMessage(
   beacon: Hex,
   address: string,
   skipCount = 0,
+  electable?: string[],
 ): string {
-  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}`;
+  const el = electable && electable.length > 0 ? `|el=${electableCommitment(electable)}` : "";
+  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}`;
 }
 
 export async function createLightProof(params: {
@@ -88,8 +124,17 @@ export async function createLightProof(params: {
   prevHash: Hex;
   sequencer: LightKeypair;
   skipCount?: number;
+  /** Ordered electable set for this height (defaults to [sequencer]). */
+  electable?: string[];
 }): Promise<LightProof> {
   const skipCount = params.skipCount ?? 0;
+  const electable =
+    params.electable && params.electable.length > 0
+      ? [...params.electable]
+      : [params.sequencer.address];
+  if (!electable.includes(params.sequencer.address)) {
+    throw new Error("Sequencer not in electable set");
+  }
   const beacon = await opticalBeacon(params.sequence, params.prevHash);
   const message = polsMessage(
     params.sequence,
@@ -97,6 +142,7 @@ export async function createLightProof(params: {
     beacon,
     params.sequencer.address,
     skipCount,
+    electable,
   );
   const signature = await signPixel(message, params.sequencer);
   const scheme = (params.sequencer.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
@@ -110,6 +156,7 @@ export async function createLightProof(params: {
     signature,
     revealedAt: Date.now(),
     skipCount,
+    electable,
   };
 }
 
@@ -126,12 +173,16 @@ export async function verifyLightProof(
   }
   const expectedBeacon = await opticalBeacon(proof.sequence, proof.prevHash);
   if (expectedBeacon !== proof.beacon) return false;
+  if (proof.electable && proof.electable.length > 0) {
+    if (!proof.electable.includes(proof.sequencerAddress)) return false;
+  }
   const message = polsMessage(
     proof.sequence,
     proof.prevHash,
     proof.beacon,
     proof.sequencerAddress,
     skipCount,
+    proof.electable,
   );
   return verifyPixel(message, proof.signature, proof.sequencerPublicKey);
 }

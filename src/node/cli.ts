@@ -13,7 +13,7 @@
 import { mkdir } from "node:fs/promises";
 import {
   PIXEL_LEDGER_NAME,
-  generateLightKeypair,
+  generatePixelKeypair,
   stateFromPixels,
   type SequencerId,
 } from "../lib/pixel/index";
@@ -197,7 +197,7 @@ Gate B — two nodes (local):
       console.log(`Wallet ${name} exists: ${existing.address}`);
       return;
     }
-    const kp = await generateLightKeypair();
+    const kp = await generatePixelKeypair();
     await saveWallet(datadir, name, kp);
     console.log(`Created wallet ${name}`);
     console.log(`  address: ${kp.address}`);
@@ -228,6 +228,8 @@ Gate B — two nodes (local):
     if (!fromName || !to || !Number.isFinite(amount)) {
       throw new Error("--from --to --amount required");
     }
+    const { assertPixelAddress } = await import("../lib/pixel/crypto");
+    assertPixelAddress(to, "--to");
     const from = await loadWallet(datadir, fromName);
     if (!from) throw new Error(`wallet ${fromName} not found`);
     const node = new PixelLedgerNode({
@@ -245,9 +247,13 @@ Gate B — two nodes (local):
     node.chain = chain;
     node.gossip = {
       broadcast() {},
+      sendTo() {},
+      announce() {},
       addPeer() {},
       peerCount: () => 0,
+      peerUrls: () => [],
       stop() {},
+      localGossipUrl: () => null,
     };
     const tx = await node.send(from, [{ amount, address: to }], {
       description: memo,

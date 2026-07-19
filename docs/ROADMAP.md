@@ -26,22 +26,25 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [x] Two-terminal / two-VPS `pixel init|node|join` demo — [`docs/demos/two-node.md`](./demos/two-node.md)
 - [x] Reconnect + hole-filling catch-up (`get_pixels` / `/sync`); `bun run test:net`
 - [x] Stall detection (warn + catch-up); skip/replace deferred to Gate C
+- [x] OTS leaf single-use at consensus (`usedOtsLeaves`; `bun run test:ots-reuse`)
+- [x] Lab leader lottery + electable bound in light proof (`bun run test:election`)
+- [x] 4-node lab mesh tip extension (`bun run test:four-node`; [`docs/DEVNET.md`](./DEVNET.md))
 
 ## Gate C — consensus that survives fault
 
 - [x] SPEC fork-choice / tip rules under stall (`docs/SPEC.md` §4.1)
 - [x] Sequencer timeout + skip replacement — `bun run test:fault`
 - [x] Bounded reorg / tip-replace policy (depth 1)
+
 ## Gate D — quantum security (critical)
 
 - [x] `signPixel` / `verifyPixel` scheme surface
 - [x] NIST ML-DSA-65 (`PIX-ML-DSA-65`) on tx + PoLS — `bun run test:mldsa`
 - [x] Hash-OTS window retained
 - [x] [`docs/QUANTUM.md`](./QUANTUM.md)
-- [ ] Frozen public vectors in CI
+- [x] Frozen public vectors in CI — `bun run test:vectors`
 - [x] Persist `scheme` + ML-DSA secret in nodekey/wallets
-- [ ] Default new genesis to ML-DSA when ready (`PIXEL_SIG_SCHEME=PIX-ML-DSA-65` works now)
-
+- [x] Default new genesis to ML-DSA (`DEFAULT_SCHEME=PIX-ML-DSA-65`)
 ## Gate E — bridge that verifies
 
 - [x] Real `ULAVerifier` (no stub accept for value) — keccak-OTS twin
@@ -53,9 +56,10 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate F — light clients & gossip
 
-- [ ] Headers-first sync + balance merkle proofs
-- [ ] Peer identity + scoring (eclipse basics)
-- [ ] Published bench harness (`docs/BENCH.md`)
+- [x] Headers-first sync + balance merkle proofs (`test:light`)
+- [x] Peer identity + scoring (eclipse basics)
+- [x] Published bench harness (`docs/BENCH.md` via `test:bench`)
+- [ ] Per-pixel historical stateRoot commits (hardening)
 
 ## Gate G — sovereignty on a live set
 

@@ -7,8 +7,8 @@
  * same transaction and PoLS interfaces (crypto-agility).
  *
  * PIX-HASH-OTS-128 is a Merkle window of one-time Lamport keys. Each sign
- * consumes one leaf; reuse is rejected. This is required for the
- * quantum-resistance claim to mean anything.
+ * consumes one leaf. Local wallets advance `nextLeaf`; the ledger rejects
+ * reuse of `(publicKey, leafIndex)` in `chain.ts` (consensus, not honor system).
  */
 
 export type Hex = string;
@@ -64,6 +64,19 @@ export function randomBytes(length: number): Uint8Array {
 export async function addressFromPublicKey(publicKey: Hex): Promise<string> {
   const digest = await sha512Hex(`pix-addr|${publicKey}`);
   return `pix1${digest.slice(0, 38)}`;
+}
+
+/** Bech32-ish lab address: pix1 + 38 lowercase hex chars (40 total after prefix). */
+export function isPixelAddress(address: string): boolean {
+  return /^pix1[a-f0-9]{38}$/.test(address);
+}
+
+export function assertPixelAddress(address: string, label = "address"): void {
+  if (!isPixelAddress(address)) {
+    throw new Error(
+      `Invalid ${label}: expected pix1 + 38 hex chars (got ${JSON.stringify(address.slice(0, 48))})`,
+    );
+  }
 }
 
 /**
@@ -346,4 +359,26 @@ export async function verifyLightFull(
 /** True when the address is the commitment to this master public key. */
 export async function publicKeyMatchesAddress(publicKey: Hex, address: string): Promise<boolean> {
   return (await addressFromPublicKey(publicKey)) === address;
+}
+
+/**
+ * Extract OTS leaf index from a signature envelope.
+ * Returns null for ML-DSA / non-OTS (no single-use leaf to track).
+ */
+export function parseOtsLeafIndex(signatureJson: string): number | null {
+  try {
+    const sig = JSON.parse(signatureJson) as { alg?: string; leafIndex?: number };
+    if (sig.alg === "PIX-ML-DSA-65") return null;
+    if (sig.alg !== "PIX-HASH-OTS-128") return null;
+    if (typeof sig.leafIndex !== "number") return null;
+    if (sig.leafIndex < 0 || sig.leafIndex >= OTS_LEAF_COUNT) return null;
+    return sig.leafIndex;
+  } catch {
+    return null;
+  }
+}
+
+/** Consensus key for one-time leaf tracking. */
+export function otsUsageKey(publicKey: Hex, leafIndex: number): string {
+  return `${publicKey}:${leafIndex}`;
 }

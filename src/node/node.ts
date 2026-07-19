@@ -6,20 +6,32 @@
 import {
   acceptBlock,
   balanceOf,
+  buildHeadersSync,
   createGenesis,
+  createPeerBook,
+  extractHeaders,
   handlePixelRpc,
   nextSequencerAddress,
+  notePeerHello,
   POLS_STALL_MS,
+  proveBalance,
   proposeTransfer,
+  punishPeer,
   registerSequencer,
   replaceTipIfBetter,
+  rewardPeer,
   sequenceBlock,
+  shouldAcceptTipFromPeer,
+  signHello,
   skipCountForAddress,
   stallAnchorMs,
   tipHash,
   verifyChain,
+  verifyHeaderChain,
+  verifyHelloAuth,
   type JsonRpcRequest,
   type LightKeypair,
+  type PeerBookState,
   type PixelChainState,
   type ReadableMeta,
   type Transaction,
@@ -68,9 +80,22 @@ export class PixelLedgerNode {
   private stallLoggedAt = 0;
   /** Serialize peer apply so dual-link races cannot double-accept. */
   private peerApply: Promise<void> = Promise.resolve();
+  /** Gate F peer scores */
+  peerBook: PeerBookState = createPeerBook();
+  private helloSig = "";
+  private helloSigTip = "";
 
   constructor(private opts: NodeOptions) {
     this.datadir = opts.datadir;
+  }
+
+  private async refreshHelloSig(): Promise<void> {
+    const tip = tipHash(this.chain);
+    if (this.helloSig && this.helloSigTip === tip) return;
+    const height = this.chain.pixels.length - 1;
+    const gossipUrl = this.gossip?.localGossipUrl() ?? undefined;
+    this.helloSig = await signHello(this.keypair, height, tip, gossipUrl ?? undefined);
+    this.helloSigTip = tip;
   }
 
   async start(): Promise<void> {
@@ -89,6 +114,11 @@ export class PixelLedgerNode {
     await this.persist();
 
     const seeds = this.opts.seeds ?? (await loadPeers(this.datadir));
+    const advertiseHost = this.opts.advertiseHost ?? "127.0.0.1";
+    const gossipUrl = `ws://${advertiseHost}:${this.opts.gossipPort}/gossip`;
+    const tip = tipHash(this.chain);
+    this.helloSig = await signHello(keypair, this.chain.pixels.length - 1, tip, gossipUrl);
+    this.helloSigTip = tip;
     this.gossip = createBunGossip({
       port: this.opts.gossipPort,
       nodeId: keypair.address.slice(0, 16),
@@ -96,10 +126,15 @@ export class PixelLedgerNode {
       publicKey: keypair.publicKey,
       advertiseHost: this.opts.advertiseHost,
       seeds,
+      getSequencers: () => this.chain.sequencers,
       getTip: () => ({
         height: this.chain.pixels.length - 1,
         hash: tipHash(this.chain),
       }),
+      getHelloAuth: () => {
+        void this.refreshHelloSig();
+        return this.helloSig ? { helloSig: this.helloSig } : null;
+      },
       onMessage: (msg, peer) => this.onPeerMessage(msg, peer),
     });
 
@@ -144,6 +179,15 @@ export class PixelLedgerNode {
       publicKey: this.keypair.publicKey,
       gossipUrl: this.gossip?.localGossipUrl() ?? null,
     };
+  }
+
+  /** Headers-first sync — light clients verify tip without full bodies. */
+  async headersSyncSnapshot() {
+    return buildHeadersSync(this.chain);
+  }
+
+  async balanceProof(address: string) {
+    return proveBalance(this.chain, address);
   }
 
   async persist(): Promise<void> {
@@ -200,7 +244,7 @@ export class PixelLedgerNode {
       {
         chain: this.chain,
         networkId: this.chain.networkId,
-        clientVersion: "PixelLedger/0.3.0-gateC",
+        clientVersion: "PixelLedger/0.4.0-gateF",
       },
       req,
     );
@@ -271,12 +315,12 @@ export class PixelLedgerNode {
         break;
       }
       try {
-        this.chain = await acceptBlock(this.chain, pixel);
-        // Learn sequencer identities from proofs
+        // Learn producer before accept — electable ⊆ registry requires it.
         this.chain = registerSequencer(this.chain, {
           address: pixel.lightProof.sequencerAddress,
           publicKey: pixel.lightProof.sequencerPublicKey,
         });
+        this.chain = await acceptBlock(this.chain, pixel);
         n++;
         this.noteTipProgress();
         console.log(`[pixel-ledger] accepted pixel #${pixel.index} from peer`);
@@ -293,19 +337,68 @@ export class PixelLedgerNode {
     const run = async () => {
       switch (msg.type) {
         case "hello": {
-          if (msg.publicKey) {
+          let learned = false;
+          let helloOk = false;
+          if (msg.publicKey && msg.helloSig) {
+            helloOk = await verifyHelloAuth({
+              address: msg.address,
+              publicKey: msg.publicKey,
+              tip: msg.tip,
+              tipHash: msg.tipHash,
+              gossipUrl: msg.gossipUrl,
+              signature: msg.helloSig,
+            });
+          }
+          notePeerHello(this.peerBook, peerUrl, {
+            address: msg.address,
+            publicKey: (msg.publicKey ?? "") as typeof this.keypair.publicKey,
+            tip: msg.tip,
+            tipHash: msg.tipHash as typeof this.keypair.publicKey,
+            helloOk,
+          });
+          // Register peer identity when hello verifies; also accept unsigned lab peers
+          // that already carry a pubkey (OTS mesh bootstrap before all nodes sign).
+          if (msg.publicKey && (helloOk || !msg.helloSig)) {
+            const before = this.chain.sequencers.length;
             this.chain = registerSequencer(this.chain, {
               address: msg.address,
               publicKey: msg.publicKey,
             });
-            this.queuePersist();
+            learned = this.chain.sequencers.length > before;
           }
+          for (const s of msg.sequencers ?? []) {
+            const before = this.chain.sequencers.length;
+            this.chain = registerSequencer(this.chain, s);
+            if (this.chain.sequencers.length > before) learned = true;
+          }
+          if (learned) {
+            this.queuePersist();
+            // Flood updated registry so electable sets converge across the hub mesh.
+            this.gossip.announce();
+          }
+          // Headers-first probe when behind, then bodies.
           if (msg.tip > this.chain.pixels.length - 1) {
-            this.gossip.sendTo(peerUrl, {
-              type: "get_pixels",
-              from: this.chain.pixels.length,
+            const gate = shouldAcceptTipFromPeer(this.peerBook, peerUrl, {
+              tip: msg.tip,
+              tipHash: msg.tipHash,
             });
+            if (gate.accept) {
+              this.gossip.sendTo(peerUrl, {
+                type: "get_headers",
+                from: this.chain.pixels.length,
+              });
+              this.gossip.sendTo(peerUrl, {
+                type: "get_pixels",
+                from: this.chain.pixels.length,
+              });
+            } else {
+              punishPeer(this.peerBook, peerUrl, 2);
+            }
           } else if (msg.tip < this.chain.pixels.length - 1) {
+            const headers = extractHeaders(this.chain.pixels.slice(msg.tip + 1));
+            if (headers.length) {
+              this.gossip.sendTo(peerUrl, { type: "headers", headers });
+            }
             const slice = this.chain.pixels.slice(msg.tip + 1);
             if (slice.length) {
               this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
@@ -351,8 +444,27 @@ export class PixelLedgerNode {
           }
           break;
         }
+        case "get_headers": {
+          const headers = extractHeaders(this.chain.pixels.slice(msg.from));
+          if (headers.length) {
+            this.gossip.sendTo(peerUrl, { type: "headers", headers });
+          }
+          break;
+        }
+        case "headers": {
+          const trusted = this.chain.sequencers.map((s) => s.address);
+          const check = await verifyHeaderChain(msg.headers, trusted.length ? trusted : undefined);
+          if (check.ok) {
+            rewardPeer(this.peerBook, peerUrl, 2);
+          } else {
+            punishPeer(this.peerBook, peerUrl, 4);
+            console.warn(`[pixel-ledger] reject headers from peer: ${check.reason}`);
+          }
+          break;
+        }
         case "pixels":
           await this.acceptPixels(msg.pixels);
+          rewardPeer(this.peerBook, peerUrl, 1);
           break;
         default:
           break;
@@ -373,8 +485,8 @@ export class PixelLedgerNode {
   async ensureWallet(name: string): Promise<LightKeypair> {
     const existing = await loadWallet(this.datadir, name);
     if (existing) return existing;
-    const { generateLightKeypair } = await import("../lib/pixel/index");
-    const kp = await generateLightKeypair();
+    const { generatePixelKeypair } = await import("../lib/pixel/index");
+    const kp = await generatePixelKeypair();
     await saveWallet(this.datadir, name, kp);
     return kp;
   }

@@ -10,10 +10,14 @@ import { deserializeChain, proposeTransfer, type SerializedChain } from "../src/
 import { loadWallet, saveWallet } from "../src/node/store";
 
 const ROOT = join(import.meta.dir, "..");
-// PID-scoped so parallel CI jobs (push + PR) cannot share one /tmp tree.
+// PID-scoped datadir + ports so parallel CI / leftover processes cannot collide.
 const BASE = `/tmp/pixel-gate-b-net-${process.pid}`;
 const A = join(BASE, "a");
 const B = join(BASE, "b");
+const RPC_A = 18000 + (process.pid % 1000);
+const RPC_B = RPC_A + 1;
+const GOSSIP_A = 19000 + (process.pid % 1000);
+const GOSSIP_B = GOSSIP_A + 1;
 
 async function waitHealth(url: string, ms = 20_000): Promise<Record<string, unknown>> {
   const t0 = Date.now();
@@ -84,6 +88,7 @@ async function sh(args: string[]): Promise<string> {
 
 async function main() {
   console.log("═══ GATE B — TWO-NODE NETWORK ═══\n");
+  console.log(`▸ ports rpc=${RPC_A}/${RPC_B} gossip=${GOSSIP_A}/${GOSSIP_B}`);
   await rm(BASE, { recursive: true, force: true });
   await mkdir(A, { recursive: true });
   await mkdir(B, { recursive: true });
@@ -96,13 +101,26 @@ async function main() {
   console.log("▸ bob", bobAddr.slice(0, 16) + "…");
 
   const nodeA = runPixel(
-    ["node", "--datadir", A, "--rpc", "18545", "--gossip", "19001", "--advertise", "127.0.0.1"],
+    [
+      "node",
+      "--datadir",
+      A,
+      "--rpc",
+      String(RPC_A),
+      "--gossip",
+      String(GOSSIP_A),
+      "--advertise",
+      "127.0.0.1",
+    ],
     "A",
   );
-  const healthA = await waitHealth("http://127.0.0.1:18545");
+  const healthA = await waitHealth(`http://127.0.0.1:${RPC_A}`);
   console.log("▸ node A up pixels=", healthA.pixels, "gossip=", healthA.gossipUrl);
 
-  await sh(["join", "--peer", "http://127.0.0.1:18545", "--datadir", B]);
+  // Refresh wallet cursor after genesis burned an OTS leaf on the node key.
+  await sh(["wallet", "from-node", "sequencer", "--datadir", A]);
+
+  await sh(["join", "--peer", `http://127.0.0.1:${RPC_A}`, "--datadir", B]);
   console.log("▸ join B via /sync ✓");
 
   const nodeB = runPixel(
@@ -111,28 +129,31 @@ async function main() {
       "--datadir",
       B,
       "--rpc",
-      "18546",
+      String(RPC_B),
       "--gossip",
-      "19002",
+      String(GOSSIP_B),
       "--seed",
-      "ws://127.0.0.1:19001/gossip",
+      `ws://127.0.0.1:${GOSSIP_A}/gossip`,
       "--advertise",
       "127.0.0.1",
     ],
     "B",
   );
-  await waitHealth("http://127.0.0.1:18546");
+  await waitHealth(`http://127.0.0.1:${RPC_B}`);
   await Bun.sleep(1500);
 
-  const ha = (await (await fetch("http://127.0.0.1:18545/health")).json()) as { peers: number };
-  const hb = (await (await fetch("http://127.0.0.1:18546/health")).json()) as { peers: number };
+  const ha = (await (await fetch(`http://127.0.0.1:${RPC_A}/health`)).json()) as {
+    peers: number;
+  };
+  const hb = (await (await fetch(`http://127.0.0.1:${RPC_B}/health`)).json()) as {
+    peers: number;
+  };
   console.log(`▸ peers A=${ha.peers} B=${hb.peers}`);
   if (ha.peers < 1 && hb.peers < 1) throw new Error("no gossip peers linked");
 
-  // Live submit: build tx, POST /tx to A — B must learn via gossip
   const seq = await loadWallet(A, "sequencer");
   if (!seq) throw new Error("sequencer wallet missing");
-  const sync = (await (await fetch("http://127.0.0.1:18545/sync")).json()) as SerializedChain & {
+  const sync = (await (await fetch(`http://127.0.0.1:${RPC_A}/sync`)).json()) as SerializedChain & {
     sequencers: { address: string; publicKey: string }[];
   };
   let live = deserializeChain({
@@ -142,32 +163,45 @@ async function main() {
     pending: [],
     sequencers: sync.sequencers,
   });
+  const balSeq = live.utxos
+    ? [...live.utxos.values()]
+        .filter((u) => u.address === seq.address)
+        .reduce((s, u) => s + u.amount, 0)
+    : 0;
+  // balanceOf via utxos map
+  let sum = 0;
+  for (const u of live.utxos.values()) {
+    if (u.address === seq.address) sum += u.amount;
+  }
+  if (sum <= 0)
+    throw new Error(`sequencer balance 0 after sync (addr=${seq.address.slice(0, 16)})`);
+  void balSeq;
+
   const { tx } = await proposeTransfer(live, seq, [{ amount: 7, address: bobAddr }], {
     description: "gate-b live",
     recipientLabel: "@bob",
   });
   await saveWallet(A, "sequencer", seq);
-  const submitted = await fetch("http://127.0.0.1:18545/tx", {
+  const submitted = await fetch(`http://127.0.0.1:${RPC_A}/tx`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(tx),
   }).then((r) => r.json());
   console.log("▸ POST /tx → A", submitted);
 
-  const tipA = await waitTip("http://127.0.0.1:18545", 2);
-  const tipB = await waitTip("http://127.0.0.1:18546", 2);
+  const tipA = await waitTip(`http://127.0.0.1:${RPC_A}`, 2);
+  const tipB = await waitTip(`http://127.0.0.1:${RPC_B}`, 2);
   console.log(`▸ live tips A=${tipA} B=${tipB}`);
   if (tipA !== tipB) throw new Error(`tip mismatch A=${tipA} B=${tipB}`);
 
-  const balB = (await (await fetch(`http://127.0.0.1:18546/balance/${bobAddr}`)).json()) as {
+  const balB = (await (await fetch(`http://127.0.0.1:${RPC_B}/balance/${bobAddr}`)).json()) as {
     balance: number;
   };
   if (balB.balance !== 7) throw new Error(`bob on B want 7 got ${balB.balance}`);
   console.log("▸ bob balance on B = 7 ✓");
 
-  // Second live transfer via B's RPC — A illuminates, both tips advance (B→A gossip)
   live = deserializeChain(
-    (await (await fetch("http://127.0.0.1:18545/sync")).json()) as SerializedChain,
+    (await (await fetch(`http://127.0.0.1:${RPC_A}/sync`)).json()) as SerializedChain,
   );
   const again = await loadWallet(A, "sequencer");
   if (!again) throw new Error("reload sequencer");
@@ -176,19 +210,19 @@ async function main() {
     recipientLabel: "@bob",
   });
   await saveWallet(A, "sequencer", again);
-  const submitted2 = await fetch("http://127.0.0.1:18546/tx", {
+  const submitted2 = await fetch(`http://127.0.0.1:${RPC_B}/tx`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(tx2),
   }).then((r) => r.json());
   console.log("▸ POST /tx → B (gossip to A)", submitted2);
 
-  const tipA2 = await waitTip("http://127.0.0.1:18545", 3);
-  const tipB2 = await waitTip("http://127.0.0.1:18546", 3);
+  const tipA2 = await waitTip(`http://127.0.0.1:${RPC_A}`, 3);
+  const tipB2 = await waitTip(`http://127.0.0.1:${RPC_B}`, 3);
   console.log(`▸ second live tips A=${tipA2} B=${tipB2}`);
   if (tipA2 !== tipB2) throw new Error("second tip mismatch");
 
-  const bal2 = (await (await fetch(`http://127.0.0.1:18546/balance/${bobAddr}`)).json()) as {
+  const bal2 = (await (await fetch(`http://127.0.0.1:${RPC_B}/balance/${bobAddr}`)).json()) as {
     balance: number;
   };
   if (bal2.balance !== 10) throw new Error(`bob want 10 got ${bal2.balance}`);

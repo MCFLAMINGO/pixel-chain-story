@@ -13,18 +13,21 @@ Status: **draft, implemented in this repo**. Normative text is what the tests en
 
 ## 2. Cryptography (current)
 
-| Piece | Algorithm | Notes |
-| --- | --- | --- |
-| Hash | SHA-512 | Via Web Crypto / runtime |
-| Signatures (OTS) | PIX-HASH-OTS-128 | Merkle window of Lamport OTS leaves (32); each sign consumes one leaf |
-| Signatures (PQ multi-use) | **PIX-ML-DSA-65** | NIST FIPS-204 via `@noble/post-quantum`; domain-separated |
-| Surface | `signPixel` / `verifyPixel` | Scheme id in signature envelope |
-| Not used | ECDSA / Ed25519 | Classical ECC is out of scope for Pixel sigs |
+| Piece                     | Algorithm                   | Notes                                                                 |
+| ------------------------- | --------------------------- | --------------------------------------------------------------------- |
+| Hash                      | SHA-512                     | Via Web Crypto / runtime                                              |
+| Signatures (OTS)          | PIX-HASH-OTS-128            | Merkle window of Lamport OTS leaves (32); each sign consumes one leaf |
+| Signatures (PQ multi-use) | **PIX-ML-DSA-65**           | NIST FIPS-204 via `@noble/post-quantum`; domain-separated             |
+| Surface                   | `signPixel` / `verifyPixel` | Scheme id in signature envelope                                       |
+| Not used                  | ECDSA / Ed25519             | Classical ECC is out of scope for Pixel sigs                          |
 
 Invariant: signature scheme is **versioned** and crypto-agile.  
 Invariant: `verifyLight` (weak) is fail-closed; only scheme verifiers accept.  
 Invariant: address ↔ public key binding is checked on PoLS proofs (scheme-aware).  
+Invariant: PIX-HASH-OTS-128 `(publicKey, leafIndex)` is **single-use at consensus** (`usedOtsLeaves`; reuse → `OTS_LEAF_REUSED`). ML-DSA is multi-use.  
 Priority: quantum security is **critical** — see [`QUANTUM.md`](./QUANTUM.md).
+
+Leader election (lab): lowest `SHA-512(pols-lottery|prevHash|sequence|address)` among the **electable set bound into the light proof** (`electable[]`, committed as `el=` in the PoLS message). Public-input verifiable; **not** VRF/BFT. Registry growth after a pixel must not rewrite that pixel’s lottery.
 
 ## 3. State
 
@@ -34,7 +37,8 @@ State = {
   pixels: LedgerPixel[],
   utxos: Map<txid:vout, Utxo>,
   pending: Transaction[],  // superposition
-  sequencers: { address, publicKey }[]
+  sequencers: { address, publicKey }[],
+  usedOtsLeaves: Set<`${publicKey}:${leafIndex}`>
 }
 ```
 
@@ -56,10 +60,13 @@ State = {
 ## 4. PoLS
 
 1. Pending txs sit in superposition (no color).
-2. `nextSequencer = H(tipHash, sequence) mod |sequencers|` (skip=0).
-3. Elected sequencer builds pixel: coinbase light-reward + pending txs.
-4. Signs light proof; peers `acceptPixel` with full verify.
-5. UTXO set updates; pending cleared/conflict-dropped.
+2. `electable =` current sequencer registry (ordered); bound into the light proof.
+3. `nextSequencer = argmin SHA-512(pols-lottery|tipHash|sequence|addr)` over `electable` (skip=0).
+4. Elected sequencer builds pixel: coinbase light-reward + pending txs.
+5. Signs light proof (message includes `el=` commitment); peers `acceptPixel` with full verify.
+6. UTXO set updates; pending cleared/conflict-dropped.
+
+Invariant: `lightProof.electable` is the lottery set for that height; every address in it must be in the local registry; join/register after the fact cannot change prior elections.
 
 ### 4.1 Fault path (Gate C — lab)
 
@@ -99,18 +106,19 @@ No parallel-VM rewrite required.
 
 WebSocket JSON messages:
 
-- `hello`, `tx`, `pixel`, `get_pixels`, `pixels`
+- `hello` (optional `helloSig`), `tx`, `pixel`, `get_pixels`, `pixels`, `get_headers`, `headers`
 
 HTTP:
 
-- `POST /rpc` JSON-RPC (`pix_*`)
-- `GET /health`, `GET /pixels`, `GET /balance/:addr`
+- `POST /rpc` JSON-RPC (`pix_*` including `pix_getHeaders`, `pix_getBalanceProof`)
+- `GET /health`, `GET /sync`, `GET /sync/headers`, `GET /pixels`, `GET /balance/:addr[/proof]`
 
 ## 8. What this version does / does not claim
 
-**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS, diversity *policy* when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip.
+**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS (ledger single-use), diversity *policy* when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip, Gate E ULA twin + custody inversion, Gate F headers-first + balance proofs + signed hello scoring (lab), 4-node lab mesh.
 
 **Does not yet:**
+
 - Global provider mesh / full BFT under partition (Gate C is timeout-skip + depth-1 tip replace, not quorum)
 - ML-DSA defaulted for all new wallets / on-chain ULA verify of Dilithium (in-process ML-DSA **does** ship)
 - Two-phone field hardening / device attestation beyond raster+getUserMedia path
