@@ -213,10 +213,16 @@ export function WorldlightPanel() {
           Shine in mcflamingo.com (domain record)
         </button>
         <a
-          href="/continuity"
+          href="/shine"
           className="font-pixel inline-flex items-center rounded-md border border-primary/50 px-4 py-2 text-xs font-semibold"
         >
-          Easy Continuity: McFlamingo demo →
+          Shine in (your brand) →
+        </a>
+        <a
+          href="/continuity"
+          className="font-pixel inline-flex items-center rounded-md border border-border px-4 py-2 text-xs font-semibold"
+        >
+          Continuity desk →
         </a>
         <button
           type="button"

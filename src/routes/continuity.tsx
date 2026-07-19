@@ -113,12 +113,20 @@ function ContinuityAdmin() {
       <div className="relative mx-auto max-w-5xl px-6 pt-10 pb-24">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <Link
-              to="/lab"
-              className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
-            >
-              ← Lab
-            </Link>
+            <div className="flex flex-wrap gap-4">
+              <Link
+                to="/shine"
+                className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
+              >
+                ← Shine in
+              </Link>
+              <Link
+                to="/lab"
+                className="font-pixel text-xs tracking-[0.28em] text-muted-foreground uppercase underline-offset-4 hover:underline"
+              >
+                Lab
+              </Link>
+            </div>
             <h1 className="font-pixel mt-4 text-4xl font-bold tracking-tight md:text-5xl">
               Continuity
             </h1>
