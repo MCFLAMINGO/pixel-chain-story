@@ -86,7 +86,13 @@ export function BillboardScreen({
             {pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
           </p>
           {showLabLink && (
-            <p className="pointer-events-auto mt-4">
+            <p className="pointer-events-auto mt-4 flex flex-col items-end gap-2">
+              <Link
+                to="/shine"
+                className="text-xs tracking-widest text-primary underline decoration-primary/40 underline-offset-4 hover:text-primary"
+              >
+                Shine in
+              </Link>
               <Link
                 to="/lab"
                 className="text-xs tracking-widest text-primary/80 underline decoration-primary/30 underline-offset-4 hover:text-primary"

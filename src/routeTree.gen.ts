@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ShineRouteImport } from './routes/shine'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as ContinuityRouteImport } from './routes/continuity'
 import { Route as BillboardRouteImport } from './routes/billboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContinuityJoinTokenRouteImport } from './routes/continuity.join.$token'
 
+const ShineRoute = ShineRouteImport.update({
+  id: '/shine',
+  path: '/shine',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LabRoute = LabRouteImport.update({
   id: '/lab',
   path: '/lab',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/billboard': typeof BillboardRoute
   '/continuity': typeof ContinuityRouteWithChildren
   '/lab': typeof LabRoute
+  '/shine': typeof ShineRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/billboard': typeof BillboardRoute
   '/continuity': typeof ContinuityRouteWithChildren
   '/lab': typeof LabRoute
+  '/shine': typeof ShineRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRoutesById {
@@ -61,6 +69,7 @@ export interface FileRoutesById {
   '/billboard': typeof BillboardRoute
   '/continuity': typeof ContinuityRouteWithChildren
   '/lab': typeof LabRoute
+  '/shine': typeof ShineRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRouteTypes {
@@ -70,15 +79,23 @@ export interface FileRouteTypes {
     | '/billboard'
     | '/continuity'
     | '/lab'
+    | '/shine'
     | '/continuity/join/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/billboard' | '/continuity' | '/lab' | '/continuity/join/$token'
+  to:
+    | '/'
+    | '/billboard'
+    | '/continuity'
+    | '/lab'
+    | '/shine'
+    | '/continuity/join/$token'
   id:
     | '__root__'
     | '/'
     | '/billboard'
     | '/continuity'
     | '/lab'
+    | '/shine'
     | '/continuity/join/$token'
   fileRoutesById: FileRoutesById
 }
@@ -87,10 +104,18 @@ export interface RootRouteChildren {
   BillboardRoute: typeof BillboardRoute
   ContinuityRoute: typeof ContinuityRouteWithChildren
   LabRoute: typeof LabRoute
+  ShineRoute: typeof ShineRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/shine': {
+      id: '/shine'
+      path: '/shine'
+      fullPath: '/shine'
+      preLoaderRoute: typeof ShineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lab': {
       id: '/lab'
       path: '/lab'
@@ -146,6 +171,7 @@ const rootRouteChildren: RootRouteChildren = {
   BillboardRoute: BillboardRoute,
   ContinuityRoute: ContinuityRouteWithChildren,
   LabRoute: LabRoute,
+  ShineRoute: ShineRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -18,6 +18,8 @@ import {
   merchantJoin,
   merchantOfferCopy,
   seedMcFlamingoDemo,
+  selfServeShineIn,
+  shineInPlainThesis,
   stepIndex,
   storeByInvite,
   tillFeePix,
@@ -96,6 +98,17 @@ async function main() {
   if (!demo.stores[0]?.digest) throw new Error("digest missing");
   if (demo.stores[0]?.continuity?.state !== "in_the_light") throw new Error("siso");
   console.log("▸ seedMcFlamingoDemo one-click shine-in ✓");
+
+  if (!shineInPlainThesis().includes("Shine in")) throw new Error("plain thesis");
+  let self = emptyOpsState("Self Serve");
+  self = await selfServeShineIn(self, {
+    name: "Corner Cafe",
+    domain: "corner.cafe.test",
+    artifactHtml: "<html><body>Corner Cafe</body></html>",
+  });
+  if (self.stores[0]?.step !== "live") throw new Error("self-serve not live");
+  if (self.stores[0]?.continuity?.state !== "in_the_light") throw new Error("self-serve siso");
+  console.log("▸ selfServeShineIn brand path ✓");
 
   console.log("\n═══ PASS — continuity handshake + map/till ═══");
 }

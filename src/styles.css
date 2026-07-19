@@ -80,6 +80,44 @@
   background: oklch(0.22 0.03 55 / 0.06);
 }
 
+/* Self-serve Shine in — soft entrance, not dashboard chrome */
+@keyframes shine-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes shine-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.shine-fade {
+  opacity: 0;
+  animation: shine-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.shine-rise {
+  animation: shine-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.shine-in-page .continuity-btn {
+  transition:
+    filter 0.15s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease;
+}
+.shine-in-page .continuity-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 24px oklch(0.45 0.12 35 / 0.28);
+}
+
 /*
  * Design system definition.
  *

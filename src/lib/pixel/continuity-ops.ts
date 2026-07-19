@@ -220,6 +220,67 @@ export function continuityInvitePrerequisites(): string[] {
   ];
 }
 
+/**
+ * Self-serve shine-in — brand owner path (no operator invite).
+ * Non-tech story: name + site → optional snapshot → Shine in.
+ */
+export async function selfServeShineIn(
+  state: ContinuityOpsState,
+  input: {
+    name: string;
+    domain: string;
+    originUrl?: string;
+    /** Homepage HTML or snapshot text; if omitted, a placeholder digest is used */
+    artifactHtml?: string;
+    mirrorUrls?: string[];
+    priceUsdPerMonth?: number;
+  },
+): Promise<ContinuityOpsState> {
+  const name = input.name.trim();
+  const domain = input.domain.trim();
+  if (!name) throw new Error("Tell us your brand name");
+  if (!domain) throw new Error("Tell us your website");
+  const originUrl = (input.originUrl ?? `https://${domain.replace(/^https?:\/\//, "")}`).trim();
+  const artifact =
+    input.artifactHtml?.trim() ||
+    `<!doctype html><html><head><title>${name}</title></head><body><h1>${name}</h1><p>Shone into Pixel Continuity.</p><p>${originUrl}</p></body></html>`;
+
+  let next = createStoreOffer(state, {
+    name,
+    domain,
+    originUrl,
+    priceUsdPerMonth: input.priceUsdPerMonth ?? DEFAULT_MAP_FEE_USD,
+  });
+  const storeId = next.stores[0]!.id;
+  const token = next.stores[0]!.inviteToken;
+  next = markInviteSent(next, storeId);
+  next = merchantJoin(next, token, { originUrl });
+  next = attachStoreDigest(next, storeId, await digestArtifactText(artifact));
+
+  const mirrors = input.mirrorUrls ?? [];
+  if (mirrors[0]) {
+    next = updateRung(next, next.rungs[0]!.id, {
+      baseUrl: mirrors[0],
+      label: "Your booth A",
+      provider: "Lab",
+    });
+  }
+  if (mirrors[1]) {
+    next = updateRung(next, next.rungs[1]!.id, {
+      baseUrl: mirrors[1],
+      label: "Your booth B",
+      provider: "Lab",
+    });
+  }
+
+  next = assignRungs(next, storeId, [next.rungs[0]!.id, next.rungs[1]!.id]);
+  return goLive(next, storeId, { pixelIndex: 1 });
+}
+
+export function shineInPlainThesis(): string {
+  return "If your host goes dark, your customers can still reach you. Bring your brand. Press Shine in. No DNS homework.";
+}
+
 function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(18));
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
