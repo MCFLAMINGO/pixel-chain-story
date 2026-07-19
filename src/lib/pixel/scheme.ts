@@ -170,7 +170,7 @@ export function quantumStatus(): {
     gaps: [
       "Full on-chain Dilithium verify deferred (gas); lab uses off-chain ML-DSA + ULAOffchainMldsaGate commit — see docs/ULA-MLDSA.md",
       "External audit pending — docs/AUDIT.md status PREPARING (Gate I)",
-      "Gossip/RPC default plaintext; lab ML-KEM-768 in transport-kem.ts not default-on",
+      "Gossip default plaintext; opt-in sealed gossip via PIXEL_TRANSPORT_KEM=1 (lab, not TLS)",
     ],
   };
 }

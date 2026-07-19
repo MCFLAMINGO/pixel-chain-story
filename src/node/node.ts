@@ -26,10 +26,14 @@ import {
   skipCountForAddress,
   stallAnchorMs,
   tipHash,
+  transportKemEnabled,
+  transportStatus,
+  generateKemKeypair,
   verifyChain,
   verifyHeaderChain,
   verifyHelloAuth,
   type JsonRpcRequest,
+  type KemKeypair,
   type LightKeypair,
   type PeerBookState,
   type PixelChainState,
@@ -84,6 +88,8 @@ export class PixelLedgerNode {
   peerBook: PeerBookState = createPeerBook();
   private helloSig = "";
   private helloSigTip = "";
+  /** Opt-in PQ transport (PIXEL_TRANSPORT_KEM=1) */
+  transportKem: KemKeypair | null = null;
 
   constructor(private opts: NodeOptions) {
     this.datadir = opts.datadir;
@@ -119,6 +125,10 @@ export class PixelLedgerNode {
     const tip = tipHash(this.chain);
     this.helloSig = await signHello(keypair, this.chain.pixels.length - 1, tip, gossipUrl);
     this.helloSigTip = tip;
+    if (transportKemEnabled()) {
+      this.transportKem = generateKemKeypair();
+      console.log("[pixel-ledger] transport PIX-ML-KEM-768 (opt-in PIXEL_TRANSPORT_KEM=1)");
+    }
     this.gossip = createBunGossip({
       port: this.opts.gossipPort,
       nodeId: keypair.address.slice(0, 16),
@@ -126,6 +136,7 @@ export class PixelLedgerNode {
       publicKey: keypair.publicKey,
       advertiseHost: this.opts.advertiseHost,
       seeds,
+      transportKem: this.transportKem ?? undefined,
       getSequencers: () => this.chain.sequencers,
       getTip: () => ({
         height: this.chain.pixels.length - 1,
@@ -169,6 +180,7 @@ export class PixelLedgerNode {
 
   /** Snapshot for /sync — joiners pull this. */
   syncSnapshot() {
+    const transport = transportStatus();
     return {
       networkId: this.chain.networkId,
       pixels: this.chain.pixels,
@@ -178,6 +190,11 @@ export class PixelLedgerNode {
       address: this.keypair.address,
       publicKey: this.keypair.publicKey,
       gossipUrl: this.gossip?.localGossipUrl() ?? null,
+      transport: {
+        enabled: Boolean(this.transportKem),
+        kemPublicKey: this.transportKem?.publicKey ?? null,
+        status: transport,
+      },
     };
   }
 

@@ -208,8 +208,8 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 
 1. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
 2. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
-3. Opt-in ML-KEM wire handshake on gossip/RPC (lab module ships; default still plaintext)
-4. Continuity merchant handshake (hold agentic DNS until signup door is dumb-simple)
+3. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
+4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
 5. Keep `pix_protocolInfo` gates honest as evidence lands
 
-Gate D is in. Gate I package is preparing. ULA ML-DSA path is native + twin + honest gate — still a pilot, not a costume.
+Gate D is in. Gate I package is preparing. KEM wire is opt-in lab. Continuity handshake is merchant-simple — still a pilot, not a costume.

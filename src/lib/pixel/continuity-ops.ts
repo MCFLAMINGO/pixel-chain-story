@@ -1,13 +1,14 @@
 /**
  * Continuity ops — operator ladder for small-store mirrors (lab).
  *
- * Honesty: this is the wizard UI + digest/rung bookkeeping.
- * Real VPS nginx/rsync/DNS still run on your hosts; Pixel holds
- * the map (digest) and later the till. Not ICP compute.
+ * Merchant handshake: sign up via secure link — no DNS/rsync vocabulary.
+ * Operator booth jobs (rsync/DNS) stay admin-only.
+ * Economics: map fee ($/mo) + till bps when origin is dark.
+ * Pixel holds the map (digest) and till bookkeeping — not ICP compute.
  */
 
 import { sha512Hex, type Hex } from "./crypto";
-import { acceptIntoLight, comeTowardLight, type ContinuityRecord } from "./siso";
+import { acceptIntoLight, comeTowardLight, markOriginDark, type ContinuityRecord } from "./siso";
 
 export type ContinuityStep =
   | "draft"
@@ -45,18 +46,25 @@ export interface ContinuityStore {
   domain: string;
   /** Origin booth (their current host) */
   originUrl: string;
-  /** Monthly price you charge (USD), display only */
+  /** Map fee — monthly USD while continuity is on (display / quote) */
   priceUsdPerMonth: number;
+  /**
+   * Till cut (basis points) on PIX volume while origin is dark.
+   * Default 100 = 1%. Zero while origin healthy unless tillCutBpsWhenOriginUp > 0.
+   */
+  tillCutBpsWhenOriginDark: number;
+  /** Optional always-on till bps (default 0 — map fee only when healthy) */
+  tillCutBpsWhenOriginUp: number;
   /** Secure invite token for merchant link */
   inviteToken: string;
   step: ContinuityStep;
-  /** sha512 of mirrored artifact (map of the real room) */
+  /** sha512 of mirrored artifact (map of the real room) — may be attached by operator */
   digest?: Hex;
   /** Rung ids assigned to this store */
   rungIds: string[];
   /** SISO continuity record after go-live (map in the light) */
   continuity?: ContinuityRecord;
-  /** Operator deploy checklist (rsync / DNS) — agentic jobs later */
+  /** Operator-only booth jobs (rsync / DNS) — never merchant-facing */
   deployPlan?: DeployChecklistItem[];
   /** When merchant accepted the invite */
   joinedAt?: number;
@@ -64,6 +72,10 @@ export interface ContinuityStore {
   updatedAt: number;
   note?: string;
 }
+
+/** Default till: 1% PIX cut only during origin outage. */
+export const DEFAULT_TILL_BPS_ORIGIN_DARK = 100;
+export const DEFAULT_MAP_FEE_USD = 20;
 
 export interface ContinuityOpsState {
   operatorName: string;
@@ -133,7 +145,14 @@ function id(prefix: string): string {
 /** Step 1 — create a store offer (admin). */
 export function createStoreOffer(
   state: ContinuityOpsState,
-  input: { name: string; domain: string; originUrl: string; priceUsdPerMonth?: number },
+  input: {
+    name: string;
+    domain: string;
+    originUrl: string;
+    priceUsdPerMonth?: number;
+    tillCutBpsWhenOriginDark?: number;
+    tillCutBpsWhenOriginUp?: number;
+  },
 ): ContinuityOpsState {
   const now = Date.now();
   const store: ContinuityStore = {
@@ -145,7 +164,9 @@ export function createStoreOffer(
       .replace(/^https?:\/\//, "")
       .replace(/\/$/, ""),
     originUrl: input.originUrl.trim() || `https://${input.domain.trim()}`,
-    priceUsdPerMonth: input.priceUsdPerMonth ?? 20,
+    priceUsdPerMonth: input.priceUsdPerMonth ?? DEFAULT_MAP_FEE_USD,
+    tillCutBpsWhenOriginDark: input.tillCutBpsWhenOriginDark ?? DEFAULT_TILL_BPS_ORIGIN_DARK,
+    tillCutBpsWhenOriginUp: input.tillCutBpsWhenOriginUp ?? 0,
     inviteToken: randomToken(),
     step: "draft",
     rungIds: [],
@@ -162,23 +183,34 @@ export function markInviteSent(state: ContinuityOpsState, storeId: string): Cont
 
 /**
  * Step 3 — merchant accepts invite (secure link).
- * They confirm origin + artifact digest of the snapshot they approve.
+ * Handshake only: confirm the shop. Digest optional (operator may attach later).
+ * Never ask merchants for DNS/rsync.
  */
 export function merchantJoin(
   state: ContinuityOpsState,
   inviteToken: string,
-  input: { originUrl: string; digest: Hex; note?: string },
+  input: { originUrl?: string; digest?: Hex; note?: string },
 ): ContinuityOpsState {
   const store = state.stores.find((s) => s.inviteToken === inviteToken);
   if (!store) throw new Error("Invite not found or expired");
   if (store.step === "live") throw new Error("Store already live");
   return patchStore(state, store.id, {
-    originUrl: input.originUrl.trim(),
-    digest: input.digest,
+    originUrl: (input.originUrl ?? store.originUrl).trim(),
+    digest: input.digest ?? store.digest,
     note: input.note,
     step: "merchant_joined",
     joinedAt: Date.now(),
   });
+}
+
+/** Operator attaches / replaces artifact digest after merchant handshake. */
+export function attachStoreDigest(
+  state: ContinuityOpsState,
+  storeId: string,
+  digest: Hex,
+): ContinuityOpsState {
+  if (!/^[0-9a-f]{128}$/i.test(digest)) throw new Error("digest must be 128-hex sha512");
+  return patchStore(state, storeId, { digest });
 }
 
 /** Step 4 — assign mirror rungs (admin). */
@@ -194,7 +226,10 @@ export function assignRungs(
   return patchStore(state, storeId, { rungIds: [...rungIds], step: "rungs_assigned" });
 }
 
-/** Build rsync/DNS checklist for a store + selected rungs. */
+/**
+ * Operator-only booth jobs. Merchants never see this list.
+ * Titles stay operational — this is the backstage, not the handshake.
+ */
 export function buildDeployPlan(
   store: ContinuityStore,
   rungs: MirrorRung[],
@@ -204,30 +239,30 @@ export function buildDeployPlan(
   const items: DeployChecklistItem[] = [
     {
       id: "snapshot",
-      title: "Hold merchant snapshot locally",
-      detail: `Keep the file whose sha512 is ${store.digest?.slice(0, 16) ?? "…"}…`,
+      title: "Hold storefront snapshot",
+      detail: `Artifact digest ${store.digest?.slice(0, 16) ?? "(attach digest)"}…`,
       done: Boolean(store.digest),
     },
   ];
   for (const r of selected) {
     items.push({
-      id: `rsync-${r.id}`,
-      title: `Rsync to ${r.label}`,
-      detail: `Publish site under ${r.baseUrl} (vhost for ${store.domain}).`,
+      id: `booth-${r.id}`,
+      title: `Publish to ${r.label}`,
+      detail: `Serve ${store.domain} from ${r.baseUrl}.`,
       commandHint: `rsync -avz ./snapshot/ ${r.provider.toLowerCase()}:/var/www/${slug}/`,
       done: false,
     });
   }
   items.push({
-    id: "dns",
-    title: "Point failover DNS / LB",
-    detail: "Origin first; your rungs as pool members (Cloudflare LB or similar).",
-    commandHint: `# health-check origin → failover to rung1…rungN`,
+    id: "failover",
+    title: "Wire origin → booth failover",
+    detail: "Health-check origin; fail over to booth pool when dark.",
+    commandHint: `# operator: LB / DNS failover — never merchant homework`,
     done: false,
   });
   items.push({
     id: "verify-digest",
-    title: "Verify live mirror digest",
+    title: "Verify live booth digest",
     detail: "Fetched bytes must match the shone-in digest.",
     commandHint: `curl -sL <mirror-url> | shasum -a 512`,
     done: false,
@@ -378,6 +413,44 @@ function patchStore(
   };
 }
 
+/** Active till bps for a store given current continuity state. */
+export function activeTillBps(store: ContinuityStore): number {
+  if (store.continuity?.state === "origin_dark") return store.tillCutBpsWhenOriginDark;
+  return store.tillCutBpsWhenOriginUp;
+}
+
+export function tillIsActive(store: ContinuityStore): boolean {
+  return activeTillBps(store) > 0 && store.step === "live";
+}
+
+/** Quote PIX till fee for a settlement amount (integer PIX units). */
+export function tillFeePix(store: ContinuityStore, amountPix: number): number {
+  const bps = activeTillBps(store);
+  if (bps <= 0 || amountPix <= 0) return 0;
+  return Math.floor((amountPix * bps) / 10_000);
+}
+
+/**
+ * Operator marks origin dark — till switches to outage cut.
+ * Does not touch booth jobs; SISO state drives the fee regime.
+ */
+export function markStoreOriginDark(
+  state: ContinuityOpsState,
+  storeId: string,
+): ContinuityOpsState {
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store?.continuity) throw new Error("Store not live in the light");
+  return patchStore(state, storeId, { continuity: markOriginDark(store.continuity) });
+}
+
+/** Merchant-facing pricing line (no infra jargon). */
+export function merchantOfferCopy(store: ContinuityStore): string {
+  const tillPct = (store.tillCutBpsWhenOriginDark / 100).toFixed(
+    store.tillCutBpsWhenOriginDark % 100 === 0 ? 0 : 2,
+  );
+  return `$${store.priceUsdPerMonth}/mo to stay online. If your host goes down and sales still clear, ${tillPct}% till on those checkouts.`;
+}
+
 export function continuityThesis(): string {
-  return "You sell the map + till + ladder matching. Rungs are booths you (or others) run — not a second AWS monopoly.";
+  return "Handshake: sign up the shop. Map fee keeps them on the ladder; till earns when origin is dark and money still moves. Booth jobs stay operator-side — not a second AWS monopoly.";
 }
