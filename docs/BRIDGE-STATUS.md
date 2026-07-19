@@ -13,8 +13,9 @@
 | Artifact | Status |
 | --- | --- |
 | Frozen fixture | [`fixtures/ula-evm-v1.json`](../fixtures/ula-evm-v1.json) — `PIX-HASH-OTS-128-KECCAK` |
-| Foundry | `forge test` — `contracts/test/ULAVerifier.t.sol` (accept / replay / tamper) |
+| Foundry | `forge test` — `ULAVerifier.t.sol` + `ULAOffchainMldsaGate.t.sol` |
 | TS parity | `bun run test:ula` |
+| ML-DSA ULA path | `bun run test:ula-mldsa` — native verify + twin projection + gate commit |
 | CosmWasm twin | `contracts/cosmwasm/ula-verifier` — `cargo test` |
 | Relayer (local) | `bun run test:ula-relayer` — anvil `Locked` → `LockFeeder.feed` → shineIn |
 | Custody inversion | `bun run test:bridge-custody` — ULA verify alone → Δbalance=0; vault release only via illuminateIngress |
@@ -22,7 +23,8 @@
 ### Scheme honesty
 
 - **EVM / CosmWasm twin:** keccak256 Lamport, `MSG_BITS=32`, 32-leaf Merkle window.
-- **Pixel-native ULA:** still SHA-512 OTS / ML-DSA in `bridge.ts` (not replaced by this twin).
+- **Pixel-native ULA:** SHA-512 OTS / **ML-DSA** via `verifyLightProof` (`bridge.ts` + `ula-mldsa.ts`).
+- **ML-DSA on-chain:** `ULAOffchainMldsaGate` = off-chain verify + commit (trusted submitter). **Not** full Dilithium in EVM. See [`ULA-MLDSA.md`](./ULA-MLDSA.md).
 - Twin exists so foreign VMs never ship a stub `lightProofValid`.
 
 ### Public testnet tx links

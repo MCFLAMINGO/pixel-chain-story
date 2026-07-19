@@ -52,6 +52,8 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [x] Second-chain twin (CosmWasm)
 - [x] Local relayer: anvil `Locked` → feed → shineIn
 - [x] Custody inversion: foreign receipt / Pixel vault (`test:bridge-custody`)
+- [x] Native ML-DSA ULA + twin projection + off-chain commit gate (`test:ula-mldsa`, `ULAOffchainMldsaGate.sol`)
+- [ ] Full on-chain Dilithium verify (deferred — gas / research)
 - [ ] Public testnet tx links in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md)
 
 ## Gate F — light clients & gossip
@@ -78,8 +80,9 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 
 ## Gate I — external scrutiny
 
-- [ ] Scoped audit (crypto + acceptPixel + ULA)
-- [ ] `docs/AUDIT.md` + criticals fixed
+- [x] Threat model v1.1 frozen + scoped package (`docs/AUDIT.md` PREPARING)
+- [x] `bun run test:audit-scope`
+- [ ] External firm engaged; criticals fixed; report link in `AUDIT.md`
 
 ## Gate J — public regime
 

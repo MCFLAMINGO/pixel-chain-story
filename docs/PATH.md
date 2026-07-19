@@ -109,10 +109,13 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Foundry tests + CosmWasm twin (`contracts/cosmwasm/ula-verifier`)
 - [x] Relayer: anvil `PixelUsdcLock` `Locked` → `LockFeeder.feed` → shineIn (`bun run test:ula-relayer`)
 - [x] Custody inversion law: foreign = receipt, Pixel = vault (`BRIDGE_CUSTODY_AXIOM`, `test:bridge-custody`)
+- [x] Native ULAs under ML-DSA sequencers + keccak-OTS twin projection (`test:ula-mldsa`)
+- [x] Lab off-chain ML-DSA commit gate (`ULAOffchainMldsaGate.sol`) — **not** full on-chain Dilithium
 - [ ] Public testnet tx links (Sepolia or equiv.) — still open
+- [ ] Full on-chain ML-DSA verify (zk/precompile research) — open
 
-**Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) (public tx links pending)  
-**Claim unlock (partial):** _“ULA verify real on EVM/CosmWasm twins (lab); local lock→shineIn; foreign verify ≠ vault release.”_ Full _“Testnet ULA bridge”_ when public links land.
+**Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) + [`docs/ULA-MLDSA.md`](./ULA-MLDSA.md) (public tx links pending)  
+**Claim unlock (partial):** _“ULA verify real on EVM/CosmWasm twins (lab); native ML-DSA ULAs; PQ commit gate; local lock→shineIn; foreign verify ≠ vault release.”_ Full _“Testnet ULA bridge”_ when public links land. Do **not** claim “on-chain Dilithium.”
 
 ### Gate F — Light clients & gossip that scale past 3 peers
 
@@ -154,11 +157,14 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 
 **Build**
 
-- Threat model v1 frozen; scope for audit (crypto + acceptPixel + ULA)
-- Fix criticals; publish report link
+- [x] Threat model **v1.1** frozen; scope for audit (crypto + `acceptBlock` + ULA) — [`THREAT-MODEL.md`](./THREAT-MODEL.md)
+- [x] Audit package + self-review checklist — [`AUDIT.md`](./AUDIT.md) status **PREPARING**
+- [x] `bun run test:audit-scope` invariants
+- [ ] External firm engaged; criticals fixed; report link published
 
-**Evidence:** `docs/AUDIT.md`  
-**Claim unlock:** _“Audited components (scoped).”_ Full “trusted L1” only after broader ops maturity.
+**Evidence:** [`docs/AUDIT.md`](./AUDIT.md) (PREPARING until report link)  
+**Claim unlock (now):** _“Scoped audit package prepared; external review pending.”_  
+**Claim unlock (after report + fixes):** _“Audited components (scoped).”_ Full “trusted L1” only after broader ops maturity.
 
 ### Gate J — Regime (public network)
 
@@ -200,9 +206,10 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 
 ## 6. Immediate next actions (this repo)
 
-1. Gate E deepen: Foundry ULA verifying **ML-DSA** (keccak-OTS twin already ships)
-2. Continuity agentic deploy jobs + public mirror pilots
-3. Lumen depth + SISO chaos drill on real hosts
-4. Keep `pix_protocolInfo` gates honest as evidence lands
+1. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
+2. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
+3. Opt-in ML-KEM wire handshake on gossip/RPC (lab module ships; default still plaintext)
+4. Continuity merchant handshake (hold agentic DNS until signup door is dumb-simple)
+5. Keep `pix_protocolInfo` gates honest as evidence lands
 
-Gate D (ML-DSA default + frozen vectors) is in. The skeptic meets NIST PQ birth, networked tip, and a verifying bridge twin — still a pilot, but not a costume.
+Gate D is in. Gate I package is preparing. ULA ML-DSA path is native + twin + honest gate — still a pilot, not a costume.
