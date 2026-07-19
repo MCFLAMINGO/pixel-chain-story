@@ -8,7 +8,13 @@
  */
 
 import { sha512Hex, type Hex } from "./crypto";
-import { acceptIntoLight, comeTowardLight, markOriginDark, type ContinuityRecord } from "./siso";
+import {
+  acceptIntoLight,
+  canServeWithoutOrigin,
+  comeTowardLight,
+  markOriginDark,
+  type ContinuityRecord,
+} from "./siso";
 
 export type ContinuityStep =
   | "draft"
@@ -36,6 +42,30 @@ export interface DeployChecklistItem {
   /** shell-ish hint for operators / future agents */
   commandHint?: string;
   done: boolean;
+}
+
+/** Local till accrual — lab bookkeeping, not on-chain settlement. */
+export interface TillEvent {
+  id: string;
+  at: number;
+  /** Simulated checkout volume in PIX units */
+  amountPix: number;
+  /** Fee accrued (tillFeePix at record time) */
+  feePix: number;
+  bps: number;
+  via: "mirror" | "origin" | "simulated";
+  note?: string;
+}
+
+export interface ChaosDrillReport {
+  storeId: string;
+  originDark: boolean;
+  mirrorsServe: boolean;
+  tillActive: boolean;
+  settlementPix: number;
+  feePix: number;
+  accruedPix: number;
+  claim: string;
 }
 
 export interface ContinuityStore {
@@ -66,6 +96,8 @@ export interface ContinuityStore {
   continuity?: ContinuityRecord;
   /** Operator-only booth jobs (rsync / DNS) — never merchant-facing */
   deployPlan?: DeployChecklistItem[];
+  /** Append-only local till ledger (lab) */
+  tillEvents?: TillEvent[];
   /** When merchant accepted the invite */
   joinedAt?: number;
   createdAt: number;
@@ -430,6 +462,44 @@ export function tillFeePix(store: ContinuityStore, amountPix: number): number {
   return Math.floor((amountPix * bps) / 10_000);
 }
 
+export function tillAccruedPix(store: ContinuityStore): number {
+  return (store.tillEvents ?? []).reduce((s, e) => s + e.feePix, 0);
+}
+
+/**
+ * Record a simulated settlement against the till.
+ * Lab bookkeeping only — does not mint UTXOs or touch the chain.
+ */
+export function recordTillSettlement(
+  state: ContinuityOpsState,
+  storeId: string,
+  amountPix: number,
+  opts?: { via?: TillEvent["via"]; note?: string },
+): ContinuityOpsState {
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store) throw new Error("Store not found");
+  if (store.step !== "live") throw new Error("Store must be live");
+  if (amountPix <= 0) throw new Error("amountPix must be positive");
+  if (!tillIsActive(store)) {
+    throw new Error("Till idle — mark origin dark (or set tillCutBpsWhenOriginUp) first");
+  }
+  const bps = activeTillBps(store);
+  const feePix = tillFeePix(store, amountPix);
+  if (feePix <= 0) throw new Error("Fee rounds to zero — raise amount or bps");
+  const event: TillEvent = {
+    id: id("till"),
+    at: Date.now(),
+    amountPix,
+    feePix,
+    bps,
+    via: opts?.via ?? "simulated",
+    note: opts?.note ?? "lab till — not on-chain",
+  };
+  return patchStore(state, storeId, {
+    tillEvents: [...(store.tillEvents ?? []), event],
+  });
+}
+
 /**
  * Operator marks origin dark — till switches to outage cut.
  * Does not touch booth jobs; SISO state drives the fee regime.
@@ -441,6 +511,54 @@ export function markStoreOriginDark(
   const store = state.stores.find((s) => s.id === storeId);
   if (!store?.continuity) throw new Error("Store not live in the light");
   return patchStore(state, storeId, { continuity: markOriginDark(store.continuity) });
+}
+
+/**
+ * Lab chaos drill: live store → origin dark → mirrors serve → till accrues.
+ * Evidence for Continuity desk — not Gate J public-regime chaos drill.
+ */
+export async function runChaosDrill(
+  state: ContinuityOpsState,
+  storeId: string,
+  opts?: { settlementPix?: number },
+): Promise<{ state: ContinuityOpsState; report: ChaosDrillReport }> {
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store) throw new Error("Store not found");
+  if (store.step !== "live" || !store.continuity) {
+    throw new Error("Store must be live with SISO continuity");
+  }
+  if (!(store.continuity.artifact.mirrors?.length ?? 0)) {
+    throw new Error("Need at least one booth/mirror for drill");
+  }
+
+  let next = state;
+  if (store.continuity.state !== "origin_dark") {
+    next = markStoreOriginDark(next, storeId);
+  }
+  const afterDark = next.stores.find((s) => s.id === storeId)!;
+  const mirrorsServe = canServeWithoutOrigin(afterDark.continuity!);
+  if (!mirrorsServe) throw new Error("canServeWithoutOrigin failed after origin_dark");
+  if (!tillIsActive(afterDark)) throw new Error("till not active after origin_dark");
+
+  const settlementPix = opts?.settlementPix ?? 10_000;
+  next = recordTillSettlement(next, storeId, settlementPix, {
+    via: "mirror",
+    note: "chaos drill — simulated checkout while origin dark (lab)",
+  });
+  const live = next.stores.find((s) => s.id === storeId)!;
+  const feePix = tillFeePix(afterDark, settlementPix);
+  const report: ChaosDrillReport = {
+    storeId,
+    originDark: live.continuity?.state === "origin_dark",
+    mirrorsServe,
+    tillActive: tillIsActive(live),
+    settlementPix,
+    feePix,
+    accruedPix: tillAccruedPix(live),
+    claim:
+      "Lab: origin_dark → mirrors allow serve → till bookkeeping accrues on simulated PIX volume. Not Gate J public drill.",
+  };
+  return { state: next, report };
 }
 
 /** Merchant-facing pricing line (no infra jargon). */
