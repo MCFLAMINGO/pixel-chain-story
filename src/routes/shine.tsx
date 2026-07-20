@@ -194,7 +194,16 @@ function ShineInPage() {
             </label>
             <p className="text-sm text-muted-foreground">
               Finish your site however you already do. Then press Shine in — we hold the map so
-              Continuity can outlive a dead host.
+              Continuity can outlive a dead host. McFlamingo preview opens{" "}
+              <a
+                className="underline"
+                href={MCFLAMINGO_ORIGIN_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                www.mcflamingo.com
+              </a>
+              , not a local menu page.
             </p>
             {err && <p className="text-sm text-destructive">{err}</p>}
             <button type="submit" className="continuity-btn w-full text-base" disabled={busy}>
