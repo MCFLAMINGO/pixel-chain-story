@@ -96,7 +96,7 @@ const toward = await One.Light.invite({
 | One product | No parallel “Pixel edition” |
 
 Full cry: [`CONTINUITY-SISO.md`](./CONTINUITY-SISO.md).  
-Agents / Clawbook / swarms: [`AGENTS-SISO.md`](./AGENTS-SISO.md).
+Agents / Clawbook / swarms: [`AGENTS.md`](../AGENTS.md) · [`AGENTS-SISO.md`](./AGENTS-SISO.md) · [`llms.txt`](../llms.txt).
 
 **Excitement move:** mirror something you already run; break the origin; show peers still serving from mirrors.
 
@@ -133,7 +133,7 @@ API face: [`ONE.md`](./ONE.md) — `One.Source` · `One.Word` · `One.Light` · 
 > **SISO — Build anywhere. Shine in once. No second you.**  
 > Pixel: PQ-class light settlement, Kindling for people, PATH gates for protocol.  
 > `bun install && bun run test:all` — then build **on**, **for**, or **into** Pixel.  
-> Agents: `docs/AGENTS-SISO.md`. Live field `/`. Lab `/lab`.
+> Agents: `AGENTS.md` · `docs/AGENTS-SISO.md` · `llms.txt`. Live field `/`. Lab `/lab`. Continuity `/shine`.
 
 ---
 
