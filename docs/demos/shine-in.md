@@ -22,7 +22,7 @@ Also linked from the live field (`/` → **Shine in**) and Lab.
 
 Shortcuts:
 
-- **Try with McFlamingo demo** — uses `/mcflamingo/` menu HTML  
+- **Try with McFlamingo demo** — uses `/mcflamingo/index.html` menu HTML  
 - After success → Continuity desk for till / chaos drill (operator tools)
 
 ## Honesty

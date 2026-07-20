@@ -18,7 +18,7 @@ bun run dev
 
 1. Open [http://localhost:8080/continuity](http://localhost:8080/continuity)  
 2. Click **Demo: McFlamingo shines in**  
-3. Preview storefront: [/mcflamingo/](http://localhost:8080/mcflamingo/)  
+3. Preview storefront: [/mcflamingo/index.html](http://localhost:8080/mcflamingo/index.html) (also `/mcflamingo` forwards there)  
 4. Optional: **Run lab chaos drill** (origin dark → till accrues)
 
 Also from Lab: **Easy Continuity: McFlamingo demo →**

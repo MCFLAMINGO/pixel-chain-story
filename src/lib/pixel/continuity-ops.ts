@@ -178,7 +178,12 @@ export async function seedMcFlamingoDemo(
 ): Promise<ContinuityOpsState> {
   if (!html.trim()) throw new Error("Need McFlamingo HTML artifact");
   const originUrl = opts?.originUrl ?? "https://mcflamingo.com";
-  let next = createStoreOffer(state, {
+  // One demo row — re-clicking must not flood the pipeline with McFlamingo chips.
+  const pruned: ContinuityOpsState = {
+    ...state,
+    stores: state.stores.filter((s) => s.domain !== MCFLAMINGO_DEMO_DOMAIN),
+  };
+  let next = createStoreOffer(pruned, {
     name: "McFlamingo",
     domain: MCFLAMINGO_DEMO_DOMAIN,
     originUrl,

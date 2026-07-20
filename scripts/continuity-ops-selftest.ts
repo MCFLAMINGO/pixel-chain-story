@@ -97,6 +97,13 @@ async function main() {
   if (demo.stores[0]?.name !== "McFlamingo") throw new Error("name");
   if (!demo.stores[0]?.digest) throw new Error("digest missing");
   if (demo.stores[0]?.continuity?.state !== "in_the_light") throw new Error("siso");
+  const firstId = demo.stores[0]!.id;
+  demo = await seedMcFlamingoDemo(demo, html, {
+    originUrl: "http://127.0.0.1:4100/mcflamingo/",
+    mirrorUrls: ["http://127.0.0.1:4100/mcflamingo/", "http://127.0.0.1:4101/mcflamingo/"],
+  });
+  if (demo.stores.length !== 1) throw new Error("re-seed must replace prior McFlamingo row");
+  if (demo.stores[0]!.id === firstId) throw new Error("re-seed should mint a fresh store id");
   console.log("▸ seedMcFlamingoDemo one-click shine-in ✓");
 
   if (!shineInPlainThesis().includes("Shine in")) throw new Error("plain thesis");

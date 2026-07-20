@@ -21,7 +21,7 @@ Open:
 
 - Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)  
 - One-click: **Demo: McFlamingo shines in**  
-- Storefront preview: [/mcflamingo/](http://localhost:8080/mcflamingo/)  
+- Storefront preview: [/mcflamingo/index.html](http://localhost:8080/mcflamingo/index.html)  
 - Merchant invite: `/continuity/join/<token>` (same browser)  
 - Kill-origin CLI: `bun run test:mcflamingo` — see [`mcflamingo-continuity.md`](./mcflamingo-continuity.md)
 

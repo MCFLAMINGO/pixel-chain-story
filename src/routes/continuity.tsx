@@ -145,7 +145,7 @@ function ContinuityAdmin() {
                   try {
                     const origin =
                       typeof window !== "undefined"
-                        ? `${window.location.origin}/mcflamingo/`
+                        ? `${window.location.origin}/mcflamingo/index.html`
                         : "https://mcflamingo.com";
                     const res = await fetch("/mcflamingo/index.html");
                     if (!res.ok)
@@ -158,7 +158,7 @@ function ContinuityAdmin() {
                     setState(next);
                     setSelectedId(next.stores[0]?.id ?? null);
                     setMsg(
-                      "McFlamingo shone in — live on the ladder. Open the join link in this same browser, or Run lab chaos drill.",
+                      "McFlamingo shone in — live on the ladder. Open the menu at /mcflamingo/index.html, then Open join page or Run lab chaos drill.",
                     );
                   } catch (err) {
                     setMsg(err instanceof Error ? err.message : "McFlamingo demo failed");
@@ -172,8 +172,13 @@ function ContinuityAdmin() {
             </button>
             <p className="mt-2 text-xs text-muted-foreground">
               One click · real menu HTML · no DNS. Preview:{" "}
-              <a className="underline" href="/mcflamingo/" target="_blank" rel="noreferrer">
-                /mcflamingo/
+              <a
+                className="underline"
+                href="/mcflamingo/index.html"
+                target="_blank"
+                rel="noreferrer"
+              >
+                /mcflamingo/index.html
               </a>
             </p>
           </div>
@@ -190,6 +195,40 @@ function ContinuityAdmin() {
             {continuityInvitePrerequisites().map((line) => (
               <li key={line}>{line}</li>
             ))}
+          </ul>
+        </div>
+
+        <div className="mt-4 max-w-2xl rounded-none border border-foreground/10 bg-foreground/[0.03] px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="font-pixel text-[11px] tracking-[0.18em] text-primary uppercase">
+            What the buttons do (lab)
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            <li>
+              <span className="text-foreground">Demo: McFlamingo shines in</span> — loads the local
+              menu HTML, puts McFlamingo on the ladder (replaces prior McFlamingo demo rows).
+            </li>
+            <li>
+              <span className="text-foreground">Open join page</span> — merchant view in this same
+              browser; they only tap Turn on Continuity.
+            </li>
+            <li>
+              <span className="text-foreground">Probe all rungs</span> — ping booth URLs from your
+              browser (CORS may show unknown — ok in lab).
+            </li>
+            <li>
+              <span className="text-foreground">Mark origin dark / Run lab chaos drill</span> —
+              pretend AWS died; till bookkeeping accrues. Not real money, not Gate J.
+            </li>
+            <li>
+              <span className="text-foreground">Operator booth jobs</span> — checklists for you
+              (rsync / failover). Checking a box only marks done here; it does not run the command.
+            </li>
+            <li>
+              Menu URL that works:{" "}
+              <a className="underline" href="/mcflamingo/index.html">
+                /mcflamingo/index.html
+              </a>
+            </li>
           </ul>
         </div>
 

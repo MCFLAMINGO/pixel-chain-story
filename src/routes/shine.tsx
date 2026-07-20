@@ -69,7 +69,7 @@ function ShineInPage() {
     try {
       const origin =
         typeof window !== "undefined"
-          ? `${window.location.origin}/mcflamingo/`
+          ? `${window.location.origin}/mcflamingo/index.html`
           : "https://mcflamingo.com";
       const res = await fetch("/mcflamingo/index.html");
       if (!res.ok) throw new Error("McFlamingo demo page missing — run bun run dev from this repo");
@@ -139,7 +139,7 @@ function ShineInPage() {
                 Open my Continuity desk
               </Link>
               <a
-                href="/mcflamingo/"
+                href="/mcflamingo/index.html"
                 className="continuity-btn-ghost"
                 target="_blank"
                 rel="noreferrer"
