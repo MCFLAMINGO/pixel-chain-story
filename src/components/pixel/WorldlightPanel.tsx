@@ -202,7 +202,7 @@ export function WorldlightPanel() {
           disabled={busy || !you}
           onClick={() =>
             void runContinuity("mcflamingo.com", () =>
-              ingressDomain("https://mcflamingo.com", {
+              ingressDomain("https://www.mcflamingo.com/", {
                 address: you!.address,
                 localId: "you",
               }),
