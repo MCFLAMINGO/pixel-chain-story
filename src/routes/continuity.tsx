@@ -209,6 +209,46 @@ function ContinuityAdmin() {
           </ul>
         </div>
 
+        <div className="mt-4 max-w-2xl rounded-none border border-foreground/10 bg-foreground/[0.03] px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="font-pixel text-[11px] tracking-[0.18em] text-primary uppercase">
+            What the buttons do (lab)
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            <li>
+              <span className="text-foreground">Demo: real McFlamingo shines in</span> — Continuity
+              origin is www.mcflamingo.com; digest from live HTML or homepage snapshot.
+            </li>
+            <li>
+              <span className="text-foreground">Open join page</span> — merchant view in this same
+              browser; they only tap Turn on Continuity.
+            </li>
+            <li>
+              <span className="text-foreground">Probe all rungs</span> — ping booth URLs from your
+              browser (CORS may show unknown — ok in lab).
+            </li>
+            <li>
+              <span className="text-foreground">Mark origin dark / Run lab chaos drill</span> —
+              pretend host died; till bookkeeping moves. Not real money, not Gate J.
+            </li>
+            <li>
+              <span className="text-foreground">Operator booth jobs</span> — checklist only;
+              checking a box does not run rsync/failover.
+            </li>
+            <li>
+              Menu / preview:{" "}
+              <a
+                className="underline"
+                href={MCFLAMINGO_ORIGIN_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                www.mcflamingo.com
+              </a>
+              {" · "}/mcflamingo redirects there (no local fake menu).
+            </li>
+          </ul>
+        </div>
+
         {/* Step strip */}
         <ol className="mt-10 flex flex-wrap gap-2">
           {STEPS.map((label, i) => (
