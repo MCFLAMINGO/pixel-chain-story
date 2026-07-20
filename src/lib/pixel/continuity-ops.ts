@@ -166,19 +166,92 @@ export function emptyOpsState(operatorName = "McFlamingo Continuity"): Continuit
 }
 
 export const MCFLAMINGO_DEMO_DOMAIN = "mcflamingo.com";
+/** Live restaurant origin — Popmenu site (Ponte Vedra Beach). */
+export const MCFLAMINGO_ORIGIN_URL = "https://www.mcflamingo.com/";
+/** Ordering deep link on the real site. */
+export const MCFLAMINGO_ORDER_URL = "https://www.mcflamingo.com/popmenu-order";
+/**
+ * Continuity artifact for digest / lab booths — captured homepage of the live site.
+ * Preview for humans must open {@link MCFLAMINGO_ORIGIN_URL}, not this file.
+ */
+export const MCFLAMINGO_SNAPSHOT_HREF = "/mcflamingo/homepage-snapshot.html";
+
+/** Cloudflare challenge / bot interstitial — not a usable Continuity artifact. */
+export function isUnusableOriginHtml(html: string): boolean {
+  const t = html.toLowerCase();
+  return (
+    t.includes("just a moment...") ||
+    t.includes("cf-mitigated") ||
+    t.includes("challenge-platform") ||
+    t.includes("cdn-cgi/challenge")
+  );
+}
 
 /**
- * One-click lab seed: McFlamingo storefront HTML → Continuity live + SISO.
- * No DNS homework. Merchant invite already “joined” for the demo.
+ * Load McFlamingo homepage bytes for Continuity digest.
+ * Prefer live origin; fall back to committed snapshot of www.mcflamingo.com
+ * (CORS / Cloudflare often block automated fetch from localhost).
+ */
+export async function fetchMcFlamingoHomepageHtml(
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ html: string; source: "live" | "snapshot"; originUrl: string }> {
+  const originUrl = MCFLAMINGO_ORIGIN_URL;
+  try {
+    const live = await fetchImpl(originUrl, {
+      method: "GET",
+      mode: "cors",
+      credentials: "omit",
+      redirect: "follow",
+    });
+    if (live.ok) {
+      const html = await live.text();
+      if (
+        html.trim() &&
+        !isUnusableOriginHtml(html) &&
+        /mcflamingo/i.test(html) &&
+        /ponte\s*vedra/i.test(html)
+      ) {
+        return { html, source: "live", originUrl };
+      }
+    }
+  } catch {
+    // Expected from many browsers (CORS) and some labs (Cloudflare).
+  }
+
+  const snap = await fetchImpl(MCFLAMINGO_SNAPSHOT_HREF);
+  if (!snap.ok) {
+    throw new Error(
+      "McFlamingo Continuity snapshot missing — run bun run dev from this repo (public/mcflamingo/homepage-snapshot.html)",
+    );
+  }
+  const html = await snap.text();
+  if (!/mcflamingo/i.test(html) || !/ponte\s*vedra/i.test(html)) {
+    throw new Error("McFlamingo snapshot corrupt — expected live-site homepage capture");
+  }
+  return { html, source: "snapshot", originUrl };
+}
+
+/**
+ * One-click Continuity seed for the real McFlamingo website.
+ * Origin is always {@link MCFLAMINGO_ORIGIN_URL}; `html` is the homepage artifact to digest
+ * (live fetch or Continuity snapshot). Lab mirrors may point at local booths that serve the snapshot.
  */
 export async function seedMcFlamingoDemo(
   state: ContinuityOpsState,
   html: string,
   opts?: { originUrl?: string; mirrorUrls?: string[] },
 ): Promise<ContinuityOpsState> {
-  if (!html.trim()) throw new Error("Need McFlamingo HTML artifact");
-  const originUrl = opts?.originUrl ?? "https://mcflamingo.com";
-  // One demo row — re-clicking must not flood the pipeline with McFlamingo chips.
+  if (!html.trim()) throw new Error("Need McFlamingo homepage artifact");
+  if (isUnusableOriginHtml(html)) {
+    throw new Error(
+      "Got a bot challenge page — use the Continuity snapshot or paste real homepage HTML",
+    );
+  }
+  if (!/mcflamingo/i.test(html)) {
+    throw new Error("Artifact does not look like McFlamingo — refuse fake stand-in menus");
+  }
+  const originUrl = opts?.originUrl ?? MCFLAMINGO_ORIGIN_URL;
+  // One demo row — re-clicking must not flood the pipeline.
   const pruned: ContinuityOpsState = {
     ...state,
     stores: state.stores.filter((s) => s.domain !== MCFLAMINGO_DEMO_DOMAIN),
@@ -199,14 +272,14 @@ export async function seedMcFlamingoDemo(
   if (mirrors[0]) {
     next = updateRung(next, next.rungs[0]!.id, {
       baseUrl: mirrors[0],
-      label: "Demo booth A — McFlamingo",
+      label: "Continuity booth A — McFlamingo snapshot",
       provider: "Lab",
     });
   }
   if (mirrors[1]) {
     next = updateRung(next, next.rungs[1]!.id, {
       baseUrl: mirrors[1],
-      label: "Demo booth B — McFlamingo",
+      label: "Continuity booth B — McFlamingo snapshot",
       provider: "Lab",
     });
   }

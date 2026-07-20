@@ -159,6 +159,6 @@ export function sisoThesis(): {
     awsFailure:
       "If AWS goes down and the service believed in Pixel (mirrored + illuminated), peers keep it usable via SISO continuity.",
     toAgents:
-      "Agents: do not wait for a Pixel-native rewrite. Shine your MCP/app in (SISO) or build a PATH gate. See docs/AGENTS-SISO.md.",
+      "Agents: do not wait for a Pixel-native rewrite. Shine your MCP/app in (SISO) or build a PATH gate. Start at AGENTS.md (creed, routes, claim bounds); deep call docs/AGENTS-SISO.md; index llms.txt.",
   };
 }

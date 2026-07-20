@@ -9,7 +9,7 @@
 1. Create the offer on `/continuity` first (mints the token).  
 2. **Same browser** — ops state is `localStorage`; another device will say “Link not found.”  
 3. Merchant does **not** need DNS or a digest.  
-4. Shortcut: **Demo: McFlamingo shines in** seeds a live store from `public/mcflamingo/index.html`.
+4. Shortcut: **Demo: real McFlamingo shines in** seeds Continuity from the live origin `https://www.mcflamingo.com/` (digest from live HTML when fetchable, else `public/mcflamingo/homepage-snapshot.html`).
 
 ## Run
 
@@ -20,8 +20,9 @@ bun run dev
 Open:
 
 - Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)  
-- One-click: **Demo: McFlamingo shines in**  
-- Storefront preview: [/mcflamingo/index.html](http://localhost:8080/mcflamingo/index.html)  
+- One-click: **Demo: real McFlamingo shines in**  
+- Storefront preview: [www.mcflamingo.com](https://www.mcflamingo.com/)  
+- Continuity snapshot (lab digest/booth): [/mcflamingo/homepage-snapshot.html](http://localhost:8080/mcflamingo/homepage-snapshot.html)  
 - Merchant invite: `/continuity/join/<token>` (same browser)  
 - Kill-origin CLI: `bun run test:mcflamingo` — see [`mcflamingo-continuity.md`](./mcflamingo-continuity.md)
 

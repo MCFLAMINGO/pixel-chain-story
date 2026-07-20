@@ -32,6 +32,8 @@ bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://12
 
 | Doc | Why |
 | --- | --- |
+| [`AGENTS.md`](AGENTS.md) | **LLMs / coding agents** — Pixel brief (creed, routes, do/don’t, claim bounds) |
+| [`llms.txt`](llms.txt) | Machine-readable doc index for crawlers and agents |
 | [`docs/PATH.md`](docs/PATH.md) | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
 | [`docs/QUANTUM.md`](docs/QUANTUM.md) | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65) |
 | [`docs/INVENTION.md`](docs/INVENTION.md) | What is ours vs borrowed |
@@ -60,9 +62,10 @@ bun install && bun run test:all
 
 ETH folks: [`docs/FOR-ETHEREUM-DEVS.md`](docs/FOR-ETHEREUM-DEVS.md).
 
-**Invite:** *SISO — Build anywhere. Shine in once. No second you. `bun run test:all` → `docs/AGENTS-SISO.md` or `docs/BUILDERS.md`.*
+**Invite:** *SISO — Build anywhere. Shine in once. No second you. `bun run test:all` → `AGENTS.md` / `docs/AGENTS-SISO.md` or `docs/BUILDERS.md`.*
 
 ## Status
 
-**Gate A** lab: real UTXO + PoLS + **PQ signatures** (hash-OTS + NIST ML-DSA-65) + tests. Not a finished global network.  
-Quantum is a critical priority — [`docs/QUANTUM.md`](docs/QUANTUM.md). Claims escalate with PATH gates; `pix_protocolInfo.quantum` / `.gates` are the badges.
+**Gates A–F** lab (see [`docs/PATH.md`](docs/PATH.md)): real UTXO + PoLS + **PQ signatures** (hash-OTS + NIST ML-DSA-65 default) + ULA twins + light path + tests. Not a finished global network.  
+Quantum remains critical — [`docs/QUANTUM.md`](docs/QUANTUM.md). Claims escalate with PATH gates; `pix_protocolInfo.quantum` / `.gates` are the badges.  
+Continuity handshake: [`/shine`](docs/demos/shine-in.md) · operator desk [`/continuity`](docs/demos/continuity-desk.md).

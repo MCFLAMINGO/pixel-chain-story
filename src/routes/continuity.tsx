@@ -8,9 +8,11 @@ import {
   continuityThesis,
   createStoreOffer,
   digestArtifactText,
+  fetchMcFlamingoHomepageHtml,
   goLive,
   markInviteSent,
   markStoreOriginDark,
+  MCFLAMINGO_ORIGIN_URL,
   continuityInvitePrerequisites,
   merchantOfferCopy,
   probeRung,
@@ -143,22 +145,21 @@ function ContinuityAdmin() {
                   setDemoBusy(true);
                   setMsg("");
                   try {
-                    const origin =
+                    const { html, source, originUrl } = await fetchMcFlamingoHomepageHtml();
+                    const booth =
                       typeof window !== "undefined"
-                        ? `${window.location.origin}/mcflamingo/index.html`
-                        : "https://mcflamingo.com";
-                    const res = await fetch("/mcflamingo/index.html");
-                    if (!res.ok)
-                      throw new Error("Could not load /mcflamingo/index.html — run bun run dev");
-                    const html = await res.text();
+                        ? `${window.location.origin}/mcflamingo/homepage-snapshot.html`
+                        : originUrl;
                     const next = await seedMcFlamingoDemo(state, html, {
-                      originUrl: origin,
-                      mirrorUrls: [origin, origin],
+                      originUrl,
+                      mirrorUrls: [booth, booth],
                     });
                     setState(next);
                     setSelectedId(next.stores[0]?.id ?? null);
                     setMsg(
-                      "McFlamingo shone in — live on the ladder. Open the menu at /mcflamingo/index.html, then Open join page or Run lab chaos drill.",
+                      source === "live"
+                        ? "McFlamingo shone in from live www.mcflamingo.com — Open McFlamingo.com or Run lab chaos drill."
+                        : "McFlamingo shone in — origin is www.mcflamingo.com; digest from Continuity homepage snapshot (live fetch blocked). Open the real site, or Run lab chaos drill.",
                     );
                   } catch (err) {
                     setMsg(err instanceof Error ? err.message : "McFlamingo demo failed");
@@ -168,17 +169,27 @@ function ContinuityAdmin() {
                 })();
               }}
             >
-              {demoBusy ? "Shining in…" : "Demo: McFlamingo shines in"}
+              {demoBusy ? "Shining in…" : "Demo: real McFlamingo shines in"}
             </button>
             <p className="mt-2 text-xs text-muted-foreground">
-              One click · real menu HTML · no DNS. Preview:{" "}
+              Origin = live restaurant. Preview:{" "}
               <a
                 className="underline"
-                href="/mcflamingo/index.html"
+                href={MCFLAMINGO_ORIGIN_URL}
                 target="_blank"
                 rel="noreferrer"
               >
-                /mcflamingo/index.html
+                www.mcflamingo.com
+              </a>
+              {" · "}
+              Order:{" "}
+              <a
+                className="underline"
+                href="https://www.mcflamingo.com/popmenu-order"
+                target="_blank"
+                rel="noreferrer"
+              >
+                /popmenu-order
               </a>
             </p>
           </div>
@@ -204,8 +215,8 @@ function ContinuityAdmin() {
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-4">
             <li>
-              <span className="text-foreground">Demo: McFlamingo shines in</span> — loads the local
-              menu HTML, puts McFlamingo on the ladder (replaces prior McFlamingo demo rows).
+              <span className="text-foreground">Demo: real McFlamingo shines in</span> — Continuity
+              origin is www.mcflamingo.com; digest from live HTML or homepage snapshot.
             </li>
             <li>
               <span className="text-foreground">Open join page</span> — merchant view in this same
@@ -217,17 +228,23 @@ function ContinuityAdmin() {
             </li>
             <li>
               <span className="text-foreground">Mark origin dark / Run lab chaos drill</span> —
-              pretend AWS died; till bookkeeping accrues. Not real money, not Gate J.
+              pretend host died; till bookkeeping moves. Not real money, not Gate J.
             </li>
             <li>
-              <span className="text-foreground">Operator booth jobs</span> — checklists for you
-              (rsync / failover). Checking a box only marks done here; it does not run the command.
+              <span className="text-foreground">Operator booth jobs</span> — checklist only;
+              checking a box does not run rsync/failover.
             </li>
             <li>
-              Menu URL that works:{" "}
-              <a className="underline" href="/mcflamingo/index.html">
-                /mcflamingo/index.html
+              Menu / preview:{" "}
+              <a
+                className="underline"
+                href={MCFLAMINGO_ORIGIN_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                www.mcflamingo.com
               </a>
+              {" · "}/mcflamingo redirects there (no local fake menu).
             </li>
           </ul>
         </div>

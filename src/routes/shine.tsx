@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useContinuityOps } from "@/hooks/use-continuity-ops";
 import {
+  fetchMcFlamingoHomepageHtml,
+  MCFLAMINGO_ORIGIN_URL,
   merchantOfferCopy,
   seedMcFlamingoDemo,
   selfServeShineIn,
@@ -67,21 +69,24 @@ function ShineInPage() {
     setErr("");
     setBusy(true);
     try {
-      const origin =
+      const { html, source, originUrl } = await fetchMcFlamingoHomepageHtml();
+      const booth =
         typeof window !== "undefined"
-          ? `${window.location.origin}/mcflamingo/index.html`
-          : "https://mcflamingo.com";
-      const res = await fetch("/mcflamingo/index.html");
-      if (!res.ok) throw new Error("McFlamingo demo page missing — run bun run dev from this repo");
-      const html = await res.text();
+          ? `${window.location.origin}/mcflamingo/homepage-snapshot.html`
+          : originUrl;
       const next = await seedMcFlamingoDemo(state, html, {
-        originUrl: origin,
-        mirrorUrls: [origin, origin],
+        originUrl,
+        // Lab booths serve the Continuity snapshot; origin stays the live restaurant.
+        mirrorUrls: [booth, booth],
       });
       setState(next);
       setDoneId(next.stores[0]?.id ?? null);
       setName("McFlamingo");
-      setWebsite("mcflamingo.com");
+      setWebsite("www.mcflamingo.com");
+      if (source === "snapshot") {
+        // Soft note only — still the real brand origin.
+        setErr("");
+      }
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Demo failed");
     } finally {
@@ -139,12 +144,12 @@ function ShineInPage() {
                 Open my Continuity desk
               </Link>
               <a
-                href="/mcflamingo/index.html"
+                href={MCFLAMINGO_ORIGIN_URL}
                 className="continuity-btn-ghost"
                 target="_blank"
                 rel="noreferrer"
               >
-                See McFlamingo menu
+                Open McFlamingo.com
               </a>
             </div>
             <button
@@ -182,7 +187,7 @@ function ShineInPage() {
                 className="continuity-input mt-1.5"
                 value={website}
                 onChange={(e) => setWebsite(e.target.value)}
-                placeholder="mcflamingo.com"
+                placeholder="www.mcflamingo.com"
                 autoComplete="url"
                 required
               />
@@ -201,7 +206,7 @@ function ShineInPage() {
               disabled={busy}
               onClick={() => void onMcFlamingo()}
             >
-              Try with McFlamingo demo
+              Try with real McFlamingo (www.mcflamingo.com)
             </button>
           </form>
         )}

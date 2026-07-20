@@ -1,0 +1,67 @@
+# Pixel Ledger
+
+> Source · Word · Light — a pixel ledger (not a chain of opaque blocks).
+> SISO — Build anywhere. Shine in once. No second you.
+> Art guided by science it need not name. No claim without a PATH gate.
+
+This file is a discovery index for LLMs and coding agents.
+Canonical brief: /AGENTS.md
+Deep agent call: /docs/AGENTS-SISO.md
+
+## Start here
+
+- [Agent brief (Pixel)](AGENTS.md): identity, creed, routes, do/don't, tests, claim bounds
+- [Agents: SISO call](docs/AGENTS-SISO.md): shine in or build a PATH gate
+- [Quickstart](docs/QUICKSTART.md): bun install, node, UI, test:all
+- [README](README.md): human front door + doc table
+
+## Doctrine
+
+- [PATH — gates A→J](docs/PATH.md): how respect is earned; claim unlocks
+- [SPEC](docs/SPEC.md): normative protocol behavior
+- [QUANTUM](docs/QUANTUM.md): PQ posture (hash-OTS + ML-DSA-65)
+- [INVENT](docs/INVENT.md): invent, don't rename
+- [CUSTODY](docs/CUSTODY.md): self-custody law
+- [THREAT-MODEL](docs/THREAT-MODEL.md): honest risks
+- [AUDIT](docs/AUDIT.md): audit package status (PREPARING until report link)
+- [ONE](docs/ONE.md): Source · Word · Light API faces
+- [CONTRIBUTING](docs/CONTRIBUTING.md): lanes, checklist, rejects
+- [BUILDERS](docs/BUILDERS.md): on / for / into Pixel
+- [CONTINUITY-SISO](docs/CONTINUITY-SISO.md): no parallel rewrite; digest + mirrors
+
+## Continuity / product demos
+
+- [Shine-in front door](docs/demos/shine-in.md): /shine
+- [Continuity desk](docs/demos/continuity-desk.md): /continuity
+- [McFlamingo continuity](docs/demos/mcflamingo-continuity.md): demo storefront + chaos drill
+- [Two-node network](docs/demos/two-node.md): Gate B evidence
+
+## Runtime truth
+
+- RPC: pix_protocolInfo.gates and .quantum — match claims to these badges
+- Code creed: src/lib/pixel/one.ts (One.Creed)
+- SISO thesis: src/lib/pixel/siso.ts (sisoThesis)
+
+## Product routes
+
+- / — live field
+- /lab — Kindling / Worldlight
+- /shine — non-tech Continuity handshake
+- /continuity — operator desk
+- /continuity/join/$token — merchant join (lab: same browser)
+- /mcflamingo/index.html — demo menu artifact
+- /billboard — billboard surface
+
+## Respect bar
+
+```
+bun install && bun run test:all
+```
+
+## Honesty bounds (never claim early)
+
+- Not production L1 / BFT mainnet
+- Not production bridge / on-chain Dilithium
+- Not AWS-proof network / Pixel-as-second-AWS
+- Not "audited" until AUDIT.md has a public report link
+- Continuity till / chaos drill = lab bookkeeping until Gate J evidence

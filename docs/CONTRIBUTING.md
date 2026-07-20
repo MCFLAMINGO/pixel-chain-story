@@ -13,7 +13,8 @@ bun run test:all
 bun run dev          # / = live field · /lab = Kindling / Worldlight
 ```
 
-Builder map (on / for / into): [`BUILDERS.md`](./BUILDERS.md).
+Builder map (on / for / into): [`BUILDERS.md`](./BUILDERS.md).  
+LLMs / coding agents: start at [`AGENTS.md`](../AGENTS.md) (index [`llms.txt`](../llms.txt)).
 
 Open a PR against `main`. Keep the branch green: `test:all` + `lint` + `build`.
 
