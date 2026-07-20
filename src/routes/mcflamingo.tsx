@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import { MCFLAMINGO_ORIGIN_URL } from "@/lib/pixel/continuity-ops";
 
 /**
- * `/mcflamingo` must never SPA-404. Humans go to the live restaurant site.
- * Continuity digests live HTML or homepage-snapshot.html — not this redirect page.
+ * `/mcflamingo` and `/mcflamingo/` used to hit the SPA 404.
+ * Humans belong on the live restaurant — never a fake local menu.
  */
 export const Route = createFileRoute("/mcflamingo")({
   head: () => ({
