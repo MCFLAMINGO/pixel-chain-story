@@ -1,0 +1,34 @@
+// Pixel ceremonies in Lumen — light-native structure.
+// Hash complexity lives behind digest/attest. Authors never write sha512 soup.
+// Ghost = both until light. Collapse = one real settlement.
+// Attest = store of creation — existence that survives where light still runs.
+
+module Transfer
+
+ray send(from, to, amount, memo):
+  ghost tx = commit(from, to, amount, memo)
+  veil tx private
+  when light:
+    shine tx via sequence
+    collapse tx
+    paint tx
+  return tx
+
+ray open_key(secret):
+  let picture = maze(secret)
+  shine picture via screen
+  return picture
+
+ray read_key(secret):
+  let picture = project(secret)
+  let key = recover(picture)
+  return key
+
+// L0: where there is light, there is verification.
+// Attest creation — not only balances. EMP elsewhere cannot erase this digest
+// if the same lightDigest still runs in another place.
+ray exist(what):
+  ghost proof = attest(what)
+  when light:
+    paint proof
+  return proof

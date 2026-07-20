@@ -9,38 +9,155 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ShineRouteImport } from './routes/shine'
+import { Route as McflamingoRouteImport } from './routes/mcflamingo'
+import { Route as LabRouteImport } from './routes/lab'
+import { Route as ContinuityRouteImport } from './routes/continuity'
+import { Route as BillboardRouteImport } from './routes/billboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ContinuityJoinTokenRouteImport } from './routes/continuity_.join.$token'
 
+const ShineRoute = ShineRouteImport.update({
+  id: '/shine',
+  path: '/shine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McflamingoRoute = McflamingoRouteImport.update({
+  id: '/mcflamingo',
+  path: '/mcflamingo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LabRoute = LabRouteImport.update({
+  id: '/lab',
+  path: '/lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContinuityRoute = ContinuityRouteImport.update({
+  id: '/continuity',
+  path: '/continuity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillboardRoute = BillboardRouteImport.update({
+  id: '/billboard',
+  path: '/billboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContinuityJoinTokenRoute = ContinuityJoinTokenRouteImport.update({
+  id: '/continuity_/join/$token',
+  path: '/continuity/join/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/billboard': typeof BillboardRoute
+  '/continuity': typeof ContinuityRoute
+  '/lab': typeof LabRoute
+  '/mcflamingo': typeof McflamingoRoute
+  '/shine': typeof ShineRoute
+  '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/billboard': typeof BillboardRoute
+  '/continuity': typeof ContinuityRoute
+  '/lab': typeof LabRoute
+  '/mcflamingo': typeof McflamingoRoute
+  '/shine': typeof ShineRoute
+  '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/billboard': typeof BillboardRoute
+  '/continuity': typeof ContinuityRoute
+  '/lab': typeof LabRoute
+  '/mcflamingo': typeof McflamingoRoute
+  '/shine': typeof ShineRoute
+  '/continuity_/join/$token': typeof ContinuityJoinTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/billboard'
+    | '/continuity'
+    | '/lab'
+    | '/mcflamingo'
+    | '/shine'
+    | '/continuity/join/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/billboard'
+    | '/continuity'
+    | '/lab'
+    | '/mcflamingo'
+    | '/shine'
+    | '/continuity/join/$token'
+  id:
+    | '__root__'
+    | '/'
+    | '/billboard'
+    | '/continuity'
+    | '/lab'
+    | '/mcflamingo'
+    | '/shine'
+    | '/continuity_/join/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BillboardRoute: typeof BillboardRoute
+  ContinuityRoute: typeof ContinuityRoute
+  LabRoute: typeof LabRoute
+  McflamingoRoute: typeof McflamingoRoute
+  ShineRoute: typeof ShineRoute
+  ContinuityJoinTokenRoute: typeof ContinuityJoinTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/shine': {
+      id: '/shine'
+      path: '/shine'
+      fullPath: '/shine'
+      preLoaderRoute: typeof ShineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcflamingo': {
+      id: '/mcflamingo'
+      path: '/mcflamingo'
+      fullPath: '/mcflamingo'
+      preLoaderRoute: typeof McflamingoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lab': {
+      id: '/lab'
+      path: '/lab'
+      fullPath: '/lab'
+      preLoaderRoute: typeof LabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/continuity': {
+      id: '/continuity'
+      path: '/continuity'
+      fullPath: '/continuity'
+      preLoaderRoute: typeof ContinuityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billboard': {
+      id: '/billboard'
+      path: '/billboard'
+      fullPath: '/billboard'
+      preLoaderRoute: typeof BillboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,12 +165,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/continuity_/join/$token': {
+      id: '/continuity_/join/$token'
+      path: '/continuity/join/$token'
+      fullPath: '/continuity/join/$token'
+      preLoaderRoute: typeof ContinuityJoinTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BillboardRoute: BillboardRoute,
+  ContinuityRoute: ContinuityRoute,
+  LabRoute: LabRoute,
+  McflamingoRoute: McflamingoRoute,
+  ShineRoute: ShineRoute,
+  ContinuityJoinTokenRoute: ContinuityJoinTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

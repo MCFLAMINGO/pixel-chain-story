@@ -4,6 +4,120 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Continuity operator desk — lagoon/sand atmosphere, not purple/cream-AI defaults */
+.continuity-desk {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 90% 55% at 10% -10%, oklch(0.72 0.12 75 / 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 100%, oklch(0.55 0.1 195 / 0.28), transparent 50%),
+    oklch(0.97 0.02 95);
+  color: oklch(0.22 0.03 55);
+}
+.continuity-desk .text-muted-foreground {
+  color: oklch(0.42 0.03 55);
+}
+.continuity-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, oklch(0.97 0.02 95 / 0.85));
+  z-index: 0;
+}
+.continuity-input {
+  width: 100%;
+  border: 1px solid oklch(0.22 0.03 55 / 0.18);
+  background: oklch(1 0 0 / 0.55);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+  outline: none;
+}
+.continuity-input:focus {
+  border-color: oklch(0.45 0.1 195);
+  box-shadow: 0 0 0 1px oklch(0.45 0.1 195 / 0.35);
+}
+.continuity-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: oklch(0.45 0.12 35);
+  color: oklch(0.98 0.02 95);
+  padding: 0.7rem 1.1rem;
+  font-family: var(--font-pixel, ui-sans-serif);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+.continuity-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.continuity-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.continuity-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid oklch(0.22 0.03 55 / 0.25);
+  background: transparent;
+  color: oklch(0.22 0.03 55);
+  padding: 0.65rem 1rem;
+  font-family: var(--font-pixel, ui-sans-serif);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+}
+.continuity-btn-ghost:hover {
+  background: oklch(0.22 0.03 55 / 0.06);
+}
+
+/* Self-serve Shine in — soft entrance, not dashboard chrome */
+@keyframes shine-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes shine-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.shine-fade {
+  opacity: 0;
+  animation: shine-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.shine-rise {
+  animation: shine-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.shine-in-page .continuity-btn {
+  transition:
+    filter 0.15s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease;
+}
+.shine-in-page .continuity-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 24px oklch(0.45 0.12 35 / 0.28);
+}
+
 /*
  * Design system definition.
  *
@@ -62,26 +176,27 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  /* Pixel Light — daylight ledger: luminous air, ink, warm phosphor */
+  --radius: 0.5rem;
+  --background: oklch(0.97 0.015 95);
+  --foreground: oklch(0.22 0.03 145);
+  --card: oklch(0.99 0.01 95 / 0.72);
+  --card-foreground: oklch(0.22 0.03 145);
+  --popover: oklch(0.99 0.01 95);
+  --popover-foreground: oklch(0.22 0.03 145);
+  --primary: oklch(0.38 0.08 155);
+  --primary-foreground: oklch(0.98 0.01 95);
+  --secondary: oklch(0.93 0.02 95);
+  --secondary-foreground: oklch(0.28 0.04 145);
+  --muted: oklch(0.94 0.018 95);
+  --muted-foreground: oklch(0.45 0.03 145);
+  --accent: oklch(0.88 0.06 85);
+  --accent-foreground: oklch(0.25 0.04 145);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 95);
+  --border: oklch(0.86 0.02 95);
+  --input: oklch(0.9 0.02 95);
+  --ring: oklch(0.55 0.08 155);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -140,5 +255,69 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
   }
+}
+
+@keyframes pixel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes light-sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes reveal-bloom {
+  0% {
+    opacity: 0.35;
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.font-pixel {
+  font-family: Syne, "Segoe UI", sans-serif;
+}
+
+.pixel-hero-light {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.95 0.07 85 / 0.9), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 20%, oklch(0.9 0.05 155 / 0.45), transparent 50%),
+    linear-gradient(
+      180deg,
+      oklch(0.98 0.02 95),
+      oklch(0.94 0.025 145 / 0.35) 45%,
+      oklch(0.97 0.015 95)
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    200% 200%;
+  animation: light-sweep 14s ease-in-out infinite;
+}
+
+.pixel-rise {
+  animation: pixel-rise 0.7s ease-out both;
+}
+
+.pixel-reveal {
+  animation: reveal-bloom 0.85s ease-out both;
 }
