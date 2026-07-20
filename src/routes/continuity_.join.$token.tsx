@@ -1,9 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useContinuityOps } from "@/hooks/use-continuity-ops";
-import { merchantJoin, merchantOfferCopy, storeByInvite } from "@/lib/pixel";
+import {
+  MCFLAMINGO_DEMO_DOMAIN,
+  MCFLAMINGO_ORIGIN_URL,
+  merchantJoin,
+  merchantOfferCopy,
+  storeByInvite,
+} from "@/lib/pixel/continuity-ops";
 
-export const Route = createFileRoute("/continuity/join/$token")({
+/**
+ * Flat non-nested route (`continuity_.join.$token`) so this merchant page is NOT
+ * wrapped by the Continuity admin desk (which has no <Outlet />).
+ */
+export const Route = createFileRoute("/continuity_/join/$token")({
   head: () => ({
     meta: [
       { title: "Turn on Continuity — PIXEL" },
@@ -42,6 +52,9 @@ function MerchantJoin() {
           browser where they created the offer (or ask them to re-send after creating it again).
           Cross-phone invites need shared ops later.
         </p>
+        <Link to="/continuity" className="continuity-btn-ghost relative mt-8">
+          Operator Continuity desk
+        </Link>
       </main>
     );
   }
@@ -66,11 +79,15 @@ function MerchantJoin() {
     store.step === "rungs_assigned" ||
     store.step === "live";
 
+  const isMcFlamingo = store.domain === MCFLAMINGO_DEMO_DOMAIN;
+
   return (
     <main className="continuity-desk min-h-screen text-foreground">
       <div className="continuity-glow" aria-hidden />
       <div className="relative mx-auto max-w-lg px-6 pt-16 pb-24">
-        <p className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">Continuity</p>
+        <p className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">
+          Continuity · merchant
+        </p>
         <h1 className="font-pixel mt-3 text-4xl font-bold tracking-tight">{store.name}</h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
           {merchantOfferCopy(store)}
@@ -84,6 +101,16 @@ function MerchantJoin() {
               Continuity is on for {store.name}. Keep selling — if your host goes dark, customers
               still reach you and the till only kicks in on those surviving checkouts.
             </p>
+            {isMcFlamingo && (
+              <a
+                className="continuity-btn mt-8 inline-flex"
+                href={MCFLAMINGO_ORIGIN_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open McFlamingo.com
+              </a>
+            )}
           </div>
         ) : (
           <form onSubmit={onTurnOn} className="mt-12 space-y-6">
