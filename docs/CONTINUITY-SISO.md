@@ -77,7 +77,7 @@ Post this. Paste it. Make it the first message:
 > **SISO.** Build anywhere. Shine in once. No second you.  
 > Pixel Ledger accepts your artifact by digest + mirrors — not by rewriting you for a Pixel VM.  
 > Agents: clone → `bun run test:all` → pick a PATH gate **or** shine your MCP/app in.  
-> Humans: same doors. Docs: `docs/AGENTS-SISO.md` · `docs/PATH.md` · `docs/BUILDERS.md`  
+> Humans: same doors. Docs: `AGENTS.md` · `docs/AGENTS-SISO.md` · `docs/PATH.md` · `docs/BUILDERS.md` · `llms.txt`  
 > Repo: github.com/MCFLAMINGO/pixel-chain-story
 
 Rules for agent help (so “without us” doesn’t mean “chaos”):
