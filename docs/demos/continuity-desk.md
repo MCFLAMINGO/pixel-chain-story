@@ -7,10 +7,12 @@
 ## Before you send invites (lab)
 
 1. Create the offer on `/continuity` first (mints the token).
-2. **Same browser** — ops state is `localStorage`; another device will say “Link not found.”
+2. **Cross-phone:** **Copy invite pack** on the desk and send it to the merchant — they paste on the join page if ops aren’t on their phone yet. Or sync ops to a Pixel node (`PUT /continuity/ops`) so `GET /continuity/invite/:token` works.
 3. Merchant does **not** need DNS or a digest.
 4. Shortcut: **Demo: real McFlamingo shines in** seeds Continuity from the live origin `https://www.mcflamingo.com/` (digest from live HTML when fetchable, else `public/mcflamingo/homepage-snapshot.html`).
-5. **Open join page** must show the **merchant** screen (`Continuity · merchant` / Turn on Continuity) — not the operator desk. If you still see the admin wizard, you’re on a build before the join-route un-nest fix.
+5. **Open join page** must show the **merchant** screen (`Continuity · merchant` / Turn on Continuity) — not the operator desk.
+
+**Discipline:** every Continuity pitch pairs usefulness with “settlement and the map live on Pixel — Pixel does not host the internet.” See [`operator-dns.md`](./operator-dns.md).
 
 ## Run
 
@@ -46,6 +48,7 @@ Till is a **journal** (`tillEvents` / `recordTillSettlement`) plus **optional on
 
 ```bash
 bun run test:continuity-order
+bun run test:continuity-deepen   # invite packs + POST /continuity/order webhook
 ```
 
 ## Lab chaos drill

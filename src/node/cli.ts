@@ -39,6 +39,7 @@ async function main() {
     console.log(`${PIXEL_LEDGER_NAME} CLI
   init [--datadir DIR]
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
+       # Continuity: set CONTINUITY_WEBHOOK_SECRET for POST /continuity/order + ops write
   join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip]
   wallet create NAME [--datadir DIR]
   wallet from-node [NAME] [--datadir DIR]   # use sequencer identity as a named wallet (holds genesis PIX)
