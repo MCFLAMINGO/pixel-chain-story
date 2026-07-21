@@ -15,6 +15,13 @@ import {
   verifyLightProof,
   type LightProof,
 } from "./pol";
+import {
+  assertFieldWitnessesMatch,
+  buildFieldWitnesses,
+  computeFieldDigest,
+  priorFieldColors,
+  type FieldWitness,
+} from "./field-witness";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import {
   createTransaction,
@@ -43,6 +50,8 @@ export interface LedgerPixel {
   illuminated: boolean;
   /** Neighbor indices disclosed by this block's light cone. */
   proximity: number[];
+  /** Sphere combination lock witnesses (peer field); digest bound in lightProof. */
+  field: FieldWitness[];
 }
 
 /** Public sequencer identity — safe to gossip / persist. */
@@ -231,11 +240,14 @@ export async function createGenesis(
   });
   const revealed = finalizeTransaction(revealTransaction(mint, 0));
   const prevHash = "0".repeat(128);
+  const field = buildFieldWitnesses(0, []);
+  const fieldDigest = computeFieldDigest(field);
   const proof = await createLightProof({
     sequence: 0,
     prevHash,
     sequencer,
     electable: [sequencer.address],
+    fieldDigest,
   });
   const root = await merkleRoot([revealed.txid]);
   const timestamp = Date.now();
@@ -269,6 +281,7 @@ export async function createGenesis(
     color,
     illuminated: true,
     proximity,
+    field,
   };
 
   const utxos = new Map<string, Utxo>();
@@ -505,12 +518,15 @@ export async function sequenceBlock(
   const afterTxs = assertAndMergeOtsLeaves(state.usedOtsLeaves, collectOtsUsages(revealed));
   advancePastUsedOtsLeaves(localSequencer, afterTxs);
 
+  const field = buildFieldWitnesses(nextIndex, priorFieldColors(state.pixels));
+  const fieldDigest = computeFieldDigest(field);
   const proof = await createLightProof({
     sequence,
     prevHash: tip.hash,
     sequencer: localSequencer,
     skipCount,
     electable: addresses,
+    fieldDigest,
   });
   if (!(await verifyLightProof(proof, chosen))) {
     throw new Error("Invalid light proof");
@@ -554,6 +570,7 @@ export async function sequenceBlock(
     color,
     illuminated: true,
     proximity,
+    field,
   };
 
   return {
@@ -596,6 +613,12 @@ export async function acceptBlock(
   if (!(await verifyLightProof(block.lightProof, chosen))) {
     throw new Error("Invalid PoLS light proof");
   }
+  // Sphere combination lock — recompute peer field; reject wrong neighbor effects.
+  assertFieldWitnessesMatch(
+    block.lightProof.fieldDigest,
+    block.index,
+    priorFieldColors(state.pixels),
+  );
   if (skipCount > 0) {
     const anchor = stallAnchorMs(state);
     if (block.timestamp < anchor + POLS_STALL_MS) {
@@ -849,6 +872,15 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     );
     if (block.lightProof.sequencerAddress !== expectedSequencer) return false;
     if (!(await verifyLightProof(block.lightProof, expectedSequencer))) return false;
+    try {
+      assertFieldWitnessesMatch(
+        block.lightProof.fieldDigest,
+        block.index,
+        priorFieldColors(state.pixels.slice(0, i)),
+      );
+    } catch {
+      return false;
+    }
     if (skipCount > 0 && i > 0) {
       const parent = state.pixels[i - 1];
       if (block.timestamp < parent.timestamp + POLS_STALL_MS) return false;

@@ -16,6 +16,7 @@ export * from "./optical";
 export * from "./optical-capture";
 export * from "./transaction";
 export * from "./pol";
+export * from "./field-witness";
 export * from "./light-color";
 export * from "./expression";
 export * from "./interactions";

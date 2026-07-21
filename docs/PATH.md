@@ -37,11 +37,11 @@ Runnable, tested, and framed as a **lab prototype with real crypto**:
 - **ULAVerifier** keccak-OTS twin (`IS_STUB=false`) + CosmWasm twin + custody inversion (Gate E)
 - Headers-first sync, balance merkle proofs, signed hello scoring, `docs/BENCH.md` (Gate F lab)
 - OTS leaf single-use at consensus + electable-bound lottery + 4-node lab mesh
-- Diversity *policy* code; enforced when ≥7 providers registered
+- Diversity _policy_ code; enforced when ≥7 providers registered
 - CI: crypto + protocol selftests + Foundry + lint + build
 
-**Allowed claim:** *“Executable post-quantum-class UTXO lab; multi-host tip extension; ULA verify + phone-capable light path (lab).”*  
-**Forbidden claim:** *“Production L1 / production bridge / AWS-proof network / BFT mainnet.”*
+**Allowed claim:** _“Executable post-quantum-class UTXO lab; multi-host tip extension; ULA verify + phone-capable light path (lab).”_  
+**Forbidden claim:** _“Production L1 / production bridge / AWS-proof network / BFT mainnet.”_
 
 ---
 
@@ -99,7 +99,7 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Default `PIXEL_SIG_SCHEME` / `DEFAULT_SCHEME=PIX-ML-DSA-65` for new genesis
 
 **Evidence:** `bun run test:mldsa` + `bun run test:vectors` green; [`QUANTUM.md`](./QUANTUM.md)  
-**Claim unlock:** *“Crypto-agile PQ signatures — ML-DSA-65 default birth, hash-OTS retained.”*
+**Claim unlock:** _“Crypto-agile PQ signatures — ML-DSA-65 default birth, hash-OTS retained.”_
 
 ### Gate E — Bridge that verifies
 
@@ -120,13 +120,14 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 ### Gate F — Light clients & gossip that scale past 3 peers
 
 **Build**
+
 - [x] Headers-first sync (`/sync/headers`, `get_headers` / `headers`, `verifyHeaderChain`)
 - [x] Merkle proofs for balances (`proveBalance` / `verifyBalanceProof`, `pix_getBalanceProof`)
 - [x] Peer keys + basic scoring / eclipse guard (signed hello + `peer-score.ts`)
 - [x] Bench harness → [`docs/BENCH.md`](./BENCH.md) via `bun run test:bench`
 
 **Evidence:** `bun run test:light` + `docs/BENCH.md` from `test:bench`  
-**Claim unlock:** *“Phone-capable light client path (lab).”* — stateRoot at tip today; per-pixel historical state commits still open.
+**Claim unlock:** _“Phone-capable light client path (lab).”_ — stateRoot at tip today; per-pixel historical state commits still open.
 
 ### Gate G — Sovereignty as protocol law on a live set
 
@@ -211,6 +212,7 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 3. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
 4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
 5. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
-6. Keep `pix_protocolInfo` gates honest as evidence lands
+6. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
+7. Keep `pix_protocolInfo` gates honest as evidence lands
 
-Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume.
+Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume. FieldWitness is invent evidence for tip custody as a sphere lock — not simile alone.

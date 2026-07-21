@@ -48,6 +48,12 @@ export interface LightProof {
    * Bound into the signed message so join/registry growth cannot rewrite history.
    */
   electable?: string[];
+  /**
+   * Sphere combination lock — digest of FieldWitness peers (opacity ∈ opaque/translucent/lit).
+   * Bound into the signed message; acceptBlock recomputes and rejects mismatch.
+   * Invent: not a rename of prevHash.
+   */
+  fieldDigest: Hex;
 }
 
 /** Commitment over ordered electable addresses (bound into PoLS message). */
@@ -114,9 +120,11 @@ export function polsMessage(
   address: string,
   skipCount = 0,
   electable?: string[],
+  fieldDigest?: string,
 ): string {
   const el = electable && electable.length > 0 ? `|el=${electableCommitment(electable)}` : "";
-  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}`;
+  const field = `|field=${fieldDigest ?? ""}`;
+  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}`;
 }
 
 export async function createLightProof(params: {
@@ -126,6 +134,8 @@ export async function createLightProof(params: {
   skipCount?: number;
   /** Ordered electable set for this height (defaults to [sequencer]). */
   electable?: string[];
+  /** Sphere lock digest — required for tip custody (FieldWitness). */
+  fieldDigest: Hex;
 }): Promise<LightProof> {
   const skipCount = params.skipCount ?? 0;
   const electable =
@@ -135,6 +145,10 @@ export async function createLightProof(params: {
   if (!electable.includes(params.sequencer.address)) {
     throw new Error("Sequencer not in electable set");
   }
+  const fieldDigest = params.fieldDigest;
+  if (!fieldDigest) {
+    throw new Error("fieldDigest required (sphere combination lock)");
+  }
   const beacon = await opticalBeacon(params.sequence, params.prevHash);
   const message = polsMessage(
     params.sequence,
@@ -143,6 +157,7 @@ export async function createLightProof(params: {
     params.sequencer.address,
     skipCount,
     electable,
+    fieldDigest,
   );
   const signature = await signPixel(message, params.sequencer);
   const scheme = (params.sequencer.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
@@ -157,6 +172,7 @@ export async function createLightProof(params: {
     revealedAt: Date.now(),
     skipCount,
     electable,
+    fieldDigest,
   };
 }
 
@@ -176,6 +192,7 @@ export async function verifyLightProof(
   if (proof.electable && proof.electable.length > 0) {
     if (!proof.electable.includes(proof.sequencerAddress)) return false;
   }
+  if (!proof.fieldDigest) return false;
   const message = polsMessage(
     proof.sequence,
     proof.prevHash,
@@ -183,6 +200,7 @@ export async function verifyLightProof(
     proof.sequencerAddress,
     skipCount,
     proof.electable,
+    proof.fieldDigest,
   );
   return verifyPixel(message, proof.signature, proof.sequencerPublicKey);
 }
