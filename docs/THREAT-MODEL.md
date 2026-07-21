@@ -13,18 +13,20 @@
 
 ## Adversaries
 
-| Adversary | Goal | Current mitigation | Gap |
-| --- | --- | --- | --- |
-| Double-spender | Replay inputs | UTXO consume on accept | Need mempool fee market under load |
-| Fake sequencer | Forge pixels | PoLS election + sig verify (`acceptBlock`) | Need ≥7 diverse providers live |
-| Cloud capture | Kill RPC/CDN | Diversity policy in code | Need real geo/provider set |
-| Quantum attacker | Break classical sigs | No ECC; hash-OTS + **NIST ML-DSA-65** default birth | External audit (Gate I); full on-chain Dilithium deferred — see [`ULA-MLDSA.md`](./ULA-MLDSA.md) |
-| Harvest-now-decrypt-later | Decrypt future captures of today’s traffic | Lab **ML-KEM-768** sealed gossip via `PIXEL_TRANSPORT_KEM=1` (`test:kem-wire`) | Default gossip/RPC still **plaintext**; not a TLS replacement |
-| Lying bridge relayer | Fake foreign mint | Keccak-OTS twin on-chain + CosmWasm + frozen fixture; ML-DSA gate is trusted-submitter | Do not deploy for mainnet value; public testnet links pending (`BRIDGE-STATUS.md`) |
-| Foreign ULA accept treated as spend | Unlock master PIX without Pixel vault | `BRIDGE_CUSTODY_AXIOM` + `assertVaultReleaseAuthorized` in `illuminateIngress` | `bun run test:bridge-custody` — verify alone leaves balances unchanged |
-| Eclipse / peer lie | Isolate node | Signed hello + peer scoring + headers-first (Gate F lab) | Stronger eclipse resistance under adversarial mesh |
-| Remote Kindling phish | Forge presence seal | Distinct `partyId` + commitment match | Simulated optical channel ≠ physical presence |
-| Forgeable verifyLight | Any-msg accept | Removed (fail-closed); use verifyLightFull / verifyPixel | Keep weak API out of public surface forever |
+| Adversary                           | Goal                                       | Current mitigation                                                                     | Gap                                                                                              |
+| ----------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Double-spender                      | Replay inputs                              | UTXO consume on accept                                                                 | Need mempool fee market under load                                                               |
+| Fake sequencer                      | Forge pixels                               | PoLS election + sig verify (`acceptBlock`)                                             | Need ≥7 diverse providers live                                                                   |
+| Cloud capture                       | Kill RPC/CDN                               | Diversity policy in code                                                               | Need real geo/provider set                                                                       |
+| Quantum attacker                    | Break classical sigs                       | No ECC; hash-OTS + **NIST ML-DSA-65** default birth                                    | External audit (Gate I); full on-chain Dilithium deferred — see [`ULA-MLDSA.md`](./ULA-MLDSA.md) |
+| Harvest-now-decrypt-later           | Decrypt future captures of today’s traffic | Lab **ML-KEM-768** sealed gossip via `PIXEL_TRANSPORT_KEM=1` (`test:kem-wire`)         | Default gossip/RPC still **plaintext**; not a TLS replacement                                    |
+| Lying bridge relayer                | Fake foreign mint                          | Keccak-OTS twin on-chain + CosmWasm + frozen fixture; ML-DSA gate is trusted-submitter | Do not deploy for mainnet value; public testnet links pending (`BRIDGE-STATUS.md`)               |
+| Foreign ULA accept treated as spend | Unlock master PIX without Pixel vault      | `BRIDGE_CUSTODY_AXIOM` + `assertVaultReleaseAuthorized` in `illuminateIngress`         | `bun run test:bridge-custody` — verify alone leaves balances unchanged                           |
+| Eclipse / peer lie                  | Isolate node                               | Signed hello + peer scoring + headers-first (Gate F lab)                               | Stronger eclipse resistance under adversarial mesh                                               |
+| Remote Kindling phish               | Forge presence seal                        | Distinct `partyId` + commitment match                                                  | Simulated optical channel ≠ physical presence                                                    |
+| Photo of pay face                   | Steal PIX by photographing lit phone       | Pay face must not encode seed ([`CUSTODY.md`](./CUSTODY.md))                           | Product must ship pay-face ≠ vault; lab maze card still seed-in-light                            |
+| Photo / screenshot of vault grid    | Recover Source like a photographed seed    | Vault must not show during public pay; grid is optional representation of code         | Do not teach “screenshot your wallet”                                                            |
+| Forgeable verifyLight               | Any-msg accept                             | Removed (fail-closed); use verifyLightFull / verifyPixel                               | Keep weak API out of public surface forever                                                      |
 
 ## Non-goals (for now)
 
@@ -35,20 +37,20 @@
 
 ## Trust assumptions
 
-1. Honest majority (or sufficient diversity) of sequencers over time  
-2. SHA-512 / keccak preimage resistance (as used by OTS / twin)  
-3. Operators keep seeds offline / OS keystore  
-4. Mirrors for SISO are actually reachable when origin dies  
-5. For `ULAOffchainMldsaGate`: submitter actually verified ML-DSA off-chain before commit  
+1. Honest majority (or sufficient diversity) of sequencers over time
+2. SHA-512 / keccak preimage resistance (as used by OTS / twin)
+3. Operators keep seeds offline / OS keystore
+4. Mirrors for SISO are actually reachable when origin dies
+5. For `ULAOffchainMldsaGate`: submitter actually verified ML-DSA off-chain before commit
 
 If any assumption fails, say so in the client UI — never paper over it.
 
 ## Consensus-critical code map (audit pointers)
 
-| Name in docs | Implementation |
-| --- | --- |
-| acceptPixel (historical) | `acceptBlock` in `src/lib/pixel/chain.ts` |
-| OTS single-use | `usedOtsLeaves` / `assertAndMergeOtsLeaves` |
-| Scheme surface | `signPixel` / `verifyPixel` in `scheme.ts` |
-| ULA twin | `contracts/ULAVerifier.sol` |
-| ULA ML-DSA gate | `contracts/ULAOffchainMldsaGate.sol` |
+| Name in docs             | Implementation                              |
+| ------------------------ | ------------------------------------------- |
+| acceptPixel (historical) | `acceptBlock` in `src/lib/pixel/chain.ts`   |
+| OTS single-use           | `usedOtsLeaves` / `assertAndMergeOtsLeaves` |
+| Scheme surface           | `signPixel` / `verifyPixel` in `scheme.ts`  |
+| ULA twin                 | `contracts/ULAVerifier.sol`                 |
+| ULA ML-DSA gate          | `contracts/ULAOffchainMldsaGate.sol`        |
