@@ -18,6 +18,7 @@ import {
   mcflamingoContinuityHonesty,
   continuityInvitePrerequisites,
   merchantOfferCopy,
+  checkOriginAndFailover,
   probeRung,
   recordTillSettlement,
   runChaosDrill,
@@ -437,6 +438,25 @@ function ContinuityAdmin() {
                         }
                       })();
                     }}
+                    onCheckOrigin={() => {
+                      void (async () => {
+                        try {
+                          const {
+                            state: next,
+                            probe,
+                            flipped,
+                          } = await checkOriginAndFailover(state, selected.id);
+                          setState(next);
+                          setMsg(
+                            probe.ok
+                              ? `Origin reachable (${probe.status ?? "ok"} · ${probe.ms}ms) — till stays idle.`
+                              : `Origin probe failed (${probe.error ?? "down"} · ${probe.ms}ms)${flipped ? " — marked origin dark (ops flip, not DNS)." : " — already dark."}`,
+                          );
+                        } catch (err) {
+                          setMsg(err instanceof Error ? err.message : "Origin check failed");
+                        }
+                      })();
+                    }}
                   />
                 )}
               </>
@@ -484,6 +504,7 @@ function StorePanel({
   onOriginDark,
   onRecordTill,
   onChaosDrill,
+  onCheckOrigin,
 }: {
   store: ContinuityStore;
   inviteUrl: string;
@@ -497,6 +518,7 @@ function StorePanel({
   onOriginDark: () => void;
   onRecordTill: (amountPix: number) => void;
   onChaosDrill: () => void;
+  onCheckOrigin: () => void;
 }) {
   const [picked, setPicked] = useState<string[]>(
     store.rungIds.length ? store.rungIds : rungIds.slice(0, 2),
@@ -666,6 +688,26 @@ function StorePanel({
               order
             </a>
           </p>
+          {store.step === "live" && (
+            <div className="mt-4 space-y-2">
+              <Link
+                to="/continuity/booth/$domain"
+                params={{ domain: store.domain }}
+                className="continuity-btn inline-flex"
+              >
+                Open Continuity booth (Pay with Pixel)
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Customer booth settles real PIX UTXOs. Till fee UTXOs only while origin dark.
+              </p>
+              {store.merchantAddress && (
+                <p className="font-mono text-[11px] break-all text-muted-foreground">
+                  merchant {store.merchantAddress.slice(0, 24)}…
+                  {store.tillAddress ? ` · till ${store.tillAddress.slice(0, 16)}…` : ""}
+                </p>
+              )}
+            </div>
+          )}
           {store.continuity.state === "in_the_light" && (
             <button type="button" className="continuity-btn mt-3" onClick={onOriginDark}>
               Mark origin dark (activate till)
@@ -673,18 +715,27 @@ function StorePanel({
           )}
           {store.step === "live" && (
             <div className="mt-4 space-y-2">
-              <button type="button" className="continuity-btn" onClick={onChaosDrill}>
+              <button type="button" className="continuity-btn" onClick={onCheckOrigin}>
+                Check origin health
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Probe {store.originUrl}. If down → mark origin dark (ops flip, not DNS takeover).
+                {store.lastOriginProbe
+                  ? ` Last: ${store.lastOriginProbe.ok ? "ok" : "fail"} · ${store.lastOriginProbe.ms}ms`
+                  : ""}
+              </p>
+              <button type="button" className="continuity-btn-ghost" onClick={onChaosDrill}>
                 Run lab chaos drill
               </button>
               <p className="text-xs text-muted-foreground">
-                origin dark → mirrors serve → till accrues (lab bookkeeping, not Gate J)
+                origin dark → mirrors serve → till journal (use booth for on-chain; not Gate J)
               </p>
             </div>
           )}
           {tillIsActive(store) && (
             <div className="mt-4 space-y-2">
               <h4 className="font-pixel text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                Record till (simulated PIX volume)
+                Record till (journal only — prefer booth for UTXOs)
               </h4>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -708,6 +759,7 @@ function StorePanel({
                     .map((e) => (
                       <li key={e.id}>
                         +{e.feePix} PIX fee on {e.amountPix} · {e.via} · {e.bps} bps
+                        {e.onChain ? ` · on-chain tip #${e.pixelIndex}` : " · journal"}
                       </li>
                     ))}
                 </ul>

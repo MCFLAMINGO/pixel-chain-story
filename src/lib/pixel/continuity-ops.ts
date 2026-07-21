@@ -51,17 +51,21 @@ export interface DeployChecklistItem {
   done: boolean;
 }
 
-/** Local till accrual — lab bookkeeping, not on-chain settlement. */
+/** Till accrual — journal always; on-chain when txid/pixelIndex set. */
 export interface TillEvent {
   id: string;
   at: number;
-  /** Simulated checkout volume in PIX units */
+  /** Checkout volume in PIX units */
   amountPix: number;
   /** Fee accrued (tillFeePix at record time) */
   feePix: number;
   bps: number;
   via: "mirror" | "origin" | "simulated";
   note?: string;
+  /** Real Pixel tip that collected the till fee UTXO (when on-chain). */
+  txid?: string;
+  pixelIndex?: number;
+  onChain?: boolean;
 }
 
 export interface ChaosDrillReport {
@@ -116,8 +120,20 @@ export interface ContinuityStore {
   anchoredOnPixel?: boolean;
   /** Operator-only booth jobs (rsync / DNS) — never merchant-facing */
   deployPlan?: DeployChecklistItem[];
-  /** Append-only local till ledger (lab) */
+  /** Append-only till ledger (lab journal; may include on-chain tip refs) */
   tillEvents?: TillEvent[];
+  /** Merchant receive address for booth settlement (Pixel) */
+  merchantAddress?: string;
+  /** Till fee receive address (Pixel) */
+  tillAddress?: string;
+  /** Last origin probe result (ops desk) */
+  lastOriginProbe?: {
+    at: number;
+    ok: boolean;
+    status?: number;
+    error?: string;
+    ms: number;
+  };
   /** When merchant accepted the invite */
   joinedAt?: number;
   createdAt: number;
@@ -742,7 +758,7 @@ export function stepLabel(step: ContinuityStep): string {
   }
 }
 
-function patchStore(
+export function patchStore(
   state: ContinuityOpsState,
   storeId: string,
   patch: Partial<ContinuityStore>,
@@ -777,14 +793,20 @@ export function tillAccruedPix(store: ContinuityStore): number {
 }
 
 /**
- * Record a simulated settlement against the till.
- * Lab bookkeeping only — does not mint UTXOs or touch the chain.
+ * Record a settlement against the till journal.
+ * Prefer settleBoothCheckoutOnPixel for real UTXOs — pass txid/pixelIndex when on-chain.
  */
 export function recordTillSettlement(
   state: ContinuityOpsState,
   storeId: string,
   amountPix: number,
-  opts?: { via?: TillEvent["via"]; note?: string },
+  opts?: {
+    via?: TillEvent["via"];
+    note?: string;
+    txid?: string;
+    pixelIndex?: number;
+    onChain?: boolean;
+  },
 ): ContinuityOpsState {
   const store = state.stores.find((s) => s.id === storeId);
   if (!store) throw new Error("Store not found");
@@ -796,18 +818,81 @@ export function recordTillSettlement(
   const bps = activeTillBps(store);
   const feePix = tillFeePix(store, amountPix);
   if (feePix <= 0) throw new Error("Fee rounds to zero — raise amount or bps");
+  const onChain = opts?.onChain ?? Boolean(opts?.txid);
   const event: TillEvent = {
     id: id("till"),
     at: Date.now(),
     amountPix,
     feePix,
     bps,
-    via: opts?.via ?? "simulated",
-    note: opts?.note ?? "lab till — not on-chain",
+    via: opts?.via ?? (onChain ? "mirror" : "simulated"),
+    note:
+      opts?.note ?? (onChain ? `on-chain ${opts?.txid?.slice(0, 16)}…` : "lab till — not on-chain"),
+    txid: opts?.txid,
+    pixelIndex: opts?.pixelIndex,
+    onChain,
   };
   return patchStore(state, storeId, {
     tillEvents: [...(store.tillEvents ?? []), event],
   });
+}
+
+/** Probe origin HTTP reachability (browser CORS may force opaque/failed). */
+export async function probeOrigin(
+  url: string,
+  timeoutMs = 5000,
+): Promise<{ ok: boolean; status?: number; error?: string; ms: number }> {
+  const started = performance.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      mode: "cors",
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timer);
+    return { ok: res.ok, status: res.status, ms: Math.round(performance.now() - started) };
+  } catch (e) {
+    clearTimeout(timer);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+      ms: Math.round(performance.now() - started),
+    };
+  }
+}
+
+/**
+ * Probe store originUrl; if down, mark origin_dark (ops flip — not DNS takeover).
+ */
+export async function checkOriginAndFailover(
+  state: ContinuityOpsState,
+  storeId: string,
+): Promise<{
+  state: ContinuityOpsState;
+  probe: Awaited<ReturnType<typeof probeOrigin>>;
+  flipped: boolean;
+}> {
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store) throw new Error("Store not found");
+  if (store.step !== "live" || !store.continuity) {
+    throw new Error("Store must be live with SISO continuity");
+  }
+  const probe = await probeOrigin(store.originUrl);
+  let next = patchStore(state, storeId, {
+    lastOriginProbe: { at: Date.now(), ...probe },
+  });
+  if (probe.ok) {
+    return { state: next, probe, flipped: false };
+  }
+  const live = next.stores.find((s) => s.id === storeId)!;
+  if (live.continuity?.state !== "origin_dark") {
+    next = markStoreOriginDark(next, storeId);
+    return { state: next, probe, flipped: true };
+  }
+  return { state: next, probe, flipped: false };
 }
 
 /**
@@ -853,7 +938,7 @@ export async function runChaosDrill(
   const settlementPix = opts?.settlementPix ?? 10_000;
   next = recordTillSettlement(next, storeId, settlementPix, {
     via: "mirror",
-    note: "chaos drill — simulated checkout while origin dark (lab)",
+    note: "chaos drill — journal till while origin dark (use booth Pay with Pixel for on-chain)",
   });
   const live = next.stores.find((s) => s.id === storeId)!;
   const feePix = tillFeePix(afterDark, settlementPix);
@@ -866,7 +951,7 @@ export async function runChaosDrill(
     feePix,
     accruedPix: tillAccruedPix(live),
     claim:
-      "Lab: origin_dark → mirrors allow serve → till bookkeeping accrues on simulated PIX volume. Not Gate J public drill.",
+      "Lab: origin_dark → mirrors allow serve → till journal accrues. Booth /continuity/booth/$domain settles real PIX UTXOs. Not Gate J public drill.",
   };
   return { state: next, report };
 }

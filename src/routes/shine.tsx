@@ -164,6 +164,15 @@ function ShineInPage() {
               <Link to="/continuity" className="continuity-btn-ghost">
                 Continuity desk (lab)
               </Link>
+              {doneStore.step === "live" && (
+                <Link
+                  to="/continuity/booth/$domain"
+                  params={{ domain: doneStore.domain }}
+                  className="continuity-btn-ghost"
+                >
+                  Continuity booth — Pay with Pixel
+                </Link>
+              )}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
               Homepage:{" "}

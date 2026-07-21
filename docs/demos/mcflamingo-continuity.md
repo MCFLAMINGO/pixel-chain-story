@@ -2,11 +2,11 @@
 
 ## What is real
 
-| Thing | Where |
-| --- | --- |
-| Restaurant homepage | https://www.mcflamingo.com/ |
-| **Food menu** | https://www.mcflamingo.com/menu |
-| Online ordering | https://www.mcflamingo.com/popmenu-order |
+| Thing               | Where                                    |
+| ------------------- | ---------------------------------------- |
+| Restaurant homepage | https://www.mcflamingo.com/              |
+| **Food menu**       | https://www.mcflamingo.com/menu          |
+| Online ordering     | https://www.mcflamingo.com/popmenu-order |
 
 Those URLs are the live Popmenu restaurant. If they work in your normal browser, the menu is real.
 
@@ -24,12 +24,24 @@ Proof fields on the store: `anchoredOnPixel`, `pixelIndex`, `tipHash`, `register
 bun run test:shine-chain
 ```
 
-## What Continuity does *not* do
+## What Continuity does _not_ do
 
 - Host or replace the Popmenu menu HTML
 - Public DNS failover when Popmenu dies
 - Cross-phone invite store (still same-browser localStorage for the desk UI)
-- Automatic till UTXOs from Toast/Popmenu checkouts (till bookkeeping is still lab)
+- Live Toast/Popmenu webhook until you point their dashboard at Continuity order handler
+
+## Booth + till on Pixel (real UTXOs)
+
+After shine-in / go-live:
+
+1. Desk → **Mark origin dark** (or **Check origin health** when probe fails)
+2. Open `/continuity/booth/www.mcflamingo.com` → **Pay with Pixel**
+3. Sale tip + till fee tip land on the Continuity session chain; desk till list shows `on-chain tip #N`
+
+```bash
+bun run test:continuity-order
+```
 
 ## How to try it
 
@@ -37,14 +49,15 @@ bun run test:shine-chain
 bun install && bun run dev
 ```
 
-1. http://localhost:8080/shine → **Try with real McFlamingo**  
-2. Success must show **Anchored on Pixel at tip #N · CONT-…**  
-3. **Open live McFlamingo menu** → www.mcflamingo.com/menu  
-4. Continuity desk shows the same tip proof under the store
+1. http://localhost:8080/shine → **Try with real McFlamingo**
+2. Success must show **Anchored on Pixel at tip #N · CONT-…**
+3. **Open live McFlamingo menu** → www.mcflamingo.com/menu
+4. Continuity desk → booth → Pay with Pixel (till fees only after origin dark)
 
 ## CLI
 
 ```bash
-bun run test:shine-chain   # digest → real tip
-bun run test:mcflamingo    # kill-origin lab booth drill
+bun run test:shine-chain        # digest → real tip
+bun run test:mcflamingo         # kill-origin lab booth drill
+bun run test:continuity-order   # booth sale + on-chain till
 ```
