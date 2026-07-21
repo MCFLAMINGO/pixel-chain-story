@@ -133,6 +133,10 @@ function ContinuityBooth() {
         <h1 className="font-pixel mt-3 text-4xl font-bold tracking-tight">{store.name}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{store.domain}</p>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{boothHonesty()}</p>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Settlement and the Continuity map live on Pixel. Live menu can still open on Popmenu —
+          Continuity ops, not DNS takeover.
+        </p>
 
         <div className="mt-6 flex flex-wrap gap-2">
           <a

@@ -28,8 +28,9 @@ bun run test:shine-chain
 
 - Host or replace the Popmenu menu HTML
 - Public DNS failover when Popmenu dies
-- Cross-phone invite store (still same-browser localStorage for the desk UI)
-- Live Toast/Popmenu webhook until you point their dashboard at Continuity order handler
+- Auto-configured Popmenu/Toast dashboard (you still point their webhook at Pixel with a secret)
+
+Cross-phone invites: **invite pack** from the Continuity desk, or node `GET /continuity/invite/:token` after ops sync. Order path: `POST /continuity/order` on the Pixel node (`bun run test:continuity-deepen`).
 
 ## Booth + till on Pixel (real UTXOs)
 

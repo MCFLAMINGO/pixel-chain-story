@@ -4,11 +4,12 @@
 
 import type { PixelLedgerNode } from "./node";
 import type { JsonRpcRequest, Transaction } from "../lib/pixel/index";
+import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Continuity-Secret",
 };
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -24,7 +25,19 @@ function text(body: string, init: ResponseInit = {}): Response {
   return new Response(body, { ...init, headers });
 }
 
-export function startRpcServer(node: PixelLedgerNode, port: number) {
+export interface RpcServerOpts {
+  /** Datadir for Continuity ops / session (default: node.datadir). */
+  continuityDatadir?: string;
+  /** Shared secret for Continuity webhook + ops write. Env: CONTINUITY_WEBHOOK_SECRET */
+  continuityWebhookSecret?: string;
+}
+
+export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcServerOpts = {}) {
+  const continuityCtx: ContinuityHttpCtx = {
+    datadir: opts.continuityDatadir ?? node.datadir,
+    webhookSecret: opts.continuityWebhookSecret ?? process.env.CONTINUITY_WEBHOOK_SECRET ?? "",
+  };
+
   const server = Bun.serve({
     port,
     async fetch(req) {
@@ -33,6 +46,9 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
       }
 
       const url = new URL(req.url);
+
+      const continuity = await handleContinuityHttp(req, url, continuityCtx);
+      if (continuity) return continuity;
 
       if (req.method === "GET" && url.pathname === "/health") {
         const snap = node.syncSnapshot();
@@ -49,6 +65,15 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
           gossipUrl: snap.gossipUrl,
           gate: "F",
           transport: snap.transport,
+          continuity: {
+            webhook: Boolean(continuityCtx.webhookSecret),
+            paths: [
+              "GET /continuity/invite/:token",
+              "POST /continuity/join",
+              "POST /continuity/order",
+              "PUT|GET /continuity/ops",
+            ],
+          },
         });
       }
 
@@ -100,12 +125,19 @@ export function startRpcServer(node: PixelLedgerNode, port: number) {
       }
 
       return text(
-        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /sync/headers | GET /pixels | GET /balance/:addr[/proof]",
+        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | Continuity: /continuity/invite/:token | POST /continuity/order",
         { status: 200 },
       );
     },
   });
 
   console.log(`[pixel-ledger] rpc http://127.0.0.1:${port}`);
+  if (continuityCtx.webhookSecret) {
+    console.log(`[pixel-ledger] Continuity webhook armed (POST /continuity/order)`);
+  } else {
+    console.log(
+      `[pixel-ledger] Continuity invite GET open; set CONTINUITY_WEBHOOK_SECRET for order webhook`,
+    );
+  }
   return server;
 }

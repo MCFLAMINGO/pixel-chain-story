@@ -13,6 +13,7 @@ import {
   shineInPlainThesis,
   tillAccruedPix,
 } from "@/lib/pixel/continuity-ops";
+import { continuityDisciplineLine } from "@/lib/pixel/continuity-invite-pack";
 
 export const Route = createFileRoute("/shine")({
   head: () => ({
@@ -136,6 +137,9 @@ function ShineInPage() {
               {merchantOfferCopy(doneStore)}
             </p>
             <p className="mt-3 text-sm text-muted-foreground">{mcflamingoContinuityHonesty()}</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {continuityDisciplineLine()}
+            </p>
             <p className="mt-4 text-sm text-muted-foreground">
               State: {doneStore.continuity?.state ?? "—"}
               {doneStore.digest ? ` · digest ${doneStore.digest.slice(0, 12)}…` : ""}

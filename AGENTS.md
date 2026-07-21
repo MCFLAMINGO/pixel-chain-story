@@ -60,7 +60,7 @@ Truth badges: `pix_protocolInfo.gates` and `.quantum`. Match every public senten
 | `/mcflamingo`               | Redirects to live **https://www.mcflamingo.com/**                        |
 | `/billboard`                | Billboard surface                                                        |
 
-Continuity economics (lab): map fee `$/mo`; till (default 100 bps) when `origin_dark` and sales still clear — journal + booth on-chain fees. Invites are same-browser until a shared ops store exists. Booth jobs / DNS stay operator-side — not merchant DNS homework.
+Continuity economics (lab): map fee `$/mo`; till (default 100 bps) when `origin_dark` and sales still clear — journal + booth on-chain fees. Cross-phone: **invite packs** or node `GET /continuity/invite/:token`. Order webhook: node `POST /continuity/order` + `CONTINUITY_WEBHOOK_SECRET`. Booth jobs / DNS stay Continuity ops — never “Pixel hosts the internet.”
 
 ## Respect bar
 
@@ -73,7 +73,7 @@ bun run test:all
 | ---------------------------------------------------------------------------------------- | ---------------------------------- |
 | `test:all`                                                                               | Default PR bar                     |
 | `test:siso`                                                                              | Continuity / SISO model            |
-| `test:continuity-ops` / `test:chaos-drill` / `test:mcflamingo` / `test:continuity-order` | Continuity desk + booth settlement |
+| `test:continuity-ops` / `test:chaos-drill` / `test:mcflamingo` / `test:continuity-order` / `test:continuity-deepen` | Continuity desk + booth + packs/webhook |
 | `test:mldsa` / `test:vectors` / `test:kem`                                               | Crypto                             |
 | `test:net` / `test:four-node` / `test:fault` / `test:light`                              | Network / consensus / light client |
 | `test:ula` / `test:ula-mldsa` / `test:bridge-custody`                                    | Bridge / custody                   |
@@ -99,7 +99,7 @@ bun run test:all
 1. Gate I — external audit engagement from [`docs/AUDIT.md`](docs/AUDIT.md) scope
 2. Gate E remainder — public Sepolia (or equiv.) ULA tx links
 3. Gate G — live ≥7-provider sovereignty set on the wire
-4. Continuity — shared invite store (cross-device merchant join); agentic booth runners still held
+4. Continuity — invite packs + node webhook shipped; agentic booth runners / Gate J still held 
 5. Gate J — public chaos drill evidence (lab `test:chaos-drill` is not that)
 
 Deep agent call: [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md).  

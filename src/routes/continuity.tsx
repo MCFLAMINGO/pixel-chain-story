@@ -31,6 +31,12 @@ import {
   updateRung,
   type ContinuityStore,
 } from "@/lib/pixel/continuity-ops";
+import {
+  buildInvitePack,
+  continuityDisciplineLine,
+  continuityPitchPair,
+  encodeInvitePack,
+} from "@/lib/pixel/continuity-invite-pack";
 
 export const Route = createFileRoute("/continuity")({
   head: () => ({
@@ -457,6 +463,19 @@ function ContinuityAdmin() {
                         }
                       })();
                     }}
+                    onExportPack={() => {
+                      try {
+                        const pack = buildInvitePack(state, selected.id);
+                        const encoded = encodeInvitePack(pack);
+                        void navigator.clipboard.writeText(encoded);
+                        setState(markInviteSent(state, selected.id));
+                        setMsg(
+                          "Invite pack copied — send to merchant’s phone. They paste it on the join page if the link alone isn’t enough.",
+                        );
+                      } catch (err) {
+                        setMsg(err instanceof Error ? err.message : "Export failed");
+                      }
+                    }}
                   />
                 )}
               </>
@@ -471,10 +490,33 @@ function ContinuityAdmin() {
         )}
 
         <p className="mt-16 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-          Merchants only see the secure link and “Turn on Continuity.” Booth jobs (publish /
-          failover) stay on this desk — operator backstage. Map fee + till-on-outage is the money
-          shape; Pixel holds the digest map, not a second AWS.
+          {continuityPitchPair(
+            "Merchants only see the secure link / pack and “Turn on Continuity.” Booth jobs (publish / failover) stay Continuity ops — operator backstage.",
+          )}
         </p>
+
+        <section className="mt-12 max-w-2xl border-t border-foreground/10 pt-8">
+          <h2 className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">
+            Continuity ops · DNS / mirrors (honest)
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground">{continuityDisciplineLine()}</p>
+          <ul className="mt-4 list-inside list-disc space-y-2 text-xs text-muted-foreground">
+            <li>Public domain stays with the merchant registrar — Continuity does not flip DNS.</li>
+            <li>
+              Mirror / rung URLs are Continuity ops checklist items — probe health here; publish
+              with your own tools.
+            </li>
+            <li>
+              Order webhook: Pixel node <span className="font-mono">POST /continuity/order</span>{" "}
+              with <span className="font-mono">CONTINUITY_WEBHOOK_SECRET</span> — point
+              Popmenu/Toast there when ready.
+            </li>
+            <li>
+              Cross-phone: invite pack (desk button) or node{" "}
+              <span className="font-mono">GET /continuity/invite/:token</span> after PUT ops.
+            </li>
+          </ul>
+        </section>
       </div>
     </main>
   );
@@ -505,6 +547,7 @@ function StorePanel({
   onRecordTill,
   onChaosDrill,
   onCheckOrigin,
+  onExportPack,
 }: {
   store: ContinuityStore;
   inviteUrl: string;
@@ -519,6 +562,7 @@ function StorePanel({
   onRecordTill: (amountPix: number) => void;
   onChaosDrill: () => void;
   onCheckOrigin: () => void;
+  onExportPack: () => void;
 }) {
   const [picked, setPicked] = useState<string[]>(
     store.rungIds.length ? store.rungIds : rungIds.slice(0, 2),
@@ -578,6 +622,9 @@ function StorePanel({
           >
             Copy link + mark sent
           </button>
+          <button type="button" className="continuity-btn" onClick={onExportPack}>
+            Copy invite pack (cross-phone)
+          </button>
           <Link
             to="/continuity/join/$token"
             params={{ token: store.inviteToken }}
@@ -586,6 +633,10 @@ function StorePanel({
             Open join page
           </Link>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Pack = Continuity invite for another phone. Link alone only works when ops are already on
+          that device or on a Pixel node.
+        </p>
       </div>
 
       <div>

@@ -5,12 +5,17 @@ import {
   MCFLAMINGO_DEMO_DOMAIN,
   MCFLAMINGO_MENU_URL,
   MCFLAMINGO_ORDER_URL,
-  MCFLAMINGO_ORIGIN_URL,
   mcflamingoContinuityHonesty,
   merchantJoin,
   merchantOfferCopy,
   storeByInvite,
 } from "@/lib/pixel/continuity-ops";
+import {
+  continuityDisciplineLine,
+  continuityPitchPair,
+  decodeInvitePack,
+  importInvitePack,
+} from "@/lib/pixel/continuity-invite-pack";
 
 /**
  * Flat non-nested route (`continuity_.join.$token`) so this merchant page is NOT
@@ -36,6 +41,7 @@ function MerchantJoin() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
+  const [packPaste, setPackPaste] = useState("");
 
   if (!ready) {
     return (
@@ -49,13 +55,45 @@ function MerchantJoin() {
     return (
       <main className="continuity-desk flex min-h-screen flex-col items-center justify-center px-6">
         <div className="continuity-glow" aria-hidden />
-        <h1 className="font-pixel relative text-3xl font-bold">Link not found</h1>
+        <h1 className="font-pixel relative text-3xl font-bold">Invite not on this phone</h1>
         <p className="relative mt-3 max-w-md text-center text-sm text-muted-foreground">
-          Lab invites live in the operator’s browser storage. Open this link in the <em>same</em>{" "}
-          browser where they created the offer (or ask them to re-send after creating it again).
-          Cross-phone invites need shared ops later.
+          {continuityPitchPair(
+            "Paste the Continuity invite pack your operator sent (AirDrop / text / email), or open this link on a device that already has Continuity ops.",
+          )}
         </p>
-        <Link to="/continuity" className="continuity-btn-ghost relative mt-8">
+        <form
+          className="relative mt-8 w-full max-w-md space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr("");
+            try {
+              const pack = decodeInvitePack(packPaste);
+              if (pack.store.inviteToken !== token) {
+                throw new Error("Pack token does not match this invite link");
+              }
+              setState(importInvitePack(state, pack));
+            } catch (ex) {
+              setErr(ex instanceof Error ? ex.message : "Could not import pack");
+            }
+          }}
+        >
+          <textarea
+            className="continuity-input min-h-[6rem] font-mono text-xs"
+            placeholder="Paste Continuity invite pack (JSON or base64)…"
+            value={packPaste}
+            onChange={(e) => setPackPaste(e.target.value)}
+            required
+          />
+          {err && <p className="text-sm text-destructive">{err}</p>}
+          <button type="submit" className="continuity-btn w-full">
+            Import pack on this phone
+          </button>
+        </form>
+        <p className="relative mt-6 max-w-md text-center text-xs text-muted-foreground">
+          Node path: operator can also PUT ops to a Pixel node so{" "}
+          <span className="font-mono">GET /continuity/invite/:token</span> works without a pack.
+        </p>
+        <Link to="/continuity" className="continuity-btn-ghost relative mt-6">
           Operator Continuity desk
         </Link>
       </main>
@@ -96,6 +134,9 @@ function MerchantJoin() {
           {merchantOfferCopy(store)}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">{store.domain}</p>
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          {continuityDisciplineLine()}
+        </p>
 
         {joined ? (
           <div className="mt-12">
