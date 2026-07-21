@@ -46,9 +46,25 @@ State = {
 
 - Links: `prevHash`, `index`, `sequence`
 - Body: `transactions[]`, `merkleRoot`
-- Light: `lightProof` (beacon + sequencer sig)
+- Light: `lightProof` (beacon + sequencer sig + `fieldDigest`)
 - Appearance: `color`, `illuminated`, `proximity[]`
+- Field: `field[]` — peer `FieldWitness` records (sphere combination lock)
 - Invariant: `illuminated = false` ⇒ color absent (no RGB meaning)
+- Invariant: `lightProof.fieldDigest` matches recomputed digest of peer field; mismatch ⇒ reject
+
+### FieldWitness (sphere combination lock)
+
+Tip custody is not linear `prevHash` alone. Peers at Chebyshev distance ≤ `FIELD_MAX_DISTANCE` (2) form a field:
+
+| distance | opacity       | color in digest     |
+| -------- | ------------- | ------------------- |
+| 0        | `lit`         | full peer `#rrggbb` |
+| 1        | `translucent` | full peer `#rrggbb` |
+| ≥ 2      | `opaque`      | empty (no color)    |
+
+Canonical `fieldDigest = SHA-512(field|peerIndex:distance:opacity:color|…)` (peers sorted by index). Bound into the PoLS message as `|field=<digest>`. `acceptBlock` / `verifyChain` recompute from prior pixel colors and reject mismatch.
+
+**Invent note:** this is verification + continuity of the scene + tip custody — **not** a rename of `prevHash`. Evidence: `bun run test:field`.
 
 ### Transaction
 
@@ -63,10 +79,11 @@ State = {
 2. `electable =` current sequencer registry (ordered); bound into the light proof.
 3. `nextSequencer = argmin SHA-512(pols-lottery|tipHash|sequence|addr)` over `electable` (skip=0).
 4. Elected sequencer builds pixel: coinbase light-reward + pending txs.
-5. Signs light proof (message includes `el=` commitment); peers `acceptPixel` with full verify.
+5. Signs light proof (message includes `el=` commitment and `|field=<fieldDigest>`); peers `acceptPixel` with full verify.
 6. UTXO set updates; pending cleared/conflict-dropped.
 
 Invariant: `lightProof.electable` is the lottery set for that height; every address in it must be in the local registry; join/register after the fact cannot change prior elections.
+Invariant: `lightProof.fieldDigest` is the sphere lock for that tip; wrong neighbor effects ⇒ reject.
 
 ### 4.1 Fault path (Gate C — lab)
 
@@ -82,7 +99,7 @@ This is **not BFT**. Assumed: loosely synchronized clocks, honest majority of se
 Invariants:
 
 - Only the skip-elected sequencer may produce pixel `n+1` for that `skipCount`
-- Peers reject bad merkle, bad proof, bad color composition, bad linkage, unjustified skip
+- Peers reject bad merkle, bad proof, bad color composition, bad fieldDigest, bad linkage, unjustified skip
 - Light reward obeys emission schedule and hard cap
 - On-time (`skip=0`) always preferred over skip tips at the same height
 
@@ -115,7 +132,7 @@ HTTP:
 
 ## 8. What this version does / does not claim
 
-**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS (ledger single-use), diversity *policy* when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip, Gate E ULA twin + custody inversion, Gate F headers-first + balance proofs + signed hello scoring (lab), 4-node lab mesh.
+**Does:** local + multi-node sequential accept, persist, One API, SISO model, off-chain ULA package, Merkle-window hash-OTS (ledger single-use), diversity _policy_ when ≥7 providers registered, Gate B gossip join, Gate C lab stall-skip, Gate E ULA twin + custody inversion, Gate F headers-first + balance proofs + signed hello scoring (lab), 4-node lab mesh.
 
 **Does not yet:**
 

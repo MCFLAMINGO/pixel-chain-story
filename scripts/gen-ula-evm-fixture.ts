@@ -42,6 +42,7 @@ const att = {
     signature: "00",
     revealedAt: 1_700_000_000,
     skipCount: 0,
+    fieldDigest: "ff".repeat(64),
   },
   messageHash,
   message: {

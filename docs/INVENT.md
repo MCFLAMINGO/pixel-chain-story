@@ -13,26 +13,27 @@ We are not here to relabel wallets, SMS banking, or proof-of-stake as “light.�
 
 ## Core invention vs uptake bridges
 
-| Layer | What | Rule |
-| --- | --- | --- |
-| **Core** | Kindling, PoLS, Personal Source, Lumen, SISO, Energy Truth | Invented; space-age; self-custody |
-| **Bridge** | SMS/USSD/voice invites, helper aiming | Optional on-ramps only; cannot hold keys; cannot spend |
+| Layer      | What                                                       | Rule                                                   |
+| ---------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| **Core**   | Kindling, PoLS, Personal Source, Lumen, SISO, Energy Truth | Invented; space-age; self-custody                      |
+| **Bridge** | SMS/USSD/voice invites, helper aiming                      | Optional on-ramps only; cannot hold keys; cannot spend |
 
 Primitive → advanced is allowed for uptake. **Settling on the primitive rung is not.**
 
 ## What is invention here
 
-| Piece | Why it is not a rename |
-| --- | --- |
-| **Pixel / PoLS** | Light sequence settlement — not hashrate blocks |
-| **Lumen** | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md)) |
-| **Kindling** | Mutual optical presence as spend *authorization* |
-| **Personal Source** | Optical self-custody for everyone — not MetaMask, not M-Pesa |
-| **Optical capture** | getUserMedia / raster grid sample — not in-memory theater |
+| Piece               | Why it is not a rename                                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pixel / PoLS**    | Light sequence settlement — not hashrate blocks                                                                                          |
+| **Lumen**           | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md))                                                                |
+| **Kindling**        | Mutual optical presence as spend _authorization_                                                                                         |
+| **Personal Source** | Optical self-custody for everyone — not MetaMask, not M-Pesa                                                                             |
+| **Optical capture** | getUserMedia / raster grid sample — not in-memory theater                                                                                |
+| **Energy Truth**    | Labeled waste accounting vs datacenter thirst                                                                                            |
+| **SISO**            | Continuity without a forced rewrite VM                                                                                                   |
+| **FieldWitness**    | Sphere combination lock for tip custody — `fieldDigest` in PoLS; wrong neighbor effects fail (`test:field`). Not a rename of `prevHash`. |
 
 Full audit: [`INVENTION.md`](./INVENTION.md).
-| **Energy Truth** | Labeled waste accounting vs datacenter thirst |
-| **SISO** | Continuity without a forced rewrite VM |
 
 ## Banned shortcuts
 
@@ -41,4 +42,4 @@ Full audit: [`INVENTION.md`](./INVENTION.md).
 - “Gasless” slogans that keep invisible approvals
 - Green claims without Energy Truth on settlement
 
-If a door looks like M-Pesa or early Bitcoin Core, rebuild the door — then, if needed, bridge *to* it for uptake, never *as* the core.
+If a door looks like M-Pesa or early Bitcoin Core, rebuild the door — then, if needed, bridge _to_ it for uptake, never _as_ the core.
