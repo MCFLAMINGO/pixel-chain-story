@@ -94,10 +94,7 @@ async function main() {
   let demo = emptyOpsState("McFlamingo Continuity");
   demo = await seedMcFlamingoDemo(demo, html, {
     originUrl: "https://www.mcflamingo.com/",
-    mirrorUrls: [
-      "http://127.0.0.1:4100/mcflamingo/homepage-snapshot.html",
-      "http://127.0.0.1:4101/mcflamingo/homepage-snapshot.html",
-    ],
+    mirrorUrls: ["https://www.mcflamingo.com/", "https://www.mcflamingo.com/menu"],
   });
   if (demo.stores[0]?.step !== "live") throw new Error("mcflamingo seed not live");
   if (demo.stores[0]?.name !== "McFlamingo") throw new Error("name");
@@ -109,10 +106,7 @@ async function main() {
   const firstId = demo.stores[0]!.id;
   demo = await seedMcFlamingoDemo(demo, html, {
     originUrl: "https://www.mcflamingo.com/",
-    mirrorUrls: [
-      "http://127.0.0.1:4100/mcflamingo/homepage-snapshot.html",
-      "http://127.0.0.1:4101/mcflamingo/homepage-snapshot.html",
-    ],
+    mirrorUrls: ["https://www.mcflamingo.com/", "https://www.mcflamingo.com/menu"],
   });
   if (demo.stores.length !== 1) throw new Error("re-seed must replace prior McFlamingo row");
   if (demo.stores[0]!.id === firstId) throw new Error("re-seed should mint a fresh store id");

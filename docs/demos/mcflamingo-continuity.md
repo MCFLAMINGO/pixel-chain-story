@@ -1,55 +1,47 @@
-# Demo — McFlamingo continuity (real website)
+# Demo — McFlamingo continuity (honest)
 
-**Claim:** _Continuity origin is the live restaurant at [www.mcflamingo.com](https://www.mcflamingo.com/); a homepage digest stays on Pixel; lab booths can serve a captured snapshot when drilling origin-dark._  
-**Does not unlock:** public DNS failover for `mcflamingo.com`, “AWS-proof internet,” or Pixel replacing Popmenu/Toast hosting.
+## What is real
 
-## Real site
-
-| | |
+| Thing | Where |
 | --- | --- |
-| Origin | https://www.mcflamingo.com/ |
-| Order | https://www.mcflamingo.com/popmenu-order |
-| Platform | Popmenu (+ Toast gift cards) |
-| Continuity snapshot | [`public/mcflamingo/homepage-snapshot.html`](../../public/mcflamingo/homepage-snapshot.html) — captured homepage for digest / lab mirrors |
-| Booth redirect | [`public/mcflamingo/index.html`](../../public/mcflamingo/index.html) — sends humans to the live site |
+| Restaurant homepage | https://www.mcflamingo.com/ |
+| **Food menu** | https://www.mcflamingo.com/menu |
+| Online ordering | https://www.mcflamingo.com/popmenu-order |
 
-## Before Continuity invites (lab)
+Those URLs are the live Popmenu restaurant. If they work in your normal browser, the menu is real.
 
-1. Create the offer on `/continuity` (or use the one-click demo below).  
-2. **Same browser profile** — invites use `localStorage` today; a merchant on another phone will see “Link not found.”  
-3. Merchant only taps **Turn on Continuity** — no DNS homework.  
-4. You attach digest + booths before Go live (demo does this for you).
+## What Continuity is (lab — not make-believe hosting)
 
-## Easy path (UI)
+`/shine` and `/continuity` run in **your browser** (`localStorage`). They:
+
+1. Record that McFlamingo’s origin is `www.mcflamingo.com`
+2. Store a **digest** (hash) of homepage HTML for the Continuity map
+3. Keep map-fee / till bookkeeping for drills
+
+They do **not**:
+
+- Embed Popmenu inside localhost
+- Replace DNS / Cloudflare / Popmenu hosting
+- Serve a working restaurant menu from `/mcflamingo/homepage-snapshot.html` (that file is digest-only; opening it looks broken)
+
+## How to try it
 
 ```bash
-bun run dev
+# Fresh ZIP of main — old folders will 404
+bun install && bun run dev
 ```
 
-1. Open [http://localhost:8080/continuity](http://localhost:8080/continuity) or [/shine](http://localhost:8080/shine)  
-2. Click **Demo: real McFlamingo shines in** / **Try with real McFlamingo**  
-3. Preview storefront: [www.mcflamingo.com](https://www.mcflamingo.com/) — **not** a fake local menu  
-4. Optional: **Run lab chaos drill** (origin dark → till accrues on lab bookkeeping)
+1. Open http://localhost:8080/shine  
+2. Click **Try with real McFlamingo**  
+3. Click **Open live McFlamingo menu** → must land on **www.mcflamingo.com/menu**  
+4. Or **Order on Popmenu** → **www.mcflamingo.com/popmenu-order**
 
-Also from Lab: Continuity demos.
+If step 3 shows Pixel’s “Page not found”, your folder is outdated — download a new ZIP of `main`.
 
-## CLI proof (kill lab booth)
+## CLI (lab kill-origin drill)
 
 ```bash
 bun run test:mcflamingo
-# alias: bun run test:continuity
 ```
 
-What it proves:
-
-1. Real-site homepage snapshot gets a digest and shines into Pixel (SISO) with **originUrl = www.mcflamingo.com**.  
-2. Lab **origin booth** is killed (outage stand-in).  
-3. Lab **mirror** still serves the **same** snapshot (digest match).  
-4. Checkout of **3 PIX** settles while Continuity is `origin_dark`.
-
-## Next (not this demo)
-
-- Refresh `homepage-snapshot.html` when the live Popmenu homepage changes materially  
-- Shared invite store (so a real merchant phone works)  
-- Nebius / Hetzner booths + real failover  
-- Kindling spend from a phone against a mirrored booth
+Proves digest + mirror booth bookkeeping with a local snapshot stand-in. Still not public DNS failover.

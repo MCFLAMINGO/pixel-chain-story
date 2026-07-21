@@ -168,13 +168,21 @@ export function emptyOpsState(operatorName = "McFlamingo Continuity"): Continuit
 export const MCFLAMINGO_DEMO_DOMAIN = "mcflamingo.com";
 /** Live restaurant origin — Popmenu site (Ponte Vedra Beach). */
 export const MCFLAMINGO_ORIGIN_URL = "https://www.mcflamingo.com/";
+/** Browse menu on the real site (not a localhost page). */
+export const MCFLAMINGO_MENU_URL = "https://www.mcflamingo.com/menu";
 /** Ordering deep link on the real site. */
 export const MCFLAMINGO_ORDER_URL = "https://www.mcflamingo.com/popmenu-order";
 /**
- * Continuity artifact for digest / lab booths — captured homepage of the live site.
- * Preview for humans must open {@link MCFLAMINGO_ORIGIN_URL}, not this file.
+ * Digest-only artifact (for Continuity map hashing / CLI drills).
+ * Never present this URL to humans as “the menu” — scripts are stripped; it looks dead.
+ * Humans open {@link MCFLAMINGO_MENU_URL} / {@link MCFLAMINGO_ORDER_URL}.
  */
 export const MCFLAMINGO_SNAPSHOT_HREF = "/mcflamingo/homepage-snapshot.html";
+
+/** Honest lab thesis — Continuity desk ≠ hosting the restaurant. */
+export function mcflamingoContinuityHonesty(): string {
+  return "The McFlamingo menu lives on Popmenu at www.mcflamingo.com. This Continuity desk only keeps a digest map + till bookkeeping in your browser — it does not host or replace the restaurant site.";
+}
 
 /** Cloudflare challenge / bot interstitial — not a usable Continuity artifact. */
 export function isUnusableOriginHtml(html: string): boolean {
@@ -268,19 +276,23 @@ export async function seedMcFlamingoDemo(
   next = merchantJoin(next, token, { originUrl });
   next = attachStoreDigest(next, storeId, await digestArtifactText(html));
 
-  const mirrors = opts?.mirrorUrls ?? [];
+  // Human-facing mirrors must be LIVE restaurant URLs — never the local digest snapshot
+  // (stripped Popmenu HTML looks like a dead/404 page when opened in a browser).
+  const mirrors = opts?.mirrorUrls?.length
+    ? opts.mirrorUrls
+    : [MCFLAMINGO_ORIGIN_URL, MCFLAMINGO_MENU_URL];
   if (mirrors[0]) {
     next = updateRung(next, next.rungs[0]!.id, {
       baseUrl: mirrors[0],
-      label: "Continuity booth A — McFlamingo snapshot",
-      provider: "Lab",
+      label: "Live McFlamingo — homepage",
+      provider: "Popmenu",
     });
   }
   if (mirrors[1]) {
     next = updateRung(next, next.rungs[1]!.id, {
       baseUrl: mirrors[1],
-      label: "Continuity booth B — McFlamingo snapshot",
-      provider: "Lab",
+      label: "Live McFlamingo — menu",
+      provider: "Popmenu",
     });
   }
 
