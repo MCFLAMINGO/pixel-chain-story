@@ -124,13 +124,22 @@ function ShineInPage() {
           <div className="shine-rise mt-12" role="status">
             <p className="font-pixel text-2xl text-primary">You’re in the light.</p>
             <p className="mt-3 text-base text-muted-foreground">
-              <span className="text-foreground">{doneStore.name}</span> is on Continuity. Customers
-              can still reach you if the host blinks. {merchantOfferCopy(doneStore)}
+              <span className="text-foreground">{doneStore.name}</span> Continuity digest is{" "}
+              {doneStore.anchoredOnPixel ? (
+                <>
+                  anchored on Pixel at tip #{doneStore.pixelIndex} (
+                  <span className="font-mono text-xs">{doneStore.registerRef}</span>).
+                </>
+              ) : (
+                <>not yet on Pixel — something went wrong.</>
+              )}{" "}
+              {merchantOfferCopy(doneStore)}
             </p>
             <p className="mt-3 text-sm text-muted-foreground">{mcflamingoContinuityHonesty()}</p>
             <p className="mt-4 text-sm text-muted-foreground">
               State: {doneStore.continuity?.state ?? "—"}
-              {doneStore.digest ? ` · map ${doneStore.digest.slice(0, 12)}…` : ""}
+              {doneStore.digest ? ` · digest ${doneStore.digest.slice(0, 12)}…` : ""}
+              {doneStore.tipHash ? ` · tip ${doneStore.tipHash.slice(0, 12)}…` : ""}
               {tillAccruedPix(doneStore) > 0
                 ? ` · till accrued ${tillAccruedPix(doneStore)} PIX`
                 : ""}

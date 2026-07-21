@@ -7,7 +7,7 @@
  * Pixel holds the map (digest) and till bookkeeping — not ICP compute.
  */
 
-import { sha512Hex, type Hex } from "./crypto";
+import { sha512Hex, generateLightKeypair, type Hex, type LightKeypair } from "./crypto";
 import {
   acceptIntoLight,
   canServeWithoutOrigin,
@@ -15,6 +15,13 @@ import {
   markOriginDark,
   type ContinuityRecord,
 } from "./siso";
+import {
+  createGenesis,
+  proposeTransfer,
+  sequenceBlock,
+  verifyChain,
+  type PixelChainState,
+} from "./chain";
 
 export type ContinuityStep =
   | "draft"
@@ -94,6 +101,19 @@ export interface ContinuityStore {
   rungIds: string[];
   /** SISO continuity record after go-live (map in the light) */
   continuity?: ContinuityRecord;
+  /**
+   * Real Pixel tip where the Continuity digest was anchored (WLREG/CONT memo).
+   * Absent = theater (must not claim “on Pixel”).
+   */
+  pixelIndex?: number;
+  /** Tip block hash after anchor */
+  tipHash?: Hex;
+  /** Tx metadata.reference binding the digest (e.g. CONT-<digest prefix>) */
+  registerRef?: string;
+  /** Pixel network id of the chain that anchored */
+  networkId?: number;
+  /** True only after illuminateStorefrontOnPixel succeeded */
+  anchoredOnPixel?: boolean;
   /** Operator-only booth jobs (rsync / DNS) — never merchant-facing */
   deployPlan?: DeployChecklistItem[];
   /** Append-only local till ledger (lab) */
@@ -181,7 +201,81 @@ export const MCFLAMINGO_SNAPSHOT_HREF = "/mcflamingo/homepage-snapshot.html";
 
 /** Honest lab thesis — Continuity desk ≠ hosting the restaurant. */
 export function mcflamingoContinuityHonesty(): string {
-  return "The McFlamingo menu lives on Popmenu at www.mcflamingo.com. This Continuity desk only keeps a digest map + till bookkeeping in your browser — it does not host or replace the restaurant site.";
+  return "The McFlamingo menu is served by Popmenu at www.mcflamingo.com. Continuity anchors a sha512 digest of that site onto a real Pixel tip (CONT-… memo). Pixel does not host the restaurant page or replace Popmenu DNS.";
+}
+
+export interface StorefrontPixelAnchor {
+  continuity: ContinuityRecord;
+  state: PixelChainState;
+  pixelIndex: number;
+  tipHash: Hex;
+  registerRef: string;
+  networkId: number;
+  chainValid: boolean;
+}
+
+/**
+ * Anchor a storefront Continuity digest onto a real Pixel tip.
+ * Creates (or extends) a chain: 1-PIX self-memo with reference CONT-<digest>,
+ * then acceptIntoLight at the actual tip index — never a fake pixelIndex: 1.
+ */
+export async function illuminateStorefrontOnPixel(params: {
+  name: string;
+  domain: string;
+  originUrl: string;
+  digest: Hex;
+  mirrors: string[];
+  /** Reuse an existing chain (e.g. browser session); otherwise fresh genesis */
+  state?: PixelChainState;
+  sequencer?: LightKeypair;
+}): Promise<StorefrontPixelAnchor> {
+  if (!params.digest || params.digest.length < 32) {
+    throw new Error("Need a real content digest before anchoring on Pixel");
+  }
+  const sequencer = params.sequencer ?? (await generateLightKeypair());
+  let state = params.state ?? (await createGenesis(sequencer));
+  if (!(await verifyChain(state))) throw new Error("Pixel chain invalid before Continuity anchor");
+
+  const continuity0 = await comeTowardLight({
+    name: params.domain,
+    kind: "static_site",
+    digest: params.digest,
+    languages: ["html"],
+    originHost: "unknown",
+    originUrl: params.originUrl,
+    mirrors: params.mirrors,
+  });
+
+  const registerRef = `CONT-${params.digest.slice(0, 24)}`;
+  const spoken = await proposeTransfer(
+    state,
+    sequencer,
+    [{ address: sequencer.address, amount: 1 }],
+    {
+      description: `Continuity map: ${params.name} · ${params.domain}`,
+      recipientLabel: params.domain,
+      reference: registerRef,
+    },
+  );
+  state = await sequenceBlock(spoken.state, sequencer);
+  if (!(await verifyChain(state))) throw new Error("Pixel chain invalid after Continuity anchor");
+
+  const tip = state.pixels[state.pixels.length - 1]!;
+  const continuity = acceptIntoLight(continuity0, tip.index);
+  if (continuity.state !== "in_the_light") throw new Error("Continuity failed to enter the light");
+  if (continuity.illuminatedAtPixel !== tip.index) {
+    throw new Error("Continuity pixel index must match tip");
+  }
+
+  return {
+    continuity,
+    state,
+    pixelIndex: tip.index,
+    tipHash: tip.hash,
+    registerRef,
+    networkId: state.networkId,
+    chainValid: true,
+  };
 }
 
 /** Cloudflare challenge / bot interstitial — not a usable Continuity artifact. */
@@ -297,7 +391,7 @@ export async function seedMcFlamingoDemo(
   }
 
   next = assignRungs(next, storeId, [next.rungs[0]!.id, next.rungs[1]!.id]);
-  return goLive(next, storeId, { pixelIndex: 1 });
+  return goLive(next, storeId);
 }
 
 /** Invite prerequisites — what operators must know before sending a link. */
@@ -364,7 +458,7 @@ export async function selfServeShineIn(
   }
 
   next = assignRungs(next, storeId, [next.rungs[0]!.id, next.rungs[1]!.id]);
-  return goLive(next, storeId, { pixelIndex: 1 });
+  return goLive(next, storeId);
 }
 
 export function shineInPlainThesis(): string {
@@ -509,13 +603,18 @@ export function buildDeployPlan(
 }
 
 /**
- * Step 5 — go live: SISO record into the light + deploy checklist.
- * Does not rsync by itself (operator/agent runs the plan).
+ * Step 5 — go live: digests into SISO **and** anchors on a real Pixel tip.
+ * Deploy checklist remains operator-side (rsync/DNS not executed here).
  */
 export async function goLive(
   state: ContinuityOpsState,
   storeId: string,
-  opts?: { pixelIndex?: number },
+  opts?: {
+    /** @deprecated ignored — fake pixelIndex is no longer allowed */
+    pixelIndex?: number;
+    chainState?: PixelChainState;
+    sequencer?: LightKeypair;
+  },
 ): Promise<ContinuityOpsState> {
   const store = state.stores.find((s) => s.id === storeId);
   if (!store) throw new Error("Store not found");
@@ -524,22 +623,27 @@ export async function goLive(
 
   const mirrors = state.rungs.filter((r) => store.rungIds.includes(r.id)).map((r) => r.baseUrl);
 
-  let continuity = await comeTowardLight({
-    name: store.domain,
-    kind: "static_site",
-    digest: store.digest,
-    languages: ["html"],
-    originHost: "unknown",
+  const anchor = await illuminateStorefrontOnPixel({
+    name: store.name,
+    domain: store.domain,
     originUrl: store.originUrl,
+    digest: store.digest,
     mirrors,
+    state: opts?.chainState,
+    sequencer: opts?.sequencer,
   });
-  continuity = acceptIntoLight(continuity, opts?.pixelIndex ?? 0);
   const deployPlan = buildDeployPlan(store, state.rungs);
 
   return patchStore(state, storeId, {
     step: "live",
-    continuity,
+    continuity: anchor.continuity,
     deployPlan,
+    pixelIndex: anchor.pixelIndex,
+    tipHash: anchor.tipHash,
+    registerRef: anchor.registerRef,
+    networkId: anchor.networkId,
+    anchoredOnPixel: true,
+    note: `Anchored on Pixel tip #${anchor.pixelIndex} · ${anchor.registerRef}`,
   });
 }
 

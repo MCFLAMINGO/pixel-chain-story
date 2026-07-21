@@ -66,17 +66,23 @@ async function main() {
   if (state.stores[0].step !== "rungs_assigned") throw new Error("rungs");
   console.log("▸ step4 rungs assigned ✓");
 
-  state = await goLive(state, store.id, { pixelIndex: 3 });
+  state = await goLive(state, store.id);
   let live = state.stores[0];
   if (live.step !== "live" || stepIndex("live") !== 4) throw new Error("live");
   if (live.continuity?.state !== "in_the_light") throw new Error("siso not in light");
+  if (!live.anchoredOnPixel || (live.pixelIndex ?? 0) < 1) throw new Error("must anchor real Pixel tip");
+  if (live.continuity?.illuminatedAtPixel !== live.pixelIndex) throw new Error("Continuity tip mismatch");
+  if (!live.registerRef?.startsWith("CONT-")) throw new Error("CONT ref");
   if (!live.deployPlan?.length) throw new Error("missing booth jobs");
-  if (live.deployPlan.some((i) => /dns/i.test(i.title) && !/failover/i.test(i.title))) {
-    /* titles use failover now */
-  }
   if (tillIsActive(live)) throw new Error("till should be idle while origin up");
   if (tillFeePix(live, 1000) !== 0) throw new Error("no till fee while healthy");
-  console.log("▸ step5 live + SISO + operator booth jobs ✓", live.deployPlan.length, "items");
+  console.log(
+    "▸ step5 live + Pixel tip #",
+    live.pixelIndex,
+    "+",
+    live.deployPlan.length,
+    "booth jobs ✓",
+  );
 
   state = markStoreOriginDark(state, store.id);
   live = state.stores[0];
@@ -110,6 +116,9 @@ async function main() {
   });
   if (demo.stores.length !== 1) throw new Error("re-seed must replace prior McFlamingo row");
   if (demo.stores[0]!.id === firstId) throw new Error("re-seed should mint a fresh store id");
+  if (!demo.stores[0]!.anchoredOnPixel) throw new Error("must anchor on real Pixel tip");
+  if ((demo.stores[0]!.pixelIndex ?? 0) < 1) throw new Error("fake pixelIndex theater");
+  if (!demo.stores[0]!.registerRef?.startsWith("CONT-")) throw new Error("missing CONT ref");
   console.log("▸ seedMcFlamingoDemo real-site shine-in ✓");
 
   if (!shineInPlainThesis().includes("Shine in")) throw new Error("plain thesis");

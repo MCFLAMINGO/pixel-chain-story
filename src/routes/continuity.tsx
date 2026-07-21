@@ -512,6 +512,16 @@ function StorePanel({
           {store.domain} · ${store.priceUsdPerMonth}/mo · till{" "}
           {(store.tillCutBpsWhenOriginDark / 100).toFixed(0)}% on outage · {stepLabel(store.step)}
         </p>
+        {store.anchoredOnPixel ? (
+          <p className="mt-2 text-xs text-primary">
+            On Pixel · tip #{store.pixelIndex} · {store.registerRef}
+            {store.tipHash ? ` · ${store.tipHash.slice(0, 16)}…` : ""}
+          </p>
+        ) : store.step === "live" ? (
+          <p className="mt-2 text-xs text-destructive">
+            Live without Pixel tip — invalid; re-run demo / go live.
+          </p>
+        ) : null}
         <p className="mt-2 text-xs text-muted-foreground">{merchantOfferCopy(store)}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">{store.originUrl}</p>
         {store.digest && (

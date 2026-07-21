@@ -10,38 +10,41 @@
 
 Those URLs are the live Popmenu restaurant. If they work in your normal browser, the menu is real.
 
-## What Continuity is (lab — not make-believe hosting)
+## What Continuity does on Pixel (real)
 
-`/shine` and `/continuity` run in **your browser** (`localStorage`). They:
+When you shine in McFlamingo from `/shine` or the Continuity desk:
 
-1. Record that McFlamingo’s origin is `www.mcflamingo.com`
-2. Store a **digest** (hash) of homepage HTML for the Continuity map
-3. Keep map-fee / till bookkeeping for drills
+1. Digest = sha512 of homepage HTML (live or snapshot)
+2. Pixel genesis (browser) + 1-PIX self-memo with reference `CONT-<digest…>`
+3. Continuity record `in_the_light` at the **actual tip index** (not a fake `pixelIndex: 1`)
 
-They do **not**:
+Proof fields on the store: `anchoredOnPixel`, `pixelIndex`, `tipHash`, `registerRef`.
 
-- Embed Popmenu inside localhost
-- Replace DNS / Cloudflare / Popmenu hosting
-- Serve a working restaurant menu from `/mcflamingo/homepage-snapshot.html` (that file is digest-only; opening it looks broken)
+```bash
+bun run test:shine-chain
+```
+
+## What Continuity does *not* do
+
+- Host or replace the Popmenu menu HTML
+- Public DNS failover when Popmenu dies
+- Cross-phone invite store (still same-browser localStorage for the desk UI)
+- Automatic till UTXOs from Toast/Popmenu checkouts (till bookkeeping is still lab)
 
 ## How to try it
 
 ```bash
-# Fresh ZIP of main — old folders will 404
 bun install && bun run dev
 ```
 
-1. Open http://localhost:8080/shine  
-2. Click **Try with real McFlamingo**  
-3. Click **Open live McFlamingo menu** → must land on **www.mcflamingo.com/menu**  
-4. Or **Order on Popmenu** → **www.mcflamingo.com/popmenu-order**
+1. http://localhost:8080/shine → **Try with real McFlamingo**  
+2. Success must show **Anchored on Pixel at tip #N · CONT-…**  
+3. **Open live McFlamingo menu** → www.mcflamingo.com/menu  
+4. Continuity desk shows the same tip proof under the store
 
-If step 3 shows Pixel’s “Page not found”, your folder is outdated — download a new ZIP of `main`.
-
-## CLI (lab kill-origin drill)
+## CLI
 
 ```bash
-bun run test:mcflamingo
+bun run test:shine-chain   # digest → real tip
+bun run test:mcflamingo    # kill-origin lab booth drill
 ```
-
-Proves digest + mirror booth bookkeeping with a local snapshot stand-in. Still not public DNS failover.
