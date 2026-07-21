@@ -1,20 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { MCFLAMINGO_ORIGIN_URL } from "@/lib/pixel/continuity-ops";
+import { MCFLAMINGO_MENU_URL } from "@/lib/pixel/continuity-ops";
 
 /**
- * `/mcflamingo` and `/mcflamingo/` used to hit the SPA 404.
- * Humans belong on the live restaurant — never a fake local menu.
+ * `/mcflamingo` must never SPA-404. Humans go to the live restaurant menu.
  */
 export const Route = createFileRoute("/mcflamingo")({
   head: () => ({
     meta: [
-      { title: "McFlamingo → www.mcflamingo.com" },
+      { title: "McFlamingo → live menu" },
       {
         name: "description",
-        content: "Continuity booth redirect to the live McFlamingo Popmenu site.",
+        content: "Redirect to the live McFlamingo Popmenu menu.",
       },
-      { httpEquiv: "refresh", content: `0;url=${MCFLAMINGO_ORIGIN_URL}` },
+      { httpEquiv: "refresh", content: `0;url=${MCFLAMINGO_MENU_URL}` },
     ],
   }),
   component: McFlamingoLiveRedirect,
@@ -22,15 +21,15 @@ export const Route = createFileRoute("/mcflamingo")({
 
 function McFlamingoLiveRedirect() {
   useEffect(() => {
-    window.location.replace(MCFLAMINGO_ORIGIN_URL);
+    window.location.replace(MCFLAMINGO_MENU_URL);
   }, []);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f3e6d4] px-6">
       <p className="max-w-sm text-center text-[#1a1410]">
-        Opening the real McFlamingo site…{" "}
-        <a className="underline" href={MCFLAMINGO_ORIGIN_URL}>
-          www.mcflamingo.com
+        Opening the live McFlamingo menu…{" "}
+        <a className="underline" href={MCFLAMINGO_MENU_URL}>
+          www.mcflamingo.com/menu
         </a>
       </p>
     </main>

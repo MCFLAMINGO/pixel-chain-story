@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useContinuityOps } from "@/hooks/use-continuity-ops";
 import {
   fetchMcFlamingoHomepageHtml,
+  MCFLAMINGO_MENU_URL,
+  MCFLAMINGO_ORDER_URL,
   MCFLAMINGO_ORIGIN_URL,
+  mcflamingoContinuityHonesty,
   merchantOfferCopy,
   seedMcFlamingoDemo,
   selfServeShineIn,
@@ -69,24 +72,16 @@ function ShineInPage() {
     setErr("");
     setBusy(true);
     try {
-      const { html, source, originUrl } = await fetchMcFlamingoHomepageHtml();
-      const booth =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/mcflamingo/homepage-snapshot.html`
-          : originUrl;
+      const { html, originUrl } = await fetchMcFlamingoHomepageHtml();
       const next = await seedMcFlamingoDemo(state, html, {
         originUrl,
-        // Lab booths serve the Continuity snapshot; origin stays the live restaurant.
-        mirrorUrls: [booth, booth],
+        // Live restaurant URLs only — never localhost snapshot as a “menu” link.
+        mirrorUrls: [MCFLAMINGO_ORIGIN_URL, MCFLAMINGO_MENU_URL],
       });
       setState(next);
       setDoneId(next.stores[0]?.id ?? null);
       setName("McFlamingo");
       setWebsite("www.mcflamingo.com");
-      if (source === "snapshot") {
-        // Soft note only — still the real brand origin.
-        setErr("");
-      }
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Demo failed");
     } finally {
@@ -129,29 +124,67 @@ function ShineInPage() {
           <div className="shine-rise mt-12" role="status">
             <p className="font-pixel text-2xl text-primary">You’re in the light.</p>
             <p className="mt-3 text-base text-muted-foreground">
-              <span className="text-foreground">{doneStore.name}</span> is on Continuity. Customers
-              can still reach you if the host blinks. {merchantOfferCopy(doneStore)}
+              <span className="text-foreground">{doneStore.name}</span> Continuity digest is{" "}
+              {doneStore.anchoredOnPixel ? (
+                <>
+                  anchored on Pixel at tip #{doneStore.pixelIndex} (
+                  <span className="font-mono text-xs">{doneStore.registerRef}</span>).
+                </>
+              ) : (
+                <>not yet on Pixel — something went wrong.</>
+              )}{" "}
+              {merchantOfferCopy(doneStore)}
             </p>
+            <p className="mt-3 text-sm text-muted-foreground">{mcflamingoContinuityHonesty()}</p>
             <p className="mt-4 text-sm text-muted-foreground">
               State: {doneStore.continuity?.state ?? "—"}
-              {doneStore.digest ? ` · map ${doneStore.digest.slice(0, 12)}…` : ""}
+              {doneStore.digest ? ` · digest ${doneStore.digest.slice(0, 12)}…` : ""}
+              {doneStore.tipHash ? ` · tip ${doneStore.tipHash.slice(0, 12)}…` : ""}
               {tillAccruedPix(doneStore) > 0
                 ? ` · till accrued ${tillAccruedPix(doneStore)} PIX`
                 : ""}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/continuity" className="continuity-btn">
-                Open my Continuity desk
-              </Link>
               <a
-                href={MCFLAMINGO_ORIGIN_URL}
+                href={MCFLAMINGO_MENU_URL}
+                className="continuity-btn"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open live McFlamingo menu
+              </a>
+              <a
+                href={MCFLAMINGO_ORDER_URL}
                 className="continuity-btn-ghost"
                 target="_blank"
                 rel="noreferrer"
               >
-                Open McFlamingo.com
+                Order on Popmenu
               </a>
+              <Link to="/continuity" className="continuity-btn-ghost">
+                Continuity desk (lab)
+              </Link>
+              {doneStore.step === "live" && (
+                <Link
+                  to="/continuity/booth/$domain"
+                  params={{ domain: doneStore.domain }}
+                  className="continuity-btn-ghost"
+                >
+                  Continuity booth — Pay with Pixel
+                </Link>
+              )}
             </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Homepage:{" "}
+              <a
+                className="underline"
+                href={MCFLAMINGO_ORIGIN_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                www.mcflamingo.com
+              </a>
+            </p>
             <button
               type="button"
               className="continuity-btn-ghost mt-4"
@@ -215,7 +248,7 @@ function ShineInPage() {
               disabled={busy}
               onClick={() => void onMcFlamingo()}
             >
-              Try with real McFlamingo (www.mcflamingo.com)
+              Try with real McFlamingo — then open the live menu
             </button>
           </form>
         )}

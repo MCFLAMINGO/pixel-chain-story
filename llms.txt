@@ -49,7 +49,8 @@ Deep agent call: /docs/AGENTS-SISO.md
 - /shine — non-tech Continuity handshake
 - /continuity — operator desk
 - /continuity/join/$token — merchant join (lab: same browser)
-- /mcflamingo/index.html — demo menu artifact
+- /continuity/booth/$domain — Pay with Pixel (real UTXOs; till when origin dark)
+- /mcflamingo — redirects to live McFlamingo
 - /billboard — billboard surface
 
 ## Respect bar
@@ -64,4 +65,4 @@ bun install && bun run test:all
 - Not production bridge / on-chain Dilithium
 - Not AWS-proof network / Pixel-as-second-AWS
 - Not "audited" until AUDIT.md has a public report link
-- Continuity till / chaos drill = lab bookkeeping until Gate J evidence
+- Continuity till chaos drill = lab journal until Gate J; booth Pay with Pixel settles real UTXOs in-browser (not Popmenu webhook / DNS)

@@ -1,55 +1,63 @@
-# Demo — McFlamingo continuity (real website)
+# Demo — McFlamingo continuity (honest)
 
-**Claim:** _Continuity origin is the live restaurant at [www.mcflamingo.com](https://www.mcflamingo.com/); a homepage digest stays on Pixel; lab booths can serve a captured snapshot when drilling origin-dark._  
-**Does not unlock:** public DNS failover for `mcflamingo.com`, “AWS-proof internet,” or Pixel replacing Popmenu/Toast hosting.
+## What is real
 
-## Real site
+| Thing               | Where                                    |
+| ------------------- | ---------------------------------------- |
+| Restaurant homepage | https://www.mcflamingo.com/              |
+| **Food menu**       | https://www.mcflamingo.com/menu          |
+| Online ordering     | https://www.mcflamingo.com/popmenu-order |
 
-| | |
-| --- | --- |
-| Origin | https://www.mcflamingo.com/ |
-| Order | https://www.mcflamingo.com/popmenu-order |
-| Platform | Popmenu (+ Toast gift cards) |
-| Continuity snapshot | [`public/mcflamingo/homepage-snapshot.html`](../../public/mcflamingo/homepage-snapshot.html) — captured homepage for digest / lab mirrors |
-| Booth redirect | [`public/mcflamingo/index.html`](../../public/mcflamingo/index.html) — sends humans to the live site |
+Those URLs are the live Popmenu restaurant. If they work in your normal browser, the menu is real.
 
-## Before Continuity invites (lab)
+## What Continuity does on Pixel (real)
 
-1. Create the offer on `/continuity` (or use the one-click demo below).  
-2. **Same browser profile** — invites use `localStorage` today; a merchant on another phone will see “Link not found.”  
-3. Merchant only taps **Turn on Continuity** — no DNS homework.  
-4. You attach digest + booths before Go live (demo does this for you).
+When you shine in McFlamingo from `/shine` or the Continuity desk:
 
-## Easy path (UI)
+1. Digest = sha512 of homepage HTML (live or snapshot)
+2. Pixel genesis (browser) + 1-PIX self-memo with reference `CONT-<digest…>`
+3. Continuity record `in_the_light` at the **actual tip index** (not a fake `pixelIndex: 1`)
+
+Proof fields on the store: `anchoredOnPixel`, `pixelIndex`, `tipHash`, `registerRef`.
 
 ```bash
-bun run dev
+bun run test:shine-chain
 ```
 
-1. Open [http://localhost:8080/continuity](http://localhost:8080/continuity) or [/shine](http://localhost:8080/shine)  
-2. Click **Demo: real McFlamingo shines in** / **Try with real McFlamingo**  
-3. Preview storefront: [www.mcflamingo.com](https://www.mcflamingo.com/) — **not** a fake local menu  
-4. Optional: **Run lab chaos drill** (origin dark → till accrues on lab bookkeeping)
+## What Continuity does _not_ do
 
-Also from Lab: Continuity demos.
+- Host or replace the Popmenu menu HTML
+- Public DNS failover when Popmenu dies
+- Cross-phone invite store (still same-browser localStorage for the desk UI)
+- Live Toast/Popmenu webhook until you point their dashboard at Continuity order handler
 
-## CLI proof (kill lab booth)
+## Booth + till on Pixel (real UTXOs)
+
+After shine-in / go-live:
+
+1. Desk → **Mark origin dark** (or **Check origin health** when probe fails)
+2. Open `/continuity/booth/www.mcflamingo.com` → **Pay with Pixel**
+3. Sale tip + till fee tip land on the Continuity session chain; desk till list shows `on-chain tip #N`
 
 ```bash
-bun run test:mcflamingo
-# alias: bun run test:continuity
+bun run test:continuity-order
 ```
 
-What it proves:
+## How to try it
 
-1. Real-site homepage snapshot gets a digest and shines into Pixel (SISO) with **originUrl = www.mcflamingo.com**.  
-2. Lab **origin booth** is killed (outage stand-in).  
-3. Lab **mirror** still serves the **same** snapshot (digest match).  
-4. Checkout of **3 PIX** settles while Continuity is `origin_dark`.
+```bash
+bun install && bun run dev
+```
 
-## Next (not this demo)
+1. http://localhost:8080/shine → **Try with real McFlamingo**
+2. Success must show **Anchored on Pixel at tip #N · CONT-…**
+3. **Open live McFlamingo menu** → www.mcflamingo.com/menu
+4. Continuity desk → booth → Pay with Pixel (till fees only after origin dark)
 
-- Refresh `homepage-snapshot.html` when the live Popmenu homepage changes materially  
-- Shared invite store (so a real merchant phone works)  
-- Nebius / Hetzner booths + real failover  
-- Kindling spend from a phone against a mirrored booth
+## CLI
+
+```bash
+bun run test:shine-chain        # digest → real tip
+bun run test:mcflamingo         # kill-origin lab booth drill
+bun run test:continuity-order   # booth sale + on-chain till
+```

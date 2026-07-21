@@ -12,9 +12,13 @@ import {
   goLive,
   markInviteSent,
   markStoreOriginDark,
+  MCFLAMINGO_MENU_URL,
+  MCFLAMINGO_ORDER_URL,
   MCFLAMINGO_ORIGIN_URL,
+  mcflamingoContinuityHonesty,
   continuityInvitePrerequisites,
   merchantOfferCopy,
+  checkOriginAndFailover,
   probeRung,
   recordTillSettlement,
   runChaosDrill,
@@ -146,20 +150,16 @@ function ContinuityAdmin() {
                   setMsg("");
                   try {
                     const { html, source, originUrl } = await fetchMcFlamingoHomepageHtml();
-                    const booth =
-                      typeof window !== "undefined"
-                        ? `${window.location.origin}/mcflamingo/homepage-snapshot.html`
-                        : originUrl;
                     const next = await seedMcFlamingoDemo(state, html, {
                       originUrl,
-                      mirrorUrls: [booth, booth],
+                      mirrorUrls: [MCFLAMINGO_ORIGIN_URL, MCFLAMINGO_MENU_URL],
                     });
                     setState(next);
                     setSelectedId(next.stores[0]?.id ?? null);
                     setMsg(
                       source === "live"
-                        ? "McFlamingo shone in from live www.mcflamingo.com — Open McFlamingo.com or Run lab chaos drill."
-                        : "McFlamingo shone in — origin is www.mcflamingo.com; digest from Continuity homepage snapshot (live fetch blocked). Open the real site, or Run lab chaos drill.",
+                        ? "McFlamingo Continuity map updated from live site. Open the LIVE menu/order links — not localhost."
+                        : "McFlamingo Continuity map updated (digest from snapshot; live fetch blocked). Open www.mcflamingo.com/menu for the real menu.",
                     );
                   } catch (err) {
                     setMsg(err instanceof Error ? err.message : "McFlamingo demo failed");
@@ -169,29 +169,35 @@ function ContinuityAdmin() {
                 })();
               }}
             >
-              {demoBusy ? "Shining in…" : "Demo: real McFlamingo shines in"}
+              {demoBusy ? "Shining in…" : "Demo: map real McFlamingo (www.mcflamingo.com)"}
             </button>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Origin = live restaurant. Preview:{" "}
+            <div className="mt-3 flex flex-wrap gap-2">
               <a
-                className="underline"
+                className="continuity-btn"
+                href={MCFLAMINGO_MENU_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open live menu
+              </a>
+              <a
+                className="continuity-btn-ghost"
+                href={MCFLAMINGO_ORDER_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Order on Popmenu
+              </a>
+              <a
+                className="continuity-btn-ghost"
                 href={MCFLAMINGO_ORIGIN_URL}
                 target="_blank"
                 rel="noreferrer"
               >
-                www.mcflamingo.com
+                Homepage
               </a>
-              {" · "}
-              Order:{" "}
-              <a
-                className="underline"
-                href="https://www.mcflamingo.com/popmenu-order"
-                target="_blank"
-                rel="noreferrer"
-              >
-                /popmenu-order
-              </a>
-            </p>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">{mcflamingoContinuityHonesty()}</p>
           </div>
           <p className="font-pixel text-xs tracking-[0.2em] text-muted-foreground uppercase">
             {state.operatorName}
@@ -215,36 +221,25 @@ function ContinuityAdmin() {
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-4">
             <li>
-              <span className="text-foreground">Demo: real McFlamingo shines in</span> — Continuity
-              origin is www.mcflamingo.com; digest from live HTML or homepage snapshot.
+              <span className="text-foreground">Demo: map real McFlamingo</span> — writes a
+              Continuity digest for www.mcflamingo.com. It does <em>not</em> put the restaurant
+              inside localhost.
             </li>
             <li>
-              <span className="text-foreground">Open join page</span> — merchant view in this same
-              browser; they only tap Turn on Continuity.
+              <span className="text-foreground">Open live menu / Order on Popmenu</span> — the real
+              McFlamingo site (this is where the food menu is).
             </li>
             <li>
-              <span className="text-foreground">Probe all rungs</span> — ping booth URLs from your
-              browser (CORS may show unknown — ok in lab).
+              <span className="text-foreground">Open join page</span> — merchant Continuity toggle
+              in this same browser (localStorage lab).
             </li>
             <li>
-              <span className="text-foreground">Mark origin dark / Run lab chaos drill</span> —
-              pretend host died; till bookkeeping moves. Not real money, not Gate J.
+              <span className="text-foreground">Probe / chaos drill / booth jobs</span> — lab
+              bookkeeping and checklists. Checking a box does not run rsync or change Popmenu.
             </li>
             <li>
-              <span className="text-foreground">Operator booth jobs</span> — checklist only;
-              checking a box does not run rsync/failover.
-            </li>
-            <li>
-              Menu / preview:{" "}
-              <a
-                className="underline"
-                href={MCFLAMINGO_ORIGIN_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
-                www.mcflamingo.com
-              </a>
-              {" · "}/mcflamingo redirects there (no local fake menu).
+              Never open <code>/mcflamingo/homepage-snapshot.html</code> expecting a menu — that
+              file is digest-only (broken without Popmenu scripts).
             </li>
           </ul>
         </div>
@@ -443,6 +438,25 @@ function ContinuityAdmin() {
                         }
                       })();
                     }}
+                    onCheckOrigin={() => {
+                      void (async () => {
+                        try {
+                          const {
+                            state: next,
+                            probe,
+                            flipped,
+                          } = await checkOriginAndFailover(state, selected.id);
+                          setState(next);
+                          setMsg(
+                            probe.ok
+                              ? `Origin reachable (${probe.status ?? "ok"} · ${probe.ms}ms) — till stays idle.`
+                              : `Origin probe failed (${probe.error ?? "down"} · ${probe.ms}ms)${flipped ? " — marked origin dark (ops flip, not DNS)." : " — already dark."}`,
+                          );
+                        } catch (err) {
+                          setMsg(err instanceof Error ? err.message : "Origin check failed");
+                        }
+                      })();
+                    }}
                   />
                 )}
               </>
@@ -490,6 +504,7 @@ function StorePanel({
   onOriginDark,
   onRecordTill,
   onChaosDrill,
+  onCheckOrigin,
 }: {
   store: ContinuityStore;
   inviteUrl: string;
@@ -503,6 +518,7 @@ function StorePanel({
   onOriginDark: () => void;
   onRecordTill: (amountPix: number) => void;
   onChaosDrill: () => void;
+  onCheckOrigin: () => void;
 }) {
   const [picked, setPicked] = useState<string[]>(
     store.rungIds.length ? store.rungIds : rungIds.slice(0, 2),
@@ -518,6 +534,16 @@ function StorePanel({
           {store.domain} · ${store.priceUsdPerMonth}/mo · till{" "}
           {(store.tillCutBpsWhenOriginDark / 100).toFixed(0)}% on outage · {stepLabel(store.step)}
         </p>
+        {store.anchoredOnPixel ? (
+          <p className="mt-2 text-xs text-primary">
+            On Pixel · tip #{store.pixelIndex} · {store.registerRef}
+            {store.tipHash ? ` · ${store.tipHash.slice(0, 16)}…` : ""}
+          </p>
+        ) : store.step === "live" ? (
+          <p className="mt-2 text-xs text-destructive">
+            Live without Pixel tip — invalid; re-run demo / go live.
+          </p>
+        ) : null}
         <p className="mt-2 text-xs text-muted-foreground">{merchantOfferCopy(store)}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">{store.originUrl}</p>
         {store.digest && (
@@ -641,10 +667,47 @@ function StorePanel({
           <ul className="mt-2 text-xs text-muted-foreground">
             {(store.continuity.artifact.mirrors ?? []).map((m) => (
               <li key={m} className="truncate">
-                booth {m}
+                booth{" "}
+                {m.includes("localhost") || m.includes("homepage-snapshot") ? (
+                  <span className="text-destructive">{m} (lab digest URL — not the live menu)</span>
+                ) : (
+                  <a className="underline" href={m} target="_blank" rel="noreferrer">
+                    {m}
+                  </a>
+                )}
               </li>
             ))}
           </ul>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Live restaurant:{" "}
+            <a className="underline" href={MCFLAMINGO_MENU_URL} target="_blank" rel="noreferrer">
+              menu
+            </a>
+            {" · "}
+            <a className="underline" href={MCFLAMINGO_ORDER_URL} target="_blank" rel="noreferrer">
+              order
+            </a>
+          </p>
+          {store.step === "live" && (
+            <div className="mt-4 space-y-2">
+              <Link
+                to="/continuity/booth/$domain"
+                params={{ domain: store.domain }}
+                className="continuity-btn inline-flex"
+              >
+                Open Continuity booth (Pay with Pixel)
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Customer booth settles real PIX UTXOs. Till fee UTXOs only while origin dark.
+              </p>
+              {store.merchantAddress && (
+                <p className="font-mono text-[11px] break-all text-muted-foreground">
+                  merchant {store.merchantAddress.slice(0, 24)}…
+                  {store.tillAddress ? ` · till ${store.tillAddress.slice(0, 16)}…` : ""}
+                </p>
+              )}
+            </div>
+          )}
           {store.continuity.state === "in_the_light" && (
             <button type="button" className="continuity-btn mt-3" onClick={onOriginDark}>
               Mark origin dark (activate till)
@@ -652,18 +715,27 @@ function StorePanel({
           )}
           {store.step === "live" && (
             <div className="mt-4 space-y-2">
-              <button type="button" className="continuity-btn" onClick={onChaosDrill}>
+              <button type="button" className="continuity-btn" onClick={onCheckOrigin}>
+                Check origin health
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Probe {store.originUrl}. If down → mark origin dark (ops flip, not DNS takeover).
+                {store.lastOriginProbe
+                  ? ` Last: ${store.lastOriginProbe.ok ? "ok" : "fail"} · ${store.lastOriginProbe.ms}ms`
+                  : ""}
+              </p>
+              <button type="button" className="continuity-btn-ghost" onClick={onChaosDrill}>
                 Run lab chaos drill
               </button>
               <p className="text-xs text-muted-foreground">
-                origin dark → mirrors serve → till accrues (lab bookkeeping, not Gate J)
+                origin dark → mirrors serve → till journal (use booth for on-chain; not Gate J)
               </p>
             </div>
           )}
           {tillIsActive(store) && (
             <div className="mt-4 space-y-2">
               <h4 className="font-pixel text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                Record till (simulated PIX volume)
+                Record till (journal only — prefer booth for UTXOs)
               </h4>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -687,6 +759,7 @@ function StorePanel({
                     .map((e) => (
                       <li key={e.id}>
                         +{e.feePix} PIX fee on {e.amountPix} · {e.via} · {e.bps} bps
+                        {e.onChain ? ` · on-chain tip #${e.pixelIndex}` : " · journal"}
                       </li>
                     ))}
                 </ul>

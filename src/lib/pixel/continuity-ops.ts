@@ -7,7 +7,7 @@
  * Pixel holds the map (digest) and till bookkeeping — not ICP compute.
  */
 
-import { sha512Hex, type Hex } from "./crypto";
+import { sha512Hex, generateLightKeypair, type Hex, type LightKeypair } from "./crypto";
 import {
   acceptIntoLight,
   canServeWithoutOrigin,
@@ -15,6 +15,13 @@ import {
   markOriginDark,
   type ContinuityRecord,
 } from "./siso";
+import {
+  createGenesis,
+  proposeTransfer,
+  sequenceBlock,
+  verifyChain,
+  type PixelChainState,
+} from "./chain";
 
 export type ContinuityStep =
   | "draft"
@@ -44,17 +51,21 @@ export interface DeployChecklistItem {
   done: boolean;
 }
 
-/** Local till accrual — lab bookkeeping, not on-chain settlement. */
+/** Till accrual — journal always; on-chain when txid/pixelIndex set. */
 export interface TillEvent {
   id: string;
   at: number;
-  /** Simulated checkout volume in PIX units */
+  /** Checkout volume in PIX units */
   amountPix: number;
   /** Fee accrued (tillFeePix at record time) */
   feePix: number;
   bps: number;
   via: "mirror" | "origin" | "simulated";
   note?: string;
+  /** Real Pixel tip that collected the till fee UTXO (when on-chain). */
+  txid?: string;
+  pixelIndex?: number;
+  onChain?: boolean;
 }
 
 export interface ChaosDrillReport {
@@ -94,10 +105,35 @@ export interface ContinuityStore {
   rungIds: string[];
   /** SISO continuity record after go-live (map in the light) */
   continuity?: ContinuityRecord;
+  /**
+   * Real Pixel tip where the Continuity digest was anchored (WLREG/CONT memo).
+   * Absent = theater (must not claim “on Pixel”).
+   */
+  pixelIndex?: number;
+  /** Tip block hash after anchor */
+  tipHash?: Hex;
+  /** Tx metadata.reference binding the digest (e.g. CONT-<digest prefix>) */
+  registerRef?: string;
+  /** Pixel network id of the chain that anchored */
+  networkId?: number;
+  /** True only after illuminateStorefrontOnPixel succeeded */
+  anchoredOnPixel?: boolean;
   /** Operator-only booth jobs (rsync / DNS) — never merchant-facing */
   deployPlan?: DeployChecklistItem[];
-  /** Append-only local till ledger (lab) */
+  /** Append-only till ledger (lab journal; may include on-chain tip refs) */
   tillEvents?: TillEvent[];
+  /** Merchant receive address for booth settlement (Pixel) */
+  merchantAddress?: string;
+  /** Till fee receive address (Pixel) */
+  tillAddress?: string;
+  /** Last origin probe result (ops desk) */
+  lastOriginProbe?: {
+    at: number;
+    ok: boolean;
+    status?: number;
+    error?: string;
+    ms: number;
+  };
   /** When merchant accepted the invite */
   joinedAt?: number;
   createdAt: number;
@@ -168,13 +204,95 @@ export function emptyOpsState(operatorName = "McFlamingo Continuity"): Continuit
 export const MCFLAMINGO_DEMO_DOMAIN = "mcflamingo.com";
 /** Live restaurant origin — Popmenu site (Ponte Vedra Beach). */
 export const MCFLAMINGO_ORIGIN_URL = "https://www.mcflamingo.com/";
+/** Browse menu on the real site (not a localhost page). */
+export const MCFLAMINGO_MENU_URL = "https://www.mcflamingo.com/menu";
 /** Ordering deep link on the real site. */
 export const MCFLAMINGO_ORDER_URL = "https://www.mcflamingo.com/popmenu-order";
 /**
- * Continuity artifact for digest / lab booths — captured homepage of the live site.
- * Preview for humans must open {@link MCFLAMINGO_ORIGIN_URL}, not this file.
+ * Digest-only artifact (for Continuity map hashing / CLI drills).
+ * Never present this URL to humans as “the menu” — scripts are stripped; it looks dead.
+ * Humans open {@link MCFLAMINGO_MENU_URL} / {@link MCFLAMINGO_ORDER_URL}.
  */
 export const MCFLAMINGO_SNAPSHOT_HREF = "/mcflamingo/homepage-snapshot.html";
+
+/** Honest lab thesis — Continuity desk ≠ hosting the restaurant. */
+export function mcflamingoContinuityHonesty(): string {
+  return "The McFlamingo menu is served by Popmenu at www.mcflamingo.com. Continuity anchors a sha512 digest of that site onto a real Pixel tip (CONT-… memo). Pixel does not host the restaurant page or replace Popmenu DNS.";
+}
+
+export interface StorefrontPixelAnchor {
+  continuity: ContinuityRecord;
+  state: PixelChainState;
+  pixelIndex: number;
+  tipHash: Hex;
+  registerRef: string;
+  networkId: number;
+  chainValid: boolean;
+}
+
+/**
+ * Anchor a storefront Continuity digest onto a real Pixel tip.
+ * Creates (or extends) a chain: 1-PIX self-memo with reference CONT-<digest>,
+ * then acceptIntoLight at the actual tip index — never a fake pixelIndex: 1.
+ */
+export async function illuminateStorefrontOnPixel(params: {
+  name: string;
+  domain: string;
+  originUrl: string;
+  digest: Hex;
+  mirrors: string[];
+  /** Reuse an existing chain (e.g. browser session); otherwise fresh genesis */
+  state?: PixelChainState;
+  sequencer?: LightKeypair;
+}): Promise<StorefrontPixelAnchor> {
+  if (!params.digest || params.digest.length < 32) {
+    throw new Error("Need a real content digest before anchoring on Pixel");
+  }
+  const sequencer = params.sequencer ?? (await generateLightKeypair());
+  let state = params.state ?? (await createGenesis(sequencer));
+  if (!(await verifyChain(state))) throw new Error("Pixel chain invalid before Continuity anchor");
+
+  const continuity0 = await comeTowardLight({
+    name: params.domain,
+    kind: "static_site",
+    digest: params.digest,
+    languages: ["html"],
+    originHost: "unknown",
+    originUrl: params.originUrl,
+    mirrors: params.mirrors,
+  });
+
+  const registerRef = `CONT-${params.digest.slice(0, 24)}`;
+  const spoken = await proposeTransfer(
+    state,
+    sequencer,
+    [{ address: sequencer.address, amount: 1 }],
+    {
+      description: `Continuity map: ${params.name} · ${params.domain}`,
+      recipientLabel: params.domain,
+      reference: registerRef,
+    },
+  );
+  state = await sequenceBlock(spoken.state, sequencer);
+  if (!(await verifyChain(state))) throw new Error("Pixel chain invalid after Continuity anchor");
+
+  const tip = state.pixels[state.pixels.length - 1]!;
+  const continuity = acceptIntoLight(continuity0, tip.index);
+  if (continuity.state !== "in_the_light") throw new Error("Continuity failed to enter the light");
+  if (continuity.illuminatedAtPixel !== tip.index) {
+    throw new Error("Continuity pixel index must match tip");
+  }
+
+  return {
+    continuity,
+    state,
+    pixelIndex: tip.index,
+    tipHash: tip.hash,
+    registerRef,
+    networkId: state.networkId,
+    chainValid: true,
+  };
+}
 
 /** Cloudflare challenge / bot interstitial — not a usable Continuity artifact. */
 export function isUnusableOriginHtml(html: string): boolean {
@@ -268,24 +386,28 @@ export async function seedMcFlamingoDemo(
   next = merchantJoin(next, token, { originUrl });
   next = attachStoreDigest(next, storeId, await digestArtifactText(html));
 
-  const mirrors = opts?.mirrorUrls ?? [];
+  // Human-facing mirrors must be LIVE restaurant URLs — never the local digest snapshot
+  // (stripped Popmenu HTML looks like a dead/404 page when opened in a browser).
+  const mirrors = opts?.mirrorUrls?.length
+    ? opts.mirrorUrls
+    : [MCFLAMINGO_ORIGIN_URL, MCFLAMINGO_MENU_URL];
   if (mirrors[0]) {
     next = updateRung(next, next.rungs[0]!.id, {
       baseUrl: mirrors[0],
-      label: "Continuity booth A — McFlamingo snapshot",
-      provider: "Lab",
+      label: "Live McFlamingo — homepage",
+      provider: "Popmenu",
     });
   }
   if (mirrors[1]) {
     next = updateRung(next, next.rungs[1]!.id, {
       baseUrl: mirrors[1],
-      label: "Continuity booth B — McFlamingo snapshot",
-      provider: "Lab",
+      label: "Live McFlamingo — menu",
+      provider: "Popmenu",
     });
   }
 
   next = assignRungs(next, storeId, [next.rungs[0]!.id, next.rungs[1]!.id]);
-  return goLive(next, storeId, { pixelIndex: 1 });
+  return goLive(next, storeId);
 }
 
 /** Invite prerequisites — what operators must know before sending a link. */
@@ -352,7 +474,7 @@ export async function selfServeShineIn(
   }
 
   next = assignRungs(next, storeId, [next.rungs[0]!.id, next.rungs[1]!.id]);
-  return goLive(next, storeId, { pixelIndex: 1 });
+  return goLive(next, storeId);
 }
 
 export function shineInPlainThesis(): string {
@@ -497,13 +619,18 @@ export function buildDeployPlan(
 }
 
 /**
- * Step 5 — go live: SISO record into the light + deploy checklist.
- * Does not rsync by itself (operator/agent runs the plan).
+ * Step 5 — go live: digests into SISO **and** anchors on a real Pixel tip.
+ * Deploy checklist remains operator-side (rsync/DNS not executed here).
  */
 export async function goLive(
   state: ContinuityOpsState,
   storeId: string,
-  opts?: { pixelIndex?: number },
+  opts?: {
+    /** @deprecated ignored — fake pixelIndex is no longer allowed */
+    pixelIndex?: number;
+    chainState?: PixelChainState;
+    sequencer?: LightKeypair;
+  },
 ): Promise<ContinuityOpsState> {
   const store = state.stores.find((s) => s.id === storeId);
   if (!store) throw new Error("Store not found");
@@ -512,22 +639,27 @@ export async function goLive(
 
   const mirrors = state.rungs.filter((r) => store.rungIds.includes(r.id)).map((r) => r.baseUrl);
 
-  let continuity = await comeTowardLight({
-    name: store.domain,
-    kind: "static_site",
-    digest: store.digest,
-    languages: ["html"],
-    originHost: "unknown",
+  const anchor = await illuminateStorefrontOnPixel({
+    name: store.name,
+    domain: store.domain,
     originUrl: store.originUrl,
+    digest: store.digest,
     mirrors,
+    state: opts?.chainState,
+    sequencer: opts?.sequencer,
   });
-  continuity = acceptIntoLight(continuity, opts?.pixelIndex ?? 0);
   const deployPlan = buildDeployPlan(store, state.rungs);
 
   return patchStore(state, storeId, {
     step: "live",
-    continuity,
+    continuity: anchor.continuity,
     deployPlan,
+    pixelIndex: anchor.pixelIndex,
+    tipHash: anchor.tipHash,
+    registerRef: anchor.registerRef,
+    networkId: anchor.networkId,
+    anchoredOnPixel: true,
+    note: `Anchored on Pixel tip #${anchor.pixelIndex} · ${anchor.registerRef}`,
   });
 }
 
@@ -626,7 +758,7 @@ export function stepLabel(step: ContinuityStep): string {
   }
 }
 
-function patchStore(
+export function patchStore(
   state: ContinuityOpsState,
   storeId: string,
   patch: Partial<ContinuityStore>,
@@ -661,14 +793,20 @@ export function tillAccruedPix(store: ContinuityStore): number {
 }
 
 /**
- * Record a simulated settlement against the till.
- * Lab bookkeeping only — does not mint UTXOs or touch the chain.
+ * Record a settlement against the till journal.
+ * Prefer settleBoothCheckoutOnPixel for real UTXOs — pass txid/pixelIndex when on-chain.
  */
 export function recordTillSettlement(
   state: ContinuityOpsState,
   storeId: string,
   amountPix: number,
-  opts?: { via?: TillEvent["via"]; note?: string },
+  opts?: {
+    via?: TillEvent["via"];
+    note?: string;
+    txid?: string;
+    pixelIndex?: number;
+    onChain?: boolean;
+  },
 ): ContinuityOpsState {
   const store = state.stores.find((s) => s.id === storeId);
   if (!store) throw new Error("Store not found");
@@ -680,18 +818,81 @@ export function recordTillSettlement(
   const bps = activeTillBps(store);
   const feePix = tillFeePix(store, amountPix);
   if (feePix <= 0) throw new Error("Fee rounds to zero — raise amount or bps");
+  const onChain = opts?.onChain ?? Boolean(opts?.txid);
   const event: TillEvent = {
     id: id("till"),
     at: Date.now(),
     amountPix,
     feePix,
     bps,
-    via: opts?.via ?? "simulated",
-    note: opts?.note ?? "lab till — not on-chain",
+    via: opts?.via ?? (onChain ? "mirror" : "simulated"),
+    note:
+      opts?.note ?? (onChain ? `on-chain ${opts?.txid?.slice(0, 16)}…` : "lab till — not on-chain"),
+    txid: opts?.txid,
+    pixelIndex: opts?.pixelIndex,
+    onChain,
   };
   return patchStore(state, storeId, {
     tillEvents: [...(store.tillEvents ?? []), event],
   });
+}
+
+/** Probe origin HTTP reachability (browser CORS may force opaque/failed). */
+export async function probeOrigin(
+  url: string,
+  timeoutMs = 5000,
+): Promise<{ ok: boolean; status?: number; error?: string; ms: number }> {
+  const started = performance.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      mode: "cors",
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timer);
+    return { ok: res.ok, status: res.status, ms: Math.round(performance.now() - started) };
+  } catch (e) {
+    clearTimeout(timer);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+      ms: Math.round(performance.now() - started),
+    };
+  }
+}
+
+/**
+ * Probe store originUrl; if down, mark origin_dark (ops flip — not DNS takeover).
+ */
+export async function checkOriginAndFailover(
+  state: ContinuityOpsState,
+  storeId: string,
+): Promise<{
+  state: ContinuityOpsState;
+  probe: Awaited<ReturnType<typeof probeOrigin>>;
+  flipped: boolean;
+}> {
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store) throw new Error("Store not found");
+  if (store.step !== "live" || !store.continuity) {
+    throw new Error("Store must be live with SISO continuity");
+  }
+  const probe = await probeOrigin(store.originUrl);
+  let next = patchStore(state, storeId, {
+    lastOriginProbe: { at: Date.now(), ...probe },
+  });
+  if (probe.ok) {
+    return { state: next, probe, flipped: false };
+  }
+  const live = next.stores.find((s) => s.id === storeId)!;
+  if (live.continuity?.state !== "origin_dark") {
+    next = markStoreOriginDark(next, storeId);
+    return { state: next, probe, flipped: true };
+  }
+  return { state: next, probe, flipped: false };
 }
 
 /**
@@ -737,7 +938,7 @@ export async function runChaosDrill(
   const settlementPix = opts?.settlementPix ?? 10_000;
   next = recordTillSettlement(next, storeId, settlementPix, {
     via: "mirror",
-    note: "chaos drill — simulated checkout while origin dark (lab)",
+    note: "chaos drill — journal till while origin dark (use booth Pay with Pixel for on-chain)",
   });
   const live = next.stores.find((s) => s.id === storeId)!;
   const feePix = tillFeePix(afterDark, settlementPix);
@@ -750,7 +951,7 @@ export async function runChaosDrill(
     feePix,
     accruedPix: tillAccruedPix(live),
     claim:
-      "Lab: origin_dark → mirrors allow serve → till bookkeeping accrues on simulated PIX volume. Not Gate J public drill.",
+      "Lab: origin_dark → mirrors allow serve → till journal accrues. Booth /continuity/booth/$domain settles real PIX UTXOs. Not Gate J public drill.",
   };
   return { state: next, report };
 }

@@ -86,10 +86,15 @@ export function collectOtsUsages(
 ): Array<{ publicKey: Hex; leafIndex: number; source: string }> {
   const out: Array<{ publicKey: Hex; leafIndex: number; source: string }> = [];
   for (const tx of txs) {
+    // signTransaction attaches one OTS leaf to every input of a tx — count once per tx.
+    const seenInTx = new Set<string>();
     for (const input of tx.inputs) {
       if (!input.signature || !input.publicKey) continue;
       const leaf = parseOtsLeafIndex(input.signature);
       if (leaf === null) continue;
+      const key = otsUsageKey(input.publicKey, leaf);
+      if (seenInTx.has(key)) continue;
+      seenInTx.add(key);
       out.push({
         publicKey: input.publicKey,
         leafIndex: leaf,

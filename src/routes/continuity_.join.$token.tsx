@@ -3,7 +3,10 @@ import { useMemo, useState } from "react";
 import { useContinuityOps } from "@/hooks/use-continuity-ops";
 import {
   MCFLAMINGO_DEMO_DOMAIN,
+  MCFLAMINGO_MENU_URL,
+  MCFLAMINGO_ORDER_URL,
   MCFLAMINGO_ORIGIN_URL,
+  mcflamingoContinuityHonesty,
   merchantJoin,
   merchantOfferCopy,
   storeByInvite,
@@ -102,14 +105,27 @@ function MerchantJoin() {
               still reach you and the till only kicks in on those surviving checkouts.
             </p>
             {isMcFlamingo && (
-              <a
-                className="continuity-btn mt-8 inline-flex"
-                href={MCFLAMINGO_ORIGIN_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open McFlamingo.com
-              </a>
+              <div className="mt-8 space-y-3">
+                <p className="text-xs text-muted-foreground">{mcflamingoContinuityHonesty()}</p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    className="continuity-btn inline-flex"
+                    href={MCFLAMINGO_MENU_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open live menu
+                  </a>
+                  <a
+                    className="continuity-btn-ghost inline-flex"
+                    href={MCFLAMINGO_ORDER_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Order on Popmenu
+                  </a>
+                </div>
+              </div>
             )}
           </div>
         ) : (

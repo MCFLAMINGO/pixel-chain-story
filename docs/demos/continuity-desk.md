@@ -6,10 +6,10 @@
 
 ## Before you send invites (lab)
 
-1. Create the offer on `/continuity` first (mints the token).  
-2. **Same browser** — ops state is `localStorage`; another device will say “Link not found.”  
-3. Merchant does **not** need DNS or a digest.  
-4. Shortcut: **Demo: real McFlamingo shines in** seeds Continuity from the live origin `https://www.mcflamingo.com/` (digest from live HTML when fetchable, else `public/mcflamingo/homepage-snapshot.html`).  
+1. Create the offer on `/continuity` first (mints the token).
+2. **Same browser** — ops state is `localStorage`; another device will say “Link not found.”
+3. Merchant does **not** need DNS or a digest.
+4. Shortcut: **Demo: real McFlamingo shines in** seeds Continuity from the live origin `https://www.mcflamingo.com/` (digest from live HTML when fetchable, else `public/mcflamingo/homepage-snapshot.html`).
 5. **Open join page** must show the **merchant** screen (`Continuity · merchant` / Turn on Continuity) — not the operator desk. If you still see the admin wizard, you’re on a build before the join-route un-nest fix.
 
 ## Run
@@ -20,21 +20,33 @@ bun run dev
 
 Open:
 
-- Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)  
-- One-click: **Demo: real McFlamingo shines in**  
-- Storefront preview: [www.mcflamingo.com](https://www.mcflamingo.com/)  
-- Continuity snapshot (lab digest/booth): [/mcflamingo/homepage-snapshot.html](http://localhost:8080/mcflamingo/homepage-snapshot.html)  
-- Merchant invite: `/continuity/join/<token>` (same browser)  
+- Admin: [http://localhost:8080/continuity](http://localhost:8080/continuity)
+- One-click: **Demo: real McFlamingo shines in**
+- Storefront preview: [www.mcflamingo.com](https://www.mcflamingo.com/)
+- Continuity snapshot (lab digest/booth): [/mcflamingo/homepage-snapshot.html](http://localhost:8080/mcflamingo/homepage-snapshot.html)
+- Merchant invite: `/continuity/join/<token>` (same browser)
 - Kill-origin CLI: `bun run test:mcflamingo` — see [`mcflamingo-continuity.md`](./mcflamingo-continuity.md)
 
 ## Money shape
 
-| Piece | When | What |
-| --- | --- | --- |
-| **Map fee** | Always while covered | ~$15–30/mo (`priceUsdPerMonth`) |
-| **Till** | Origin dark + sales still clear | Default **100 bps (1%)** of PIX volume (`tillCutBpsWhenOriginDark`) |
+| Piece       | When                            | What                                                                |
+| ----------- | ------------------------------- | ------------------------------------------------------------------- |
+| **Map fee** | Always while covered            | ~$15–30/mo (`priceUsdPerMonth`)                                     |
+| **Till**    | Origin dark + sales still clear | Default **100 bps (1%)** of PIX volume (`tillCutBpsWhenOriginDark`) |
 
-Till is **local bookkeeping** (`tillEvents` / `recordTillSettlement`) — not on-chain settlement. Accrues only while till is active.
+Till is a **journal** (`tillEvents` / `recordTillSettlement`) plus **optional on-chain UTXOs** via the Continuity booth (`settleBoothCheckoutOnPixel`). Accrues only while till is active. Journal-only rows are labeled; booth payments set `onChain` + `txid`.
+
+## Continuity booth (real PIX)
+
+```
+/continuity/booth/<domain>
+```
+
+**Pay with Pixel** funds an ephemeral customer, settles to the merchant address, and — when origin is dark — moves the till fee UTXO to the till address. Same-browser `localStorage` session (`pixel.continuity.chain.v1`).
+
+```bash
+bun run test:continuity-order
+```
 
 ## Lab chaos drill
 
@@ -42,17 +54,17 @@ Till is **local bookkeeping** (`tillEvents` / `recordTillSettlement`) — not on
 bun run test:chaos-drill
 ```
 
-Walks: live → origin dark → `canServeWithoutOrigin` → till accrues on simulated PIX.  
-Desk button: **Run lab chaos drill**. This is Continuity lab evidence — **not** Gate J public-regime drill.
+Walks: live → origin dark → `canServeWithoutOrigin` → till journal accrues.  
+Desk: **Check origin health** (ops flip if probe fails) · **Open Continuity booth** · **Run lab chaos drill**. Not Gate J.
 
 ## Admin steps
 
-1. **Create offer** — business name, domain, map fee  
-2. **Copy secure link** — send to merchant  
-3. **Merchant turns on** — one button (digest optional; you may attach later)  
-4. **Assign booths** — which of your 5 rung URLs serve them  
-5. **Go live** — SISO digest in the light + **operator booth jobs** checklist  
-6. **Mark origin dark** (when failover happens) — till activates  
+1. **Create offer** — business name, domain, map fee
+2. **Copy secure link** — send to merchant
+3. **Merchant turns on** — one button (digest optional; you may attach later)
+4. **Assign booths** — which of your 5 rung URLs serve them
+5. **Go live** — SISO digest in the light + **operator booth jobs** checklist
+6. **Mark origin dark** (when failover happens) — till activates
 
 ## Merchant experience
 
