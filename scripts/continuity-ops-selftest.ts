@@ -70,8 +70,10 @@ async function main() {
   let live = state.stores[0];
   if (live.step !== "live" || stepIndex("live") !== 4) throw new Error("live");
   if (live.continuity?.state !== "in_the_light") throw new Error("siso not in light");
-  if (!live.anchoredOnPixel || (live.pixelIndex ?? 0) < 1) throw new Error("must anchor real Pixel tip");
-  if (live.continuity?.illuminatedAtPixel !== live.pixelIndex) throw new Error("Continuity tip mismatch");
+  if (!live.anchoredOnPixel || (live.pixelIndex ?? 0) < 1)
+    throw new Error("must anchor real Pixel tip");
+  if (live.continuity?.illuminatedAtPixel !== live.pixelIndex)
+    throw new Error("Continuity tip mismatch");
   if (!live.registerRef?.startsWith("CONT-")) throw new Error("CONT ref");
   if (!live.deployPlan?.length) throw new Error("missing booth jobs");
   if (tillIsActive(live)) throw new Error("till should be idle while origin up");
