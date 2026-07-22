@@ -47,10 +47,13 @@ Truth badges: `pix_protocolInfo.gates` and `.quantum`. Match every public senten
 | **For**         | Protocol, crypto, nodes, locks           | [`docs/PATH.md`](docs/PATH.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)                     |
 | **Into (SISO)** | Mirror an existing artifact — no rewrite | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) · [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md) |
 
+**Illuminated map (humans + agents):** [`docs/DOORS.md`](docs/DOORS.md) · site **`/doors`** — purpose, people use, seed ideas (not claims).
+
 ## Product surfaces (UI)
 
 | Route                       | Role                                                                     |
 | --------------------------- | ------------------------------------------------------------------------ |
+| `/doors`                    | Every entrance illuminated — on / for / into + people + seeds            |
 | `/`                         | Live field                                                               |
 | `/lab`                      | Kindling / Worldlight builders                                           |
 | `/shine`                    | Non-tech Continuity front door (brand → Shine in)                        |
@@ -69,14 +72,14 @@ bun install
 bun run test:all
 ```
 
-| Script                                                                                   | When                               |
-| ---------------------------------------------------------------------------------------- | ---------------------------------- |
-| `test:all`                                                                               | Default PR bar                     |
-| `test:siso`                                                                              | Continuity / SISO model            |
+| Script                                                                                                              | When                                    |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `test:all`                                                                                                          | Default PR bar                          |
+| `test:siso`                                                                                                         | Continuity / SISO model                 |
 | `test:continuity-ops` / `test:chaos-drill` / `test:mcflamingo` / `test:continuity-order` / `test:continuity-deepen` | Continuity desk + booth + packs/webhook |
-| `test:mldsa` / `test:vectors` / `test:kem`                                               | Crypto                             |
-| `test:net` / `test:four-node` / `test:fault` / `test:light`                              | Network / consensus / light client |
-| `test:ula` / `test:ula-mldsa` / `test:bridge-custody`                                    | Bridge / custody                   |
+| `test:mldsa` / `test:vectors` / `test:kem`                                                                          | Crypto                                  |
+| `test:net` / `test:four-node` / `test:fault` / `test:light`                                                         | Network / consensus / light client      |
+| `test:ula` / `test:ula-mldsa` / `test:bridge-custody`                                                               | Bridge / custody                        |
 
 ## Do / don’t
 
@@ -99,7 +102,7 @@ bun run test:all
 1. Gate I — external audit engagement from [`docs/AUDIT.md`](docs/AUDIT.md) scope
 2. Gate E remainder — public Sepolia (or equiv.) ULA tx links
 3. Gate G — live ≥7-provider sovereignty set on the wire
-4. Continuity — invite packs + node webhook shipped; agentic booth runners / Gate J still held 
+4. Continuity — invite packs + node webhook shipped; agentic booth runners / Gate J still held
 5. Gate J — public chaos drill evidence (lab `test:chaos-drill` is not that)
 
 Deep agent call: [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md).  

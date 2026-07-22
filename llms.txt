@@ -13,6 +13,7 @@ Deep agent call: /docs/AGENTS-SISO.md
 - [Agent brief (Pixel)](AGENTS.md): identity, creed, routes, do/don't, tests, claim bounds
 - [Agents: SISO call](docs/AGENTS-SISO.md): shine in or build a PATH gate
 - [Quickstart](docs/QUICKSTART.md): bun install, node, UI, test:all
+- [DOORS](docs/DOORS.md): purpose + on/for/into + people use + seed ideas (`/doors`)
 - [README](README.md): human front door + doc table
 
 ## Doctrine
@@ -44,6 +45,7 @@ Deep agent call: /docs/AGENTS-SISO.md
 
 ## Product routes
 
+- /doors — every entrance illuminated (on / for / into + people + seeds)
 - / — live field
 - /lab — Kindling / Worldlight
 - /shine — non-tech Continuity handshake

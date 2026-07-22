@@ -133,6 +133,12 @@ function ContinuityAdmin() {
                 ← Shine in
               </Link>
               <Link
+                to="/doors"
+                className="font-pixel text-xs tracking-[0.28em] text-muted-foreground uppercase underline-offset-4 hover:underline"
+              >
+                Doors
+              </Link>
+              <Link
                 to="/lab"
                 className="font-pixel text-xs tracking-[0.28em] text-muted-foreground uppercase underline-offset-4 hover:underline"
               >

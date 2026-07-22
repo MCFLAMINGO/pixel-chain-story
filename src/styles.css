@@ -321,3 +321,32 @@
 .pixel-reveal {
   animation: reveal-bloom 0.85s ease-out both;
 }
+
+/* /doors — illuminate every entrance */
+.doors-page {
+  background:
+    radial-gradient(ellipse 70% 50% at 10% 0%, oklch(0.28 0.06 145 / 0.35), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 95% 30%, oklch(0.22 0.05 85 / 0.3), transparent 50%),
+    linear-gradient(180deg, oklch(0.11 0.025 145), oklch(0.09 0.02 145) 40%, oklch(0.08 0.018 145));
+}
+
+.doors-hero-glow {
+  background:
+    radial-gradient(ellipse 90% 70% at 40% 110%, oklch(0.55 0.12 95 / 0.22), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 20%, oklch(0.45 0.08 155 / 0.18), transparent 55%);
+  animation: light-sweep 18s ease-in-out infinite;
+  background-size:
+    120% 120%,
+    100% 100%;
+}
+
+.doors-door {
+  animation: pixel-rise 0.75s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doors-hero-glow,
+  .doors-door {
+    animation: none;
+  }
+}

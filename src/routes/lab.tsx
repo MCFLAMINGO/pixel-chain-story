@@ -43,6 +43,12 @@ function Lab() {
             ← Live field
           </Link>
           <Link
+            to="/doors"
+            className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
+          >
+            Doors
+          </Link>
+          <Link
             to="/continuity"
             className="font-pixel text-xs tracking-[0.28em] text-primary uppercase underline-offset-4 hover:underline"
           >
@@ -51,8 +57,11 @@ function Lab() {
         </div>
         <h1 className="font-pixel mt-6 text-4xl font-bold tracking-tight md:text-5xl">Lab</h1>
         <p className="mt-3 max-w-xl text-muted-foreground">
-          SISO — Build anywhere. Shine in once. No second you. Build on / for / into Pixel. Agents:
-          docs/AGENTS-SISO.md. {EXPRESSION_AXIOM}
+          SISO — Build anywhere. Shine in once. No second you. Build on / for / into Pixel. Map:{" "}
+          <Link to="/doors" className="text-primary underline-offset-4 hover:underline">
+            /doors
+          </Link>
+          . Agents: docs/AGENTS-SISO.md. {EXPRESSION_AXIOM}
         </p>
         <p className="font-pixel mt-4 text-xs tracking-widest text-muted-foreground uppercase">
           On · For · Into

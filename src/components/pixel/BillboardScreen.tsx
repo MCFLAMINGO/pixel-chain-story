@@ -88,8 +88,14 @@ export function BillboardScreen({
           {showLabLink && (
             <p className="pointer-events-auto mt-4 flex flex-col items-end gap-2">
               <Link
-                to="/shine"
+                to="/doors"
                 className="text-xs tracking-widest text-primary underline decoration-primary/40 underline-offset-4 hover:text-primary"
+              >
+                Doors
+              </Link>
+              <Link
+                to="/shine"
+                className="text-xs tracking-widest text-primary/90 underline decoration-primary/35 underline-offset-4 hover:text-primary"
               >
                 Shine in
               </Link>

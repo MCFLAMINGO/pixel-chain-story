@@ -108,6 +108,14 @@ function ShineInPage() {
         >
           Pixel · Continuity
         </p>
+        <p className="shine-fade mt-3" style={{ animationDelay: "40ms" }}>
+          <Link
+            to="/doors"
+            className="font-pixel text-[11px] tracking-[0.24em] text-muted-foreground uppercase underline-offset-4 hover:text-primary hover:underline"
+          >
+            All doors
+          </Link>
+        </p>
         <h1
           className="font-pixel shine-fade mt-5 text-5xl font-bold tracking-tight md:text-6xl"
           style={{ animationDelay: "80ms" }}
