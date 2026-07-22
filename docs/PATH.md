@@ -3,7 +3,11 @@
 **Stance:** keep the honest lab frame _and_ build until the frame is obsolete.  
 Respect is not requested in copy. It is earned when a skeptical engineer can clone, break, and still find the invariants holding.
 
-This document is the north star. [`ROADMAP.md`](./ROADMAP.md) is the checklist. Normative behavior is whatever [`SPEC.md`](./SPEC.md) + CI enforce.
+This document is the north star checklist of **earned respect**. [`ROADMAP.md`](./ROADMAP.md) is the gate list. Normative behavior is whatever [`SPEC.md`](./SPEC.md) + CI enforce.
+
+**Dream (destination voice):** build Pixel into a world-class model for a future species — light signatures in a dark universe. Think big; solve big problems; build until the lab frame is obsolete.
+
+**Claim (public voice):** only what the highest passing gate allows. Dream ≠ claim. See [`DOORS.md`](./DOORS.md).
 
 ---
 

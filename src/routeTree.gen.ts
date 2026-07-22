@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShineRouteImport } from './routes/shine'
 import { Route as McflamingoRouteImport } from './routes/mcflamingo'
 import { Route as LabRouteImport } from './routes/lab'
+import { Route as DoorsRouteImport } from './routes/doors'
 import { Route as ContinuityRouteImport } from './routes/continuity'
 import { Route as BillboardRouteImport } from './routes/billboard'
 import { Route as IndexRouteImport } from './routes/index'
@@ -31,6 +32,11 @@ const McflamingoRoute = McflamingoRouteImport.update({
 const LabRoute = LabRouteImport.update({
   id: '/lab',
   path: '/lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoorsRoute = DoorsRouteImport.update({
+  id: '/doors',
+  path: '/doors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContinuityRoute = ContinuityRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
   '/continuity': typeof ContinuityRoute
+  '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
   '/continuity': typeof ContinuityRoute
+  '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
   '/continuity': typeof ContinuityRoute
+  '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/billboard'
     | '/continuity'
+    | '/doors'
     | '/lab'
     | '/mcflamingo'
     | '/shine'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/billboard'
     | '/continuity'
+    | '/doors'
     | '/lab'
     | '/mcflamingo'
     | '/shine'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/billboard'
     | '/continuity'
+    | '/doors'
     | '/lab'
     | '/mcflamingo'
     | '/shine'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BillboardRoute: typeof BillboardRoute
   ContinuityRoute: typeof ContinuityRoute
+  DoorsRoute: typeof DoorsRoute
   LabRoute: typeof LabRoute
   McflamingoRoute: typeof McflamingoRoute
   ShineRoute: typeof ShineRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/lab'
       fullPath: '/lab'
       preLoaderRoute: typeof LabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doors': {
+      id: '/doors'
+      path: '/doors'
+      fullPath: '/doors'
+      preLoaderRoute: typeof DoorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/continuity': {
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillboardRoute: BillboardRoute,
   ContinuityRoute: ContinuityRoute,
+  DoorsRoute: DoorsRoute,
   LabRoute: LabRoute,
   McflamingoRoute: McflamingoRoute,
   ShineRoute: ShineRoute,

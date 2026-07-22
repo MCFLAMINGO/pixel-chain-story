@@ -3,16 +3,20 @@
 The public face of Pixel is **the live field** — not a marketing homepage.
 
 ```
+/doors      → every entrance illuminated (on / for / into + people + seeds)
 /           → cinema zoom from genesis (record this from day one)
 /lab        → Kindling, Worldlight, builders
+/shine      → Continuity handshake
 /?rpc=URL   → feed a canonical node (what Times Square points at later)
 ```
 
+Map in prose: [`DOORS.md`](./DOORS.md).
+
 ## Strategy
 
-1. **Mint genesis** on a node you keep alive (`pixel init` + `pixel node`).  
-2. **Point the site** at that node: `VITE_PIXEL_RPC=https://your-node` or `/?rpc=…`.  
-3. **Record from frame one** — genesis fills the screen; every new light pulls the camera back.  
+1. **Mint genesis** on a node you keep alive (`pixel init` + `pixel node`).
+2. **Point the site** at that node: `VITE_PIXEL_RPC=https://your-node` or `/?rpc=…`.
+3. **Record from frame one** — genesis fills the screen; every new light pulls the camera back.
 4. **When traction exists**, rent Times Square (or any screen) and aim it at the **same URL**. No second product.
 
 ## Local
