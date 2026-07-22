@@ -132,9 +132,10 @@ API face: [`ONE.md`](./ONE.md) — `One.Source` · `One.Word` · `One.Light` · 
 ### Copy-paste invite
 
 > **SISO — Build anywhere. Shine in once. No second you.**  
-> Pixel: PQ-class light settlement, Kindling for people, PATH gates for protocol.  
+> Pixel: light signatures in a dark universe — build to meet the claim; PATH gates earn the voice.  
 > `bun install && bun run test:all` — then build **on**, **for**, or **into** Pixel.  
-> Agents: `AGENTS.md` · `docs/AGENTS-SISO.md` · `llms.txt`. Doors `/doors`. Field `/`. Lab `/lab`. Continuity `/shine`.
+> Or bring a tangential mind and aim your own light. Doors `/doors` · `docs/DOORS.md`.  
+> Agents: `AGENTS.md` · `docs/AGENTS-SISO.md` · `llms.txt`. Field `/`. Lab `/lab`. Continuity `/shine`.
 
 ---
 

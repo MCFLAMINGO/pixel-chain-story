@@ -135,6 +135,59 @@ function DoorsPage() {
 
       <section
         className="border-t border-primary/15 px-6 py-20 md:px-14"
+        aria-labelledby="north-star"
+      >
+        <p className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">North star</p>
+        <h2
+          id="north-star"
+          className="font-pixel mt-4 max-w-2xl text-3xl font-bold tracking-tight md:text-4xl"
+        >
+          Light signatures in a dark universe.
+        </h2>
+        <p className="mt-5 max-w-xl text-lg leading-relaxed text-foreground/90">
+          Build to meet the claim. Think big. Solve big problems. Make Pixel a world-class model for
+          a future species — then prove each step with a PATH gate.
+        </p>
+        <p className="mt-4 max-w-xl text-muted-foreground">
+          Dream names the destination. Evidence earns the public sentence. We do not overclaim — and
+          we do not shrink the dream to fit yesterday’s CI.
+        </p>
+      </section>
+
+      <section className="border-t border-primary/15 px-6 py-20 md:px-14" aria-labelledby="invite">
+        <p className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">Invite</p>
+        <h2
+          id="invite"
+          className="font-pixel mt-4 max-w-2xl text-3xl font-bold tracking-tight md:text-4xl"
+        >
+          Direct the light
+        </h2>
+        <p className="mt-5 max-w-xl text-muted-foreground">
+          Help us build — or bring a tangential mind. Optics, villages, agents, art, energy,
+          markets: aim the future. You do not need permission to think.
+        </p>
+        <ul className="mt-10 max-w-xl space-y-6">
+          <li>
+            <p className="font-pixel text-sm tracking-[0.18em] text-primary uppercase">
+              Build with us
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              Pick on / for / into. Land tests. Raise a gate.
+            </p>
+          </li>
+          <li>
+            <p className="font-pixel text-sm tracking-[0.18em] text-primary uppercase">
+              Aim your own light
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              Seed an idea we have not named. Prototype. Issue. Pull the camera back with us.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section
+        className="border-t border-primary/15 px-6 py-20 md:px-14"
         aria-labelledby="builder-doors"
       >
         <p className="font-pixel text-xs tracking-[0.28em] text-primary uppercase">Builder doors</p>

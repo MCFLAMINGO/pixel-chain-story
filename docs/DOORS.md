@@ -2,9 +2,34 @@
 
 **Purpose:** Pixel Ledger is a light-settlement picture. Scarce PIX settle under Proof of Light Sequence. Light reveals; without it, color is absent. Shine existence and value onto one shared picture — verification, continuity, or custody — not metaphor alone.
 
-**Not:** host the internet, Visa, a second Facebook, or “USD with a new name.”
+**Not (today’s claims):** host the internet, Visa, a second Facebook, or “USD with a new name.”
 
 Live map: **`/doors`** on the site.
+
+---
+
+## North star (dream ≠ claim)
+
+**Build to meet the claim.** The dream is the goal; PATH gates are how we earn the right to say it out loud.
+
+|                |                                                                                                                                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dream**      | A world-class model for a future species: **light signatures in a dark universe** — settlement, continuity, and custody that feel like illumination, not farms and phishing. Think big. Solve big problems. |
+| **Discipline** | Public voice claims only what the highest green gate allows ([`PATH.md`](./PATH.md)). Vocabulary can be large; **claims escalate with evidence**.                                                           |
+| **Stance**     | Keep the honest lab frame _and_ build until the frame is obsolete.                                                                                                                                          |
+
+Thesis strings name the destination. Tests and gates prove we arrived. Never hide a gap behind poetry — and never shrink the north star to match yesterday’s CI.
+
+---
+
+## Invite others (direct the light)
+
+Pixel needs more than one brain. Two ways in:
+
+1. **Help us build** — pick a door (**on / for / into**), land evidence, raise a PATH gate.
+2. **Bring a tangential mind** — your domain (optics, villages, agents, art, energy, markets) may aim the light somewhere we have not named. Open an issue, a seed, a prototype. Direct the future; do not wait for permission to think.
+
+Copy: _Build with us — or aim your own light into the picture._
 
 ---
 
@@ -39,7 +64,7 @@ Custody law: pay face ≠ vault; grid is optional code codec — [`CUSTODY.md`](
 
 ## Seed the mind (advantageous uses — invent, not claims)
 
-Ideas to explore. Ship only with PATH evidence.
+Ideas to explore. Ship only with PATH evidence. Tangential brains: add yours.
 
 1. **Continuity for any origin** — menu, clinic portal, village site: digest on Pixel; mirrors when host blinks.
 2. **Booth till** — when origin is dark, Pay with Pixel still settles; till accrues for the merchant.
@@ -64,4 +89,4 @@ bun run dev
 # /doors  ·  /?rpc=http://127.0.0.1:8545  ·  /lab  ·  /shine
 ```
 
-Status: prototype with real tests. Claim only what `pix_protocolInfo.gates` allow.
+Status: prototype with real tests. **North star:** light signatures in a dark universe. **Claim:** only what `pix_protocolInfo.gates` allow.

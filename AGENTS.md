@@ -25,8 +25,9 @@ From `One.Creed` (`src/lib/pixel/one.ts`):
 - **guide:** art guided by science it need not name.
 - **discipline:** every light verb must touch verification, continuity, or custody — never simile alone.
 - **Corollary:** no claim without a PATH gate. Thesis strings describe intent; gates prove delivery.
+- **North star:** build to meet the claim — light signatures in a dark universe. Dream ≠ today’s claim ([`docs/DOORS.md`](docs/DOORS.md)).
 
-Domain words (Kindling, Worldlight, Continuity, booth, till) are fine when they bind real ops. Crypto must not look like a solution in search of a problem — handshake first for non-tech people.
+Domain words (Kindling, Worldlight, Continuity, booth, till) are fine when they bind real ops. Crypto must not look like a solution in search of a problem — handshake first for non-tech people. Invite tangential minds to aim the light; do not shrink the dream to fit CI.
 
 ## What Pixel is / is not
 
