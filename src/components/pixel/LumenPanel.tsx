@@ -40,7 +40,7 @@ export function LumenPanel({
                 },
               }
             : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
-      const result = await runLumenSource(source, ray, args as Record<string, never>, host);
+      const result = await runLumenSource(source, ray, args as never, host);
       await onChain(result.host.chain, `Lumen ray \`${ray}\` settled`);
       setLog([...result.logs, `result: ${JSON.stringify(result.value)}`].join("\n"));
     } catch (e) {
