@@ -322,8 +322,13 @@
   animation: reveal-bloom 0.85s ease-out both;
 }
 
-/* /doors — illuminate every entrance */
+/* /doors — illuminate every entrance (dark backdrop, override light tokens for AA contrast) */
 .doors-page {
+  --foreground: oklch(0.985 0.01 95);
+  --muted-foreground: oklch(0.88 0.025 95);
+  --primary: oklch(0.88 0.15 95);
+  --border: oklch(0.55 0.06 145 / 0.4);
+  color: var(--foreground);
   background:
     radial-gradient(ellipse 70% 50% at 10% 0%, oklch(0.28 0.06 145 / 0.35), transparent 55%),
     radial-gradient(ellipse 55% 45% at 95% 30%, oklch(0.22 0.05 85 / 0.3), transparent 50%),
