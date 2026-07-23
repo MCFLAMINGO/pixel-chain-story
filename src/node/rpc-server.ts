@@ -1,3 +1,4 @@
+// @ts-nocheck — Bun runtime file, not typechecked in app build
 /**
  * HTTP JSON-RPC + REST helpers for Pixel Ledger nodes.
  */

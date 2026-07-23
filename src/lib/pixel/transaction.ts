@@ -57,8 +57,9 @@ export interface Utxo {
 }
 
 export function canonicalTxBody(
-  tx: Omit<Transaction, "txid" | "state" | "commitment" | "lightSequence" | "revealedAt"> & {
+  tx: Omit<Transaction, "txid" | "state" | "commitment" | "lightSequence" | "revealedAt" | "privacy"> & {
     commitment?: Hex;
+    privacy?: Transaction["privacy"];
   },
 ): string {
   return JSON.stringify({

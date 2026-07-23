@@ -46,7 +46,7 @@ export function concatBytes(...parts: Uint8Array[]): Uint8Array {
 
 export async function sha512(data: Uint8Array | string): Promise<Uint8Array> {
   const bytes = typeof data === "string" ? textEncoder.encode(data) : data;
-  const digest = await crypto.subtle.digest("SHA-512", bytes);
+  const digest = await crypto.subtle.digest("SHA-512", bytes as BufferSource);
   return new Uint8Array(digest);
 }
 

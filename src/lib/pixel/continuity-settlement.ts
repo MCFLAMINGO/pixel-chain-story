@@ -14,6 +14,7 @@ import {
   serializeChain,
   verifyChain,
   type PixelChainState,
+  type SerializedChain,
 } from "./chain";
 import { restoreLightKeypair, type Hex, type LightKeypair, type LightSchemeId } from "./crypto";
 import { generatePixelKeypair } from "./scheme";
@@ -36,7 +37,7 @@ export interface ContinuityWalletBlob {
 
 export interface ContinuitySessionBlob {
   networkId: number;
-  chainJson: string;
+  chainJson: SerializedChain;
   sequencer: ContinuityWalletBlob;
   merchant: ContinuityWalletBlob;
   till: ContinuityWalletBlob;

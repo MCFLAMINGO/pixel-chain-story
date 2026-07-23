@@ -24,7 +24,8 @@ import {
 } from "./optical";
 import { isPhysicalOpticalCapture, type OpticalCaptureResult } from "./optical-capture";
 import { bytesToHex, hexToBytes, randomBytes, sha512Hex, type Hex } from "./crypto";
-import { proposeTransfer, sequenceBlock, type LightKeypair, type PixelChainState } from "./chain";
+import { proposeTransfer, sequenceBlock, type PixelChainState } from "./chain";
+import type { LightKeypair } from "./crypto";
 import { energyTruthForIlluminate, formatEnergyTruth, type EnergyTruth } from "./energy-truth";
 import { assertSelfCustody } from "./custody";
 
