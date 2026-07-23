@@ -37,7 +37,7 @@ export interface ContinuityWalletBlob {
 
 export interface ContinuitySessionBlob {
   networkId: number;
-  chainJson: string;
+  chainJson: SerializedChain;
   sequencer: ContinuityWalletBlob;
   merchant: ContinuityWalletBlob;
   till: ContinuityWalletBlob;
