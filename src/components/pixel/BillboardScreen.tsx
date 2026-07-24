@@ -58,13 +58,14 @@ export function BillboardScreen({
   const countLabel = remote ? tip : local.chain ? `#${local.chain.pixels.length - 1}` : "…";
   const igniting = !rpc && local.busy && pixels.length === 0;
   const litCount = pixels.filter((p) => p.illuminated).length;
+  // World canvas honesty: without rpc this is lab light, not the public tip of humanity.
   const feedLabel = rpc
     ? live
-      ? "node feed"
+      ? "public tip"
       : "connecting…"
     : igniting
       ? "igniting…"
-      : "genesis light";
+      : "lab light";
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-[oklch(0.08_0.02_145)] text-foreground">
@@ -125,6 +126,13 @@ export function BillboardScreen({
           {showLabLink && (
             <div className="pointer-events-auto mt-4 flex flex-col items-end gap-2">
               <Link
+                to="/wallet"
+                search={rpc ? { rpc } : {}}
+                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
+              >
+                Wallet
+              </Link>
+              <Link
                 to="/doors"
                 className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
               >
@@ -150,8 +158,12 @@ export function BillboardScreen({
       <footer className="absolute inset-x-0 bottom-0 px-8 pb-8 md:px-14 md:pb-12">
         <p className="font-pixel max-w-xl rounded-md bg-black/70 px-4 py-3 text-sm text-white ring-1 ring-white/10 backdrop-blur-sm md:text-lg">
           {igniting
-            ? "First light is being forged — genesis will fill the frame."
-            : "Genesis fills the frame. As more light arrives, the camera pulls back — the mosaic of humanity. Color is absent without light."}
+            ? "Lab light is being forged — local look-dev, not the public tip of humanity."
+            : rpc && live
+              ? "Public tip feed — the shared picture. As more light arrives, the camera pulls back."
+              : rpc && !live
+                ? "Looking for the tip feed… If this stays dark, the node is down."
+                : "Lab light only — browser genesis for look-dev. Point ?rpc= or VITE_PIXEL_RPC at a node for the shared tip."}
         </p>
         {local.error && !rpc ? (
           <p className="font-pixel mt-3 max-w-xl text-sm text-red-300" role="alert">

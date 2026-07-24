@@ -217,7 +217,7 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
 5. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
 6. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
-7. [ ] **World canvas + people wallet** — shared public tip people join without CLI; Continuity/Kindling leave tip marks; night-Earth field feeling ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md)). Lab `init` stays for builders only.
+7. [~] **World canvas + people wallet** — frame + lab `/wallet` + billboard lab-light vs public-tip honesty ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md), `test:wallet`). Still open: default canonical public tip, tip-mark discipline, canvas identity. Lab `init` stays for builders only.
 8. Keep `pix_protocolInfo` gates honest as evidence lands
 
 Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume. FieldWitness is invent evidence for tip custody as a sphere lock — not simile alone. World canvas is the people-facing north star: one picture, wallet-held, tip-marked — not everyone lighting a private notebook.

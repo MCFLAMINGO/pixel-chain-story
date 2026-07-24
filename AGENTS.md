@@ -55,7 +55,8 @@ Truth badges: `pix_protocolInfo.gates` and `.quantum`. Match every public senten
 | Route                       | Role                                                                     |
 | --------------------------- | ------------------------------------------------------------------------ |
 | `/doors`                    | Every entrance illuminated — on / for / into + people + seeds            |
-| `/`                         | Live field                                                               |
+| `/wallet`                   | People wallet — pay face + tip balance (no CLI; vault never shown)       |
+| `/`                         | Live field (lab light vs public tip when rpc set)                        |
 | `/lab`                      | Kindling / Worldlight builders                                           |
 | `/shine`                    | Non-tech Continuity front door (brand → Shine in)                        |
 | `/continuity`               | Operator desk (offers, invites, till, chaos drill)                       |

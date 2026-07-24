@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as ShineRouteImport } from './routes/shine'
 import { Route as McflamingoRouteImport } from './routes/mcflamingo'
 import { Route as LabRouteImport } from './routes/lab'
@@ -19,6 +20,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContinuityJoinTokenRouteImport } from './routes/continuity_.join.$token'
 import { Route as ContinuityBoothDomainRouteImport } from './routes/continuity_.booth.$domain'
 
+const WalletRoute = WalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShineRoute = ShineRouteImport.update({
   id: '/shine',
   path: '/shine',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
+  '/wallet': typeof WalletRoute
   '/continuity/booth/$domain': typeof ContinuityBoothDomainRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
+  '/wallet': typeof WalletRoute
   '/continuity/booth/$domain': typeof ContinuityBoothDomainRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
+  '/wallet': typeof WalletRoute
   '/continuity_/booth/$domain': typeof ContinuityBoothDomainRoute
   '/continuity_/join/$token': typeof ContinuityJoinTokenRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/mcflamingo'
     | '/shine'
+    | '/wallet'
     | '/continuity/booth/$domain'
     | '/continuity/join/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/mcflamingo'
     | '/shine'
+    | '/wallet'
     | '/continuity/booth/$domain'
     | '/continuity/join/$token'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/mcflamingo'
     | '/shine'
+    | '/wallet'
     | '/continuity_/booth/$domain'
     | '/continuity_/join/$token'
   fileRoutesById: FileRoutesById
@@ -143,12 +155,20 @@ export interface RootRouteChildren {
   LabRoute: typeof LabRoute
   McflamingoRoute: typeof McflamingoRoute
   ShineRoute: typeof ShineRoute
+  WalletRoute: typeof WalletRoute
   ContinuityBoothDomainRoute: typeof ContinuityBoothDomainRoute
   ContinuityJoinTokenRoute: typeof ContinuityJoinTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wallet': {
+      id: '/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof WalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shine': {
       id: '/shine'
       path: '/shine'
@@ -223,9 +243,20 @@ const rootRouteChildren: RootRouteChildren = {
   LabRoute: LabRoute,
   McflamingoRoute: McflamingoRoute,
   ShineRoute: ShineRoute,
+  WalletRoute: WalletRoute,
   ContinuityBoothDomainRoute: ContinuityBoothDomainRoute,
   ContinuityJoinTokenRoute: ContinuityJoinTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
