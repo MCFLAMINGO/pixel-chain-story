@@ -14,7 +14,7 @@ Deep agent call: /docs/AGENTS-SISO.md
 - [Agents: SISO call](docs/AGENTS-SISO.md): shine in or build a PATH gate
 - [Quickstart](docs/QUICKSTART.md): bun install, node, UI, test:all
 - [DOORS](docs/DOORS.md): purpose + on/for/into + people use + seed ideas (`/doors`)
-- [WORLD-CANVAS](docs/WORLD-CANVAS.md): one public picture; people wallet; tip marks; init ≠ mass onboarding
+- [WORLD-CANVAS](docs/WORLD-CANVAS.md): one public picture; people wallet; CanvasId + tip-mark planes; init ≠ mass onboarding
 - [README](README.md): human front door + doc table
 
 ## Doctrine
