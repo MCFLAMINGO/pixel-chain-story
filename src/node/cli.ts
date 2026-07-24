@@ -165,8 +165,9 @@ Gate B — two nodes (local):
   }
 
   if (cmd === "node") {
-    const rpcPort = Number(arg("rpc", "8545"));
-    const gossipPort = Number(arg("gossip", "9001"));
+    // PORT / PIXEL_RPC_PORT for hosted tip (Railway, Docker); --rpc wins when passed.
+    const rpcPort = Number(arg("rpc", process.env.PORT || process.env.PIXEL_RPC_PORT || "8545"));
+    const gossipPort = Number(arg("gossip", process.env.PIXEL_GOSSIP_PORT || "9001"));
     const seed = arg("seed");
     const advertise = arg("advertise");
     await mkdir(datadir, { recursive: true });

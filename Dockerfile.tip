@@ -1,0 +1,26 @@
+# Pixel Ledger — canonical tip host (RPC for Billboard + /wallet)
+# Build:  docker build -f Dockerfile.tip -t pixel-tip .
+# Run:    docker run -d -p 8545:8545 -v pixel-tip-data:/data/pixel -e PORT=8545 pixel-tip
+# Railway: set Dockerfile path to Dockerfile.tip; attach a volume at /data/pixel
+
+FROM oven/bun:1.2-alpine
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production=false
+
+COPY src ./src
+COPY scripts/run-canonical-tip.ts ./scripts/run-canonical-tip.ts
+
+ENV PIXEL_DATADIR=/data/pixel
+ENV PORT=8545
+ENV PIXEL_GOSSIP_PORT=9001
+
+VOLUME ["/data/pixel"]
+EXPOSE 8545
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD bun -e "fetch('http://127.0.0.1:'+(process.env.PORT||8545)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["bun", "scripts/run-canonical-tip.ts"]

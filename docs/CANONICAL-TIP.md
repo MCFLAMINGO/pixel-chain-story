@@ -1,87 +1,145 @@
-# Canonical tip feed — operator recipe
+# Canonical tip feed — how to make production `/` the shared picture
 
 **Stance:** invent destination, not today’s claim. The people product is one shared tip everyone can see. Lab notebooks prove light; production `/` must show **that** tip.
 
-Related: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md) · tip marks (`src/lib/pixel/tip-mark.ts`) · people wallet (`/wallet`).
+Related: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md) · tip marks · people wallet (`/wallet`).
 
 ---
 
-## What “canonical” means
+## How (three steps)
 
-| Layer               | Meaning                                                                |
-| ------------------- | ---------------------------------------------------------------------- |
-| **Canvas**          | `(networkId, genesisHash)` — join the same picture, not a new Earth    |
-| **Tip feed**        | HTTP RPC (`/health`, `/sync`, `/pixels`, `POST /tx`) Billboard reads   |
-| **People path**     | `/wallet` balance + pay → `shared_tip` receipt when RPC is that tip    |
-| **Not yet claimed** | Always-on multi-operator public mainnet; “the” humanity tip by default |
-
-Without `VITE_PIXEL_RPC` / `?rpc=`, the site forges **lab light** (throwaway browser genesis). That is look-dev, not the public picture.
-
----
-
-## Lab: one laptop tip (evidence path)
-
-```bash
-# terminal A — durable tip
-bun run pixel -- init --datadir ./data/canonical
-bun run pixel -- node --datadir ./data/canonical --rpc 8545 --gossip 9001
-
-# terminal B — site pointed at that tip
-VITE_PIXEL_RPC=http://127.0.0.1:8545 bun run dev
-# open http://localhost:8080/          → public tip feed + canvas id
-# open http://localhost:8080/wallet?rpc=http://127.0.0.1:8545
+```text
+1. Host a durable pixel tip (HTTP RPC, persistent datadir)
+2. Get a public HTTPS URL for that tip
+3. Build the site with VITE_PIXEL_RPC=<that URL>
 ```
 
-Fund a people pay face (operator faucet — not a product claim):
+Until step 3 is done, `/` forges **lab light** (throwaway browser genesis). That is look-dev, not the public picture.
+
+| Layer               | Meaning                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| **Canvas**          | `(networkId, genesisHash)` — join the same picture, not a new Earth |
+| **Tip feed**        | `/health`, `/sync`, `/pixels`, `POST /tx` — what Billboard polls    |
+| **People path**     | `/wallet` balance + pay → `shared_tip` when RPC is that tip         |
+| **Not yet claimed** | Multi-operator “humanity mainnet”; a blessed global hostname        |
+
+---
+
+## Step 1 — Host the tip
+
+### A. Laptop (prove it)
 
 ```bash
-bun run pixel -- wallet from-node faucet --datadir ./data/canonical
+bun run tip:host
+# RPC http://127.0.0.1:8545  ·  datadir ./data/canonical
+```
+
+Or classic CLI:
+
+```bash
+bun run pixel -- init --datadir ./data/canonical
+bun run pixel -- node --datadir ./data/canonical --rpc 8545 --gossip 9001
+```
+
+### B. Docker (any VPS)
+
+```bash
+docker build -f Dockerfile.tip -t pixel-tip .
+docker run -d --name pixel-tip \
+  -p 8545:8545 \
+  -v pixel-tip-data:/data/pixel \
+  -e PORT=8545 \
+  pixel-tip
+
+curl -s http://127.0.0.1:8545/health | jq .canvasId,.tip,.genesisHash
+```
+
+Put TLS in front (Caddy / nginx / Cloudflare) → `https://tip.yourdomain.org`.
+
+### C. Railway (always-on)
+
+1. New Railway project → deploy from this repo with **Dockerfile path** `Dockerfile.tip`  
+   (config sketch: [`railway.tip.toml`](../railway.tip.toml)).
+2. Attach a **volume** at `/data/pixel` (required — wipe = new Earth).
+3. Deploy → **Generate domain** → copy `https://….up.railway.app`.
+4. Confirm: `curl -s https://….up.railway.app/health` shows `ok`, `genesisHash`, `tip`.
+
+Entrypoint: `bun run tip:host` / `scripts/run-canonical-tip.ts`  
+Env: `PORT` (Railway sets this), `PIXEL_DATADIR=/data/pixel`.
+
+**Do not** deploy the Vite site as the tip. Tip = long-running node. Site = static/Lovable build that _reads_ the tip.
+
+---
+
+## Step 2 — Public HTTPS URL
+
+Whatever you hosted in step 1 must answer from the public internet:
+
+- `GET /health` → `ok: true`, `genesisHash`, `canvasId`
+- `GET /sync` / `GET /pixels` → Billboard
+- `POST /tx` → people pay (`test:shared-tip`)
+
+CORS is already open on the RPC server.
+
+---
+
+## Step 3 — Point the site (`VITE_PIXEL_RPC`)
+
+Vite inlines this **at build time**.
+
+### Lovable
+
+Project / environment variables (or the connected build settings):
+
+```bash
+VITE_PIXEL_RPC=https://YOUR-TIP-HOST
+```
+
+Redeploy the site. Open `/` — feed label should read **public tip**, not lab light. Canvas id appears under the tip counter.
+
+### Local / CI build
+
+```bash
+VITE_PIXEL_RPC=https://YOUR-TIP-HOST bun run build
+```
+
+Override anytime: `/?rpc=https://YOUR-TIP-HOST` or `/wallet?rpc=…`.
+
+**Honesty:** do not set `VITE_PIXEL_RPC` until the URL is a real, durable tip. A dead URL leaves Billboard on “connecting…”.
+
+---
+
+## Fund a people wallet (operator faucet)
+
+After someone forges on `/wallet`, their pay face starts at 0 PIX. Lab faucet from the tip sequencer:
+
+```bash
+# same datadir as the tip host
+bun run pixel -- wallet from-node faucet --datadir ./data/canonical   # or /data/pixel
 bun run pixel -- send --from faucet --to <pay-face-pix…> --amount 50 --datadir ./data/canonical
 ```
 
-Then **Unlock** → **Pay on shared tip** on `/wallet`. Receipt attachment must be `shared_tip`.
+Then **Unlock → Pay on shared tip**. Receipt attachment must be `shared_tip`.
 
-Evidence in CI: `bun run test:shared-tip` (in-process node + `POST /tx` + tip inclusion).
-
----
-
-## Production build
-
-Set at **build time** for Lovable / static host:
-
-```bash
-VITE_PIXEL_RPC=https://tip.example.org bun run build
-```
-
-`defaultPixelRpc()` (`src/lib/pixel-rpc.ts`) wires `/` and `/wallet`. Query `?rpc=` still overrides for builders.
-
-**Honesty:** do not set `VITE_PIXEL_RPC` until the URL is a real, durable tip you operate (or join). A dead URL is worse than lab light — Billboard will sit on “connecting…”.
-
----
-
-## Hosting the tip (operators)
-
-Any host that keeps `pixel node` alive with a stable public HTTPS URL works (VPS, container, Railway, etc.). Requirements:
-
-1. Persistent `datadir` (volume) — losing genesis = new Earth
-2. Open RPC (`/health`, `/sync`, `/pixels`, `POST /tx`) with CORS (node already allows `*`)
-3. Optional gossip for multi-operator join ([`docs/demos/two-node.md`](./demos/two-node.md))
-4. Publish the URL as `VITE_PIXEL_RPC` for the site build
-
-Pixel does **not** yet ship a single blessed public hostname. Until one exists, each deploy that sets `VITE_PIXEL_RPC` chooses its canvas — join means matching `genesisHash`.
+CI evidence (no host required): `bun run test:shared-tip`.
 
 ---
 
 ## Tip-mark planes (do not confuse)
 
-| Plane          | Where it settles                                  | May claim “public tip”? |
-| -------------- | ------------------------------------------------- | ----------------------- |
-| `lab_local`    | Browser / Continuity private genesis              | No                      |
-| `node_sidecar` | Continuity session beside node (not `node.chain`) | No                      |
-| `shared_tip`   | Tip from `/sync` after `POST /tx` + inclusion     | Yes (that feed only)    |
+| Plane          | Where it settles                              | May claim “public tip”? |
+| -------------- | --------------------------------------------- | ----------------------- |
+| `lab_local`    | Browser / Continuity private genesis          | No                      |
+| `node_sidecar` | Continuity session beside node                | No                      |
+| `shared_tip`   | Tip from `/sync` after `POST /tx` + inclusion | Yes (that feed only)    |
 
 ---
 
-## PATH
+## Checklist (done when…)
 
-Claim “default public tip for humanity” only when a durable hosted feed is the production default and PATH evidence is green. Until then: recipe + `test:shared-tip` + honest labels.
+- [ ] Tip process always on; volume persists across restarts
+- [ ] `curl …/health` returns stable `genesisHash` after restart (same Earth)
+- [ ] Site built with `VITE_PIXEL_RPC` → `/` shows **public tip**
+- [ ] `/wallet` balance + pay leave a tip mark on that canvas
+
+PATH: claim “default public tip for humanity” only when this is the production default and evidence is green. Until then: this recipe + honest labels.
