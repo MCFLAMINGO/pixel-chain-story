@@ -1,4 +1,3 @@
-// @ts-nocheck — Bun runtime file, not typechecked in app build
 /**
  * Bun WebSocket gossip — Gate B hardened + optional ML-KEM wire.
  *
