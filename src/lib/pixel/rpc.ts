@@ -84,6 +84,15 @@ export async function handlePixelRpc(
         return ok(id, String(ctx.networkId));
       case "pix_chainId":
         return ok(id, `0x${ctx.networkId.toString(16)}`);
+      case "pix_canvasId": {
+        const genesisHash = ctx.chain.pixels[0]?.hash;
+        if (!genesisHash) throw rpcError(-32602, "no genesis");
+        return ok(id, {
+          networkId: ctx.networkId,
+          genesisHash,
+          canvasId: `${ctx.networkId}:${genesisHash}`,
+        });
+      }
       case "pix_blockNumber":
         return ok(id, `0x${(ctx.chain.pixels.length - 1).toString(16)}`);
       case "pix_getBlockByNumber": {

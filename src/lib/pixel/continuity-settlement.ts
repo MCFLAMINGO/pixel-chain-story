@@ -25,6 +25,13 @@ import {
   tillFeePix,
   tillIsActive,
 } from "./continuity-ops";
+import { assertSameCanvas, canvasIdOf, formatCanvasId, type CanvasId } from "./canvas-id";
+import {
+  settlementHonesty,
+  tipMarkFromState,
+  type SettlementPlane,
+  type TipMarkReceipt,
+} from "./tip-mark";
 
 export const CONTINUITY_CHAIN_KEY = "pixel.continuity.chain.v1";
 
@@ -37,6 +44,8 @@ export interface ContinuityWalletBlob {
 
 export interface ContinuitySessionBlob {
   networkId: number;
+  /** Genesis hash — canvas instance this booth settles on */
+  genesisHash?: Hex;
   chainJson: SerializedChain;
   sequencer: ContinuityWalletBlob;
   merchant: ContinuityWalletBlob;
@@ -105,10 +114,15 @@ export async function createContinuitySession(params: {
   domain: string;
   chain?: PixelChainState;
   sequencer?: LightKeypair;
+  /** When set, refuse to start a booth on a different canvas */
+  expectedCanvas?: CanvasId;
 }): Promise<ContinuitySession> {
   const sequencer = params.sequencer ?? (await continuityKeypair());
   let chain = params.chain ?? (await createGenesis(sequencer));
   if (!(await verifyChain(chain))) throw new Error("Invalid Continuity chain");
+  if (params.expectedCanvas) {
+    assertSameCanvas(params.expectedCanvas, canvasIdOf(chain));
+  }
 
   const merchant = await continuityKeypair();
   const till = await continuityKeypair();
@@ -142,8 +156,10 @@ export async function createContinuitySession(params: {
 export async function exportContinuitySession(
   session: ContinuitySession,
 ): Promise<ContinuitySessionBlob> {
+  const canvas = canvasIdOf(session.chain);
   return {
-    networkId: session.chain.networkId,
+    networkId: canvas.networkId,
+    genesisHash: canvas.genesisHash,
     chainJson: serializeChain(session.chain),
     sequencer: await walletBlob(session.sequencer),
     merchant: await walletBlob(session.merchant),
@@ -197,6 +213,8 @@ export interface BoothCheckoutResult {
   tillBalance: number;
   originDark: boolean;
   customerAddress: string;
+  tipMark: TipMarkReceipt;
+  tillTipMark?: TipMarkReceipt;
 }
 
 /**
@@ -208,15 +226,24 @@ export async function settleBoothCheckoutOnPixel(params: {
   session: ContinuitySession;
   amountPix: number;
   orderRef?: string;
+  /** How this settle attaches — default lab_local (browser Continuity chain) */
+  attachment?: SettlementPlane;
 }): Promise<BoothCheckoutResult> {
   const { ops, amountPix } = params;
   let session = params.session;
   if (amountPix <= 0) throw new Error("amountPix must be positive");
+  const attachment = params.attachment ?? "lab_local";
 
   const store = ops.stores.find((s) => s.id === session.storeId);
   if (!store) throw new Error("Store not found for Continuity session");
   if (store.step !== "live" || !store.anchoredOnPixel) {
     throw new Error("Store must be live and anchored on Pixel before booth checkout");
+  }
+  if (store.genesisHash) {
+    assertSameCanvas(
+      { networkId: store.networkId ?? session.chain.networkId, genesisHash: store.genesisHash },
+      canvasIdOf(session.chain),
+    );
   }
 
   const orderRef = params.orderRef ?? `MCF-${Date.now().toString(36)}`;
@@ -302,6 +329,10 @@ export async function settleBoothCheckoutOnPixel(params: {
     }
   }
 
+  const tipMark = tipMarkFromState(session.chain, "booth-sale", attachment, settlementTxid);
+  const tillTipMark = tillTxid
+    ? tipMarkFromState(session.chain, "booth-till", attachment, tillTxid)
+    : undefined;
   const tip = session.chain.pixels[session.chain.pixels.length - 1]!;
   return {
     session,
@@ -316,6 +347,8 @@ export async function settleBoothCheckoutOnPixel(params: {
     tillBalance: balanceOf(session.chain, session.till.address),
     originDark,
     customerAddress: customer.address,
+    tipMark,
+    tillTipMark,
   };
 }
 
@@ -339,6 +372,8 @@ export interface ContinuityOrderResult {
   originDark: boolean;
   merchantBalance: number;
   tillBalance: number;
+  tipMark: TipMarkReceipt;
+  canvas: string;
 }
 
 /** Generic order handler — Popmenu/Toast can POST into this shape later. */
@@ -346,6 +381,8 @@ export async function handleContinuityOrder(params: {
   ops: ContinuityOpsState;
   session: ContinuitySession;
   req: ContinuityOrderRequest;
+  /** Node webhook defaults to node_sidecar — not the ledger tip Billboard shows */
+  attachment?: SettlementPlane;
 }): Promise<{
   result: ContinuityOrderResult;
   session: ContinuitySession;
@@ -362,6 +399,7 @@ export async function handleContinuityOrder(params: {
     session: { ...params.session, storeId: store.id },
     amountPix: params.req.amountPix,
     orderRef: params.req.orderRef,
+    attachment: params.attachment ?? "node_sidecar",
   });
 
   const accruedPix = (settled.ops.stores.find((s) => s.id === store.id)?.tillEvents ?? []).reduce(
@@ -384,12 +422,14 @@ export async function handleContinuityOrder(params: {
       originDark: settled.originDark,
       merchantBalance: settled.merchantBalance,
       tillBalance: settled.tillBalance,
+      tipMark: settled.tipMark,
+      canvas: formatCanvasId(settled.tipMark.canvasId),
     },
   };
 }
 
-export function boothHonesty(): string {
-  return "This Continuity booth settles PIX on Pixel. Live menu/order can still open on Popmenu. Pixel does not take over mcflamingo.com DNS.";
+export function boothHonesty(plane: SettlementPlane = "lab_local"): string {
+  return `${settlementHonesty(plane)} Live menu/order can still open on Popmenu. Pixel does not take over merchant DNS.`;
 }
 
 export function findStoreByDomain(
@@ -411,8 +451,21 @@ export async function ensureContinuitySession(params: {
 }): Promise<{ session: ContinuitySession; ops: ContinuityOpsState }> {
   const store = params.ops.stores.find((s) => s.id === params.storeId);
   if (!store) throw new Error("Store not found");
+  const expected =
+    store.genesisHash != null
+      ? {
+          networkId: store.networkId ?? PIXEL_NETWORK_FALLBACK,
+          genesisHash: store.genesisHash,
+        }
+      : undefined;
   if (params.existing && params.existing.storeId === store.id) {
+    if (expected) assertSameCanvas(expected, canvasIdOf(params.existing.chain));
     return { session: params.existing, ops: params.ops };
+  }
+  if (expected) {
+    throw new Error(
+      `No Continuity session on canvas ${formatCanvasId(expected)}. Go live again so the booth binds to the map tip — refuse a second Earth.`,
+    );
   }
   const session = await createContinuitySession({
     storeId: store.id,
@@ -421,6 +474,13 @@ export async function ensureContinuitySession(params: {
   const ops = patchStore(params.ops, store.id, {
     merchantAddress: session.merchant.address,
     tillAddress: session.till.address,
+    genesisHash: canvasIdOf(session.chain).genesisHash,
+    networkId: session.chain.networkId,
+    canvasId: `${session.chain.networkId}:${canvasIdOf(session.chain).genesisHash}`,
+    tipMarkAttachment: "lab_local",
   });
   return { session, ops };
 }
+
+/** Avoid hard import cycle with chain constant in ensure path. */
+const PIXEL_NETWORK_FALLBACK = 0x5049;

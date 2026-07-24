@@ -8,7 +8,7 @@ import {
   createStoreOffer,
   digestArtifactText,
   emptyOpsState,
-  goLive,
+  goLiveWithSession,
   markInviteSent,
   markStoreOriginDark,
   merchantJoin,
@@ -16,11 +16,11 @@ import {
   tillIsActive,
 } from "../src/lib/pixel/continuity-ops";
 import {
-  createContinuitySession,
   handleContinuityOrder,
   settleBoothCheckoutOnPixel,
 } from "../src/lib/pixel/continuity-settlement";
 import { balanceOf, verifyChain as verifyPixelChain } from "../src/lib/pixel/chain";
+import { canvasIdOf } from "../src/lib/pixel/canvas-id";
 
 async function main() {
   console.log("═══ CONTINUITY ORDER / BOOTH SETTLEMENT ═══\n");
@@ -42,29 +42,17 @@ async function main() {
     await digestArtifactText("<html>mcflamingo homepage capture</html>"),
   );
   ops = assignRungs(ops, storeId, [ops.rungs[0]!.id, ops.rungs[1]!.id]);
-  ops = await goLive(ops, storeId);
+  const liveBound = await goLiveWithSession(ops, storeId);
+  ops = liveBound.ops;
+  let session = liveBound.session;
 
   const live = ops.stores[0]!;
   if (!live.anchoredOnPixel) throw new Error("must be anchored");
-  console.log("▸ live + anchored tip #", live.pixelIndex);
-
-  let session = await createContinuitySession({
-    storeId,
-    domain: live.domain,
-  });
-  ops = {
-    ...ops,
-    stores: ops.stores.map((s) =>
-      s.id === storeId
-        ? {
-            ...s,
-            merchantAddress: session.merchant.address,
-            tillAddress: session.till.address,
-            updatedAt: Date.now(),
-          }
-        : s,
-    ),
-  };
+  if (!live.genesisHash) throw new Error("canvas genesisHash required");
+  if (live.genesisHash !== canvasIdOf(session.chain).genesisHash) {
+    throw new Error("booth session must share map canvas");
+  }
+  console.log("▸ live + anchored tip #", live.pixelIndex, "· same canvas as booth");
 
   // Healthy origin — till idle → sale settles, no till fee
   let settled = await settleBoothCheckoutOnPixel({
@@ -78,7 +66,12 @@ async function main() {
   if (settled.feePix !== 0) throw new Error("till must be idle while healthy");
   if (settled.tillTxid) throw new Error("no till tx while healthy");
   if (!(await verifyPixelChain(session.chain))) throw new Error("chain invalid after sale");
-  console.log("▸ healthy booth sale 100 PIX · tip #", settled.tipIndex, "· no till ✓");
+  if (settled.tipMark.kind !== "booth-sale") throw new Error("tip mark kind");
+  if (settled.tipMark.attachment !== "lab_local") throw new Error("lab attachment");
+  if (settled.tipMark.canvasId.genesisHash !== live.genesisHash) {
+    throw new Error("sale tip mark canvas");
+  }
+  console.log("▸ healthy booth sale 100 PIX · tip #", settled.tipIndex, "· tip mark ✓");
 
   // Origin dark → till active → on-chain fee
   ops = markStoreOriginDark(ops, storeId);

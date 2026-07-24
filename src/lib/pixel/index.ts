@@ -39,6 +39,8 @@ export * from "./people-wallet";
 export * from "./worldlight";
 export * from "./lock-feeder";
 export * from "./chain";
+export * from "./canvas-id";
+export * from "./tip-mark";
 export * from "./light-client";
 export * from "./peer-score";
 export * from "./rpc";

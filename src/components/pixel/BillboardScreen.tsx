@@ -23,6 +23,7 @@ export function BillboardScreen({
   const [remote, setRemote] = useState<LedgerPixel[] | null>(null);
   const [pending, setPending] = useState(0);
   const [tip, setTip] = useState<string>("");
+  const [canvasShort, setCanvasShort] = useState<string>("");
   const [live, setLive] = useState(false);
 
   useEffect(() => {
@@ -34,12 +35,20 @@ export function BillboardScreen({
         const pixels = (await fetch(`${base}/pixels`).then((r) => r.json())) as LedgerPixel[];
         const health = (await fetch(`${base}/health`).then((r) => r.json())) as {
           pending?: number;
+          networkId?: number;
+          genesisHash?: string;
         };
         if (cancelled) return;
         setRemote(pixels);
         setPending(health.pending ?? 0);
         const last = pixels[pixels.length - 1];
         setTip(last ? `#${last.index}` : "—");
+        const gh = health.genesisHash ?? pixels[0]?.hash;
+        setCanvasShort(
+          typeof health.networkId === "number" && gh
+            ? `${health.networkId}:${gh.slice(0, 10)}…`
+            : "",
+        );
         setLive(true);
       } catch {
         if (!cancelled) setLive(false);
@@ -122,6 +131,11 @@ export function BillboardScreen({
               {igniting ? "forging first light…" : `${litCount} lit`}
               {!igniting && pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
             </p>
+            {rpc && live && canvasShort ? (
+              <p className="mt-1 font-mono text-[10px] tracking-wide text-[oklch(0.78_0.02_95)]">
+                canvas {canvasShort}
+              </p>
+            ) : null}
           </div>
           {showLabLink && (
             <div className="pointer-events-auto mt-4 flex flex-col items-end gap-2">

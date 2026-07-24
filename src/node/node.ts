@@ -181,8 +181,11 @@ export class PixelLedgerNode {
   /** Snapshot for /sync — joiners pull this. */
   syncSnapshot() {
     const transport = transportStatus();
+    const genesisHash = this.chain.pixels[0]?.hash ?? null;
     return {
       networkId: this.chain.networkId,
+      genesisHash,
+      canvasId: genesisHash != null ? `${this.chain.networkId}:${genesisHash}` : null,
       pixels: this.chain.pixels,
       sequencers: this.chain.sequencers,
       tip: this.chain.pixels.length - 1,

@@ -121,8 +121,11 @@ export function KindlingPanel() {
         toAddress: joe.address,
         seal,
         gatewayHeldSeed: false,
+        attachment: "lab_local",
       });
-      setLog(res.summary);
+      setLog(
+        `${res.summary} — lab genesis only; point Kindling at a shared tip before claiming public settle.`,
+      );
       setSeal(null);
       setOffer(null);
       setAccept(null);
