@@ -53,8 +53,14 @@ const BUILDER_DOORS = [
 
 const PEOPLE_DOORS = [
   {
+    title: "Hold a wallet",
+    line: "Personal Source on your device — pay face only, no CLI init.",
+    to: "/wallet" as const,
+    cta: "Wallet",
+  },
+  {
     title: "See the picture",
-    line: "Watch the live field illuminate from genesis.",
+    line: "Live field — public tip when rpc is set; else honest lab light.",
     to: "/" as const,
     cta: "Live field",
   },

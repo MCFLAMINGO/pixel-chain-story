@@ -35,6 +35,7 @@ export * from "./kindling";
 export * from "./energy-truth";
 export * from "./uptake";
 export * from "./custody";
+export * from "./people-wallet";
 export * from "./worldlight";
 export * from "./lock-feeder";
 export * from "./chain";

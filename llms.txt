@@ -47,7 +47,8 @@ Deep agent call: /docs/AGENTS-SISO.md
 ## Product routes
 
 - /doors — every entrance illuminated (on / for / into + people + seeds)
-- / — live field
+- /wallet — people wallet (pay face + tip balance; no CLI)
+- / — live field (lab light vs public tip)
 - /lab — Kindling / Worldlight
 - /shine — non-tech Continuity handshake
 - /continuity — operator desk
