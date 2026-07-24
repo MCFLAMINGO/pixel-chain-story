@@ -53,7 +53,8 @@ Regular users need a **wallet** and a **felt connection to the main public pictu
 
 | Door                | What you do                                          | Route / doc                                              |
 | ------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| **See the picture** | Watch the live field illuminate                      | `/`                                                      |
+| **Wallet**          | Hold a Personal Source — pay face, tip balance       | `/wallet`                                                |
+| **See the picture** | Live field (public tip via rpc; else lab light)      | `/`                                                      |
 | **Shine in**        | Keep a brand/site reachable in the Continuity map    | `/shine`                                                 |
 | **Pay with Pixel**  | Settle at a Continuity booth when it matters         | `/continuity/booth/$domain`                              |
 | **Kindle**          | Presence-bound spend (lab)                           | `/lab` · [`KINDLING.md`](./KINDLING.md)                  |

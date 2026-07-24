@@ -169,10 +169,24 @@ export async function handleContinuityHttp(
 
     let session = await loadContinuitySession(datadir);
     if (!session || session.storeId !== store.id) {
+      // Tip-mark discipline: if go-live already named a canvas, refuse a second Earth.
+      if (store.genesisHash) {
+        return json(
+          {
+            ok: false,
+            error:
+              "Continuity session missing for store canvas — persist session from goLiveWithSession before /continuity/order",
+          },
+          { status: 409 },
+        );
+      }
       session = await createContinuitySession({ storeId: store.id, domain: store.domain });
       ops = patchStore(ops, store.id, {
         merchantAddress: session.merchant.address,
         tillAddress: session.till.address,
+        genesisHash: session.chain.pixels[0]?.hash,
+        networkId: session.chain.networkId,
+        tipMarkAttachment: "node_sidecar",
       });
     }
 
@@ -187,8 +201,9 @@ export async function handleContinuityHttp(
       return json({
         ok: true,
         result: ordered.result,
+        tipMark: ordered.result.tipMark,
         discipline:
-          "Settlement and the Continuity map live on Pixel. Live menu may still open on the merchant host — Continuity ops, not DNS takeover.",
+          "Settlement on Continuity sidecar (node_sidecar) — real UTXOs, not the node ledger tip Billboard shows. Live menu may still open on the merchant host — Continuity ops, not DNS takeover.",
       });
     } catch (e) {
       return json(

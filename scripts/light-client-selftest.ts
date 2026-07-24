@@ -35,6 +35,7 @@ async function main() {
   // Headers-first
   const pkg = await buildHeadersSync(state);
   if (pkg.headers.length !== state.pixels.length) throw new Error("header count");
+  if (pkg.genesisHash !== state.pixels[0]!.hash) throw new Error("genesisHash in headers sync");
   const hOk = await verifyHeaderChain(
     pkg.headers,
     state.sequencers.map((s) => s.address),
@@ -43,6 +44,8 @@ async function main() {
   console.log(
     "▸ headers-first chain verify ✓ tip",
     pkg.tip,
+    "canvas",
+    pkg.genesisHash.slice(0, 12) + "…",
     "stateRoot",
     pkg.stateRoot.slice(0, 16) + "…",
   );

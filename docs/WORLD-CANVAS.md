@@ -84,12 +84,13 @@ Custody law still holds: pay face ≠ vault; grid is optional codec ([`CUSTODY.m
 
 ## Build order (toward ease + one picture)
 
-1. **People wallet surface** — forge / unlock / balance / pay without CLI; pay face ≠ vault.
-2. **Canonical tip feed** — hosted or multi-operator public RPC; site `/` always shows **that** tip (not throwaway browser genesis as “the” chain).
-3. **Tip mark discipline** — Continuity digests, Kindling settles, booth pays → on-tip or header-provable. No silent local-only “settlement.”
-4. **Canvas identity** — shared genesis / network id so join means “same picture,” not “new Earth.”
-5. **Proximity / discovery** — peers and (later) optical presence converge into one field; brightness as activity truth, not fake physics.
-6. **PATH gates** — claim “public shared tip” and “people wallet” only when evidence is green ([`PATH.md`](./PATH.md)).
+1. [x] **People wallet surface (lab)** — `/wallet`: forge / unlock / tip balance without CLI; pay face ≠ vault (`people-wallet.ts`, `test:wallet`). Device localStorage; not yet default public tip.
+2. [x] **Billboard honesty** — `/` labels **lab light** vs **public tip** (`?rpc=` / `VITE_PIXEL_RPC`). Throwaway browser genesis is never called the shared picture.
+3. [ ] **Canonical tip feed** — hosted or multi-operator public RPC by default; site `/` always shows **that** tip in production.
+4. [x] **Tip mark discipline (lab)** — Continuity digests, Kindling settles, booth pays return `TipMarkReceipt` with attachment plane (`lab_local` | `node_sidecar` | `shared_tip`). Go live binds booth session to the **same** canvas as the map tip. Foreign canvas settles refuse. Still not default `shared_tip` without hosted RPC (`tip-mark.ts`, `test:tip-mark`).
+5. [x] **Canvas identity (lab)** — `CanvasId = (networkId, genesisHash)`; `/health` + `/sync` + headers expose `genesisHash`; `pix_canvasId` RPC; Billboard shows canvas when live (`canvas-id.ts`).
+6. [ ] **Proximity / discovery** — peers and (later) optical presence converge into one field; brightness as activity truth, not fake physics.
+7. [ ] **PATH gates** — claim “public shared tip” and “people wallet” only when evidence is green ([`PATH.md`](./PATH.md)).
 
 ---
 

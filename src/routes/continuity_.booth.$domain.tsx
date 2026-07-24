@@ -15,6 +15,7 @@ import {
   findStoreByDomain,
   settleBoothCheckoutOnPixel,
 } from "@/lib/pixel/continuity-settlement";
+import { formatCanvasId, settlementHonesty } from "@/lib/pixel";
 
 /**
  * Flat route so booth UI is not wrapped by Continuity admin desk.
@@ -49,6 +50,8 @@ function ContinuityBooth() {
     merchantBalance: number;
     tillBalance: number;
     originDark: boolean;
+    honesty: string;
+    canvas: string;
   } | null>(null);
 
   const store = useMemo(() => findStoreByDomain(state, domain), [state, domain]);
@@ -90,6 +93,8 @@ function ContinuityBooth() {
         merchantBalance: settled.merchantBalance,
         tillBalance: settled.tillBalance,
         originDark: settled.originDark,
+        honesty: settlementHonesty(settled.tipMark.attachment),
+        canvas: formatCanvasId(settled.tipMark.canvasId),
       });
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Payment failed");
@@ -132,9 +137,11 @@ function ContinuityBooth() {
         </p>
         <h1 className="font-pixel mt-3 text-4xl font-bold tracking-tight">{store.name}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{store.domain}</p>
-        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{boothHonesty()}</p>
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+          {boothHonesty(store.tipMarkAttachment ?? "lab_local")}
+        </p>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Settlement and the Continuity map live on Pixel. Live menu can still open on Popmenu —
+          Map + booth share one canvas after Go live. Live menu can still open on Popmenu —
           Continuity ops, not DNS takeover.
         </p>
 
@@ -205,8 +212,10 @@ function ContinuityBooth() {
         {receipt && (
           <div className="mt-10 space-y-2" role="status">
             <p className="font-pixel text-xl text-primary">Settled on Pixel</p>
+            <p className="text-sm text-muted-foreground">{receipt.honesty}</p>
             <p className="font-mono text-xs break-all text-muted-foreground">
-              tip #{receipt.tipIndex} · sale {receipt.settlementTxid.slice(0, 20)}…
+              canvas {receipt.canvas} · tip #{receipt.tipIndex} · sale{" "}
+              {receipt.settlementTxid.slice(0, 20)}…
             </p>
             {receipt.tillTxid ? (
               <p className="text-sm text-muted-foreground">

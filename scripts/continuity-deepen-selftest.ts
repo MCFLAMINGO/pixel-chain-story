@@ -11,7 +11,7 @@ import {
   createStoreOffer,
   digestArtifactText,
   emptyOpsState,
-  goLive,
+  goLiveWithSession,
   markInviteSent,
   markStoreOriginDark,
   merchantJoin,
@@ -27,7 +27,7 @@ import {
   publicInviteView,
 } from "../src/lib/pixel/continuity-invite-pack";
 import { handleContinuityHttp } from "../src/node/continuity-http";
-import { saveContinuityOps } from "../src/node/continuity-store";
+import { saveContinuityOps, saveContinuitySession } from "../src/node/continuity-store";
 
 async function main() {
   console.log("═══ CONTINUITY DEEPEN (PACK + WEBHOOK) ═══\n");
@@ -78,9 +78,10 @@ async function main() {
     nodeOps = merchantJoin(nodeOps, itok, {});
     nodeOps = attachStoreDigest(nodeOps, sid, await digestArtifactText("<html>mcflamingo</html>"));
     nodeOps = assignRungs(nodeOps, sid, [nodeOps.rungs[0]!.id, nodeOps.rungs[1]!.id]);
-    nodeOps = await goLive(nodeOps, sid);
-    nodeOps = markStoreOriginDark(nodeOps, sid);
+    const liveBound = await goLiveWithSession(nodeOps, sid);
+    nodeOps = markStoreOriginDark(liveBound.ops, sid);
     await saveContinuityOps(dir, nodeOps);
+    await saveContinuitySession(dir, liveBound.session);
 
     const ctx = { datadir: dir, webhookSecret: secret };
     const inviteRes = await handleContinuityHttp(
@@ -135,7 +136,7 @@ async function main() {
     if (orderJson.result.feePix !== 2) throw new Error(`fee ${orderJson.result.feePix}`);
     if (!orderJson.result.tillTxid) throw new Error("till txid");
     if (!orderJson.result.originDark) throw new Error("originDark");
-    if (!orderJson.discipline.includes("Continuity ops")) throw new Error("order discipline");
+    if (!orderJson.discipline.includes("node_sidecar")) throw new Error("order discipline");
     console.log("▸ POST /continuity/order webhook + on-chain till ✓");
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -22,6 +22,8 @@ import {
   verifyChain,
   type PixelChainState,
 } from "./chain";
+import { canvasIdOf, formatCanvasId, type CanvasId } from "./canvas-id";
+import { tipMarkFromState, type SettlementPlane, type TipMarkReceipt } from "./tip-mark";
 
 export type ContinuityStep =
   | "draft"
@@ -116,6 +118,15 @@ export interface ContinuityStore {
   registerRef?: string;
   /** Pixel network id of the chain that anchored */
   networkId?: number;
+  /** Genesis hash of the canvas that received the Continuity digest */
+  genesisHash?: Hex;
+  /** Compact canvas key: networkId:genesisHash */
+  canvasId?: string;
+  /**
+   * How the digest tip attached — lab_local until shared_tip is proven.
+   * Citation alone (tipHash without matching booth/session canvas) is still lab.
+   */
+  tipMarkAttachment?: SettlementPlane;
   /** True only after illuminateStorefrontOnPixel succeeded */
   anchoredOnPixel?: boolean;
   /** Operator-only booth jobs (rsync / DNS) — never merchant-facing */
@@ -223,10 +234,15 @@ export function mcflamingoContinuityHonesty(): string {
 export interface StorefrontPixelAnchor {
   continuity: ContinuityRecord;
   state: PixelChainState;
+  /** Sequencer that signed the tip — reuse when binding booth to same canvas */
+  sequencer: LightKeypair;
   pixelIndex: number;
   tipHash: Hex;
   registerRef: string;
   networkId: number;
+  genesisHash: Hex;
+  canvasId: CanvasId;
+  tipMark: TipMarkReceipt;
   chainValid: boolean;
 }
 
@@ -283,13 +299,20 @@ export async function illuminateStorefrontOnPixel(params: {
     throw new Error("Continuity pixel index must match tip");
   }
 
+  const canvasId = canvasIdOf(state);
+  const tipMark = tipMarkFromState(state, "continuity-digest", "lab_local");
+
   return {
     continuity,
     state,
+    sequencer,
     pixelIndex: tip.index,
     tipHash: tip.hash,
     registerRef,
     networkId: state.networkId,
+    genesisHash: canvasId.genesisHash,
+    canvasId,
+    tipMark,
     chainValid: true,
   };
 }
@@ -622,16 +645,31 @@ export function buildDeployPlan(
  * Step 5 — go live: digests into SISO **and** anchors on a real Pixel tip.
  * Deploy checklist remains operator-side (rsync/DNS not executed here).
  */
-export async function goLive(
+export type GoLiveOpts = {
+  /** @deprecated ignored — fake pixelIndex is no longer allowed */
+  pixelIndex?: number;
+  chainState?: PixelChainState;
+  sequencer?: LightKeypair;
+  /**
+   * Persist booth session to localStorage when available (browser desk).
+   * Session is always created on the same canvas as the digest tip.
+   */
+  persistBoothSession?: boolean;
+};
+
+/**
+ * Go live and bind a Continuity booth session to the **same** canvas as the map tip.
+ * Callers that need the session (tests, node webhook) use this; desk may use {@link goLive}.
+ */
+export async function goLiveWithSession(
   state: ContinuityOpsState,
   storeId: string,
-  opts?: {
-    /** @deprecated ignored — fake pixelIndex is no longer allowed */
-    pixelIndex?: number;
-    chainState?: PixelChainState;
-    sequencer?: LightKeypair;
-  },
-): Promise<ContinuityOpsState> {
+  opts?: GoLiveOpts,
+): Promise<{
+  ops: ContinuityOpsState;
+  session: import("./continuity-settlement").ContinuitySession;
+  tipMark: TipMarkReceipt;
+}> {
   const store = state.stores.find((s) => s.id === storeId);
   if (!store) throw new Error("Store not found");
   if (!store.digest) throw new Error("Need artifact digest before live");
@@ -650,7 +688,22 @@ export async function goLive(
   });
   const deployPlan = buildDeployPlan(store, state.rungs);
 
-  return patchStore(state, storeId, {
+  const { createContinuitySession, exportContinuitySession, saveContinuitySessionBlob } =
+    await import("./continuity-settlement");
+  const session = await createContinuitySession({
+    storeId: store.id,
+    domain: store.domain,
+    chain: anchor.state,
+    sequencer: anchor.sequencer,
+    expectedCanvas: anchor.canvasId,
+  });
+
+  const persist = opts?.persistBoothSession ?? typeof localStorage !== "undefined";
+  if (persist) {
+    saveContinuitySessionBlob(await exportContinuitySession(session));
+  }
+
+  const ops = patchStore(state, storeId, {
     step: "live",
     continuity: anchor.continuity,
     deployPlan,
@@ -658,9 +711,25 @@ export async function goLive(
     tipHash: anchor.tipHash,
     registerRef: anchor.registerRef,
     networkId: anchor.networkId,
+    genesisHash: anchor.genesisHash,
+    canvasId: `${anchor.canvasId.networkId}:${anchor.canvasId.genesisHash}`,
+    tipMarkAttachment: anchor.tipMark.attachment,
+    merchantAddress: session.merchant.address,
+    tillAddress: session.till.address,
     anchoredOnPixel: true,
-    note: `Anchored on Pixel tip #${anchor.pixelIndex} · ${anchor.registerRef}`,
+    note: `Anchored on Pixel tip #${anchor.pixelIndex} · ${anchor.registerRef} · canvas ${formatCanvasId(anchor.canvasId)} · ${anchor.tipMark.attachment}`,
   });
+
+  return { ops, session, tipMark: anchor.tipMark };
+}
+
+export async function goLive(
+  state: ContinuityOpsState,
+  storeId: string,
+  opts?: GoLiveOpts,
+): Promise<ContinuityOpsState> {
+  const { ops } = await goLiveWithSession(state, storeId, opts);
+  return ops;
 }
 
 export function toggleDeployItem(

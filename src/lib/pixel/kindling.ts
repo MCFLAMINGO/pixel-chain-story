@@ -28,6 +28,12 @@ import { proposeTransfer, sequenceBlock, type PixelChainState } from "./chain";
 import type { LightKeypair } from "./crypto";
 import { energyTruthForIlluminate, formatEnergyTruth, type EnergyTruth } from "./energy-truth";
 import { assertSelfCustody } from "./custody";
+import {
+  tipMarkFromState,
+  tipMarkSummary,
+  type SettlementPlane,
+  type TipMarkReceipt,
+} from "./tip-mark";
 
 const KINDLE_TTL_MS = 5 * 60 * 1000; // five minutes — presence, not a standing order
 
@@ -266,10 +272,13 @@ export async function settleKindling(params: {
   seal: PresenceSeal;
   /** Must stay false — self-custody law */
   gatewayHeldSeed?: boolean;
+  /** How this settle attaches — lab Kindling UI is lab_local until RPC tip */
+  attachment?: SettlementPlane;
 }): Promise<{
   state: PixelChainState;
   energy: EnergyTruth;
   summary: string;
+  tipMark: TipMarkReceipt;
 }> {
   if (!(await verifyPresenceSeal(params.seal))) {
     throw new Error("Presence seal invalid or expired — no remote cheat");
@@ -291,10 +300,12 @@ export async function settleKindling(params: {
   );
   const state = await sequenceBlock(spoken.state, params.sequencer);
   const energy = energyTruthForIlluminate(1);
+  const tipMark = tipMarkFromState(state, "kindling", params.attachment ?? "lab_local");
   return {
     state,
     energy,
-    summary: `Kindled ${params.seal.boundLabel} (self-custody). ${formatEnergyTruth(energy)}`,
+    tipMark,
+    summary: `Kindled ${params.seal.boundLabel} (self-custody). ${formatEnergyTruth(energy)} · ${tipMarkSummary(tipMark)}`,
   };
 }
 

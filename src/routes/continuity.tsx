@@ -588,6 +588,12 @@ function StorePanel({
           <p className="mt-2 text-xs text-primary">
             On Pixel · tip #{store.pixelIndex} · {store.registerRef}
             {store.tipHash ? ` · ${store.tipHash.slice(0, 16)}…` : ""}
+            {store.genesisHash
+              ? ` · canvas ${store.networkId ?? "?"}:${store.genesisHash.slice(0, 10)}…`
+              : ""}
+            {store.tipMarkAttachment
+              ? ` · ${store.tipMarkAttachment === "shared_tip" ? "shared tip" : "lab tip (not public picture)"}`
+              : ""}
           </p>
         ) : store.step === "live" ? (
           <p className="mt-2 text-xs text-destructive">

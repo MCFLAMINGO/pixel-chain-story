@@ -27,6 +27,8 @@ export interface PixelHeader {
 
 export interface HeadersSyncPackage {
   networkId: number;
+  /** Genesis pixel hash — canvas instance (join credential with networkId) */
+  genesisHash: Hex;
   tip: number;
   tipHash: Hex;
   /** Tip UTXO set root — verify balance proofs against this */
@@ -200,8 +202,10 @@ export async function buildHeadersSync(state: PixelChainState): Promise<HeadersS
   const headers = extractHeaders(state.pixels);
   const stateRoot = await computeStateRoot(state);
   const tip = headers.length - 1;
+  const genesisHash = (state.pixels[0]?.hash ?? ("00".repeat(64) as Hex)) as Hex;
   return {
     networkId: state.networkId,
+    genesisHash,
     tip,
     tipHash: tip >= 0 ? headers[tip].hash : ("00".repeat(64) as Hex),
     stateRoot,
