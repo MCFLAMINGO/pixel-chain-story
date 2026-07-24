@@ -5,9 +5,9 @@ Respect is not requested in copy. It is earned when a skeptical engineer can clo
 
 This document is the north star checklist of **earned respect**. [`ROADMAP.md`](./ROADMAP.md) is the gate list. Normative behavior is whatever [`SPEC.md`](./SPEC.md) + CI enforce.
 
-**Dream (destination voice):** build Pixel into a world-class model for a future species — light signatures in a dark universe. Think big; solve big problems; build until the lab frame is obsolete.
+**Dream (destination voice):** build Pixel into a world-class model for a future species — light signatures in a dark universe; **one public canvas** people join with a wallet; every real act a **mark on the tip**. Think big; solve big problems; build until the lab frame is obsolete. See [`WORLD-CANVAS.md`](./WORLD-CANVAS.md).
 
-**Claim (public voice):** only what the highest passing gate allows. Dream ≠ claim. See [`DOORS.md`](./DOORS.md).
+**Claim (public voice):** only what the highest passing gate allows. Dream ≠ claim. See [`DOORS.md`](./DOORS.md). Local `init` is builder scaffolding — not the people product.
 
 ---
 
@@ -217,6 +217,7 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
 5. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
 6. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
-7. Keep `pix_protocolInfo` gates honest as evidence lands
+7. [ ] **World canvas + people wallet** — shared public tip people join without CLI; Continuity/Kindling leave tip marks; night-Earth field feeling ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md)). Lab `init` stays for builders only.
+8. Keep `pix_protocolInfo` gates honest as evidence lands
 
-Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume. FieldWitness is invent evidence for tip custody as a sphere lock — not simile alone.
+Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume. FieldWitness is invent evidence for tip custody as a sphere lock — not simile alone. World canvas is the people-facing north star: one picture, wallet-held, tip-marked — not everyone lighting a private notebook.
