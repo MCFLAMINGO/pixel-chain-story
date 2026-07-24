@@ -12,11 +12,11 @@ Live map: **`/doors`** on the site.
 
 **Build to meet the claim.** The dream is the goal; PATH gates are how we earn the right to say it out loud.
 
-|                |                                                                                                                                                                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dream**      | A world-class model for a future species: **light signatures in a dark universe** — settlement, continuity, and custody that feel like illumination, not farms and phishing. Think big. Solve big problems. |
-| **Discipline** | Public voice claims only what the highest green gate allows ([`PATH.md`](./PATH.md)). Vocabulary can be large; **claims escalate with evidence**.                                                           |
-| **Stance**     | Keep the honest lab frame _and_ build until the frame is obsolete.                                                                                                                                          |
+|                |                                                                                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dream**      | A world-class model for a future species: **light signatures in a dark universe** — one public canvas of humanity; wallets shine into it; every real act leaves a **mark on the tip**. Think big. Solve big problems. |
+| **Discipline** | Public voice claims only what the highest green gate allows ([`PATH.md`](./PATH.md)). Vocabulary can be large; **claims escalate with evidence**.                                                                     |
+| **Stance**     | Keep the honest lab frame _and_ build until the frame is obsolete. People get a wallet + shared tip — not `pixel init`. See [`WORLD-CANVAS.md`](./WORLD-CANVAS.md).                                                   |
 
 Thesis strings name the destination. Tests and gates prove we arrived. Never hide a gap behind poetry — and never shrink the north star to match yesterday’s CI.
 
@@ -44,6 +44,10 @@ Copy: _Build with us — or aim your own light into the picture._
 Copy: **Build on · for · into Pixel.**
 
 ---
+
+## People first (ease)
+
+Regular users need a **wallet** and a **felt connection to the main public picture** — not a local notebook. CLI `init` is for builders proving light; it is not mass onboarding. Full frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md).
 
 ## People doors (use)
 
@@ -74,8 +78,10 @@ Ideas to explore. Ship only with PATH evidence. Tangential brains: add yours.
 6. **Energy Truth** — show settlement cost vs datacenter thirst when you illuminate.
 7. **Field / tip custody** — scene continuity (peer field) so the tip isn’t a lonely hash rename.
 8. **Lumen programs** — light vocabulary that moves real UTXOs ([`LUMEN.md`](./LUMEN.md)).
+9. **World canvas** — one dark picture; proximity lights a shared tip; night-Earth brightness ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md)).
+10. **People wallet + tip mark** — hold without CLI; every settle/shine resonates on the public tip.
 
-Forbidden seeds: “Pixel replaces AWS,” “flashlight = cryptography,” “screenshot wallet = custody,” “production bridge live” without Gate evidence.
+Forbidden seeds: “Pixel replaces AWS,” “flashlight = cryptography,” “screenshot wallet = custody,” “everyone inits then magically merges,” “production bridge live” without Gate evidence.
 
 ---
 

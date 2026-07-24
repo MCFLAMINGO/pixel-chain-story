@@ -22,16 +22,17 @@ Primitive → advanced is allowed for uptake. **Settling on the primitive rung i
 
 ## What is invention here
 
-| Piece               | Why it is not a rename                                                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pixel / PoLS**    | Light sequence settlement — not hashrate blocks                                                                                          |
-| **Lumen**           | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md))                                                                |
-| **Kindling**        | Mutual optical presence as spend _authorization_                                                                                         |
-| **Personal Source** | Optical self-custody for everyone — not MetaMask, not M-Pesa                                                                             |
-| **Optical capture** | getUserMedia / raster grid sample — not in-memory theater                                                                                |
-| **Energy Truth**    | Labeled waste accounting vs datacenter thirst                                                                                            |
-| **SISO**            | Continuity without a forced rewrite VM                                                                                                   |
-| **FieldWitness**    | Sphere combination lock for tip custody — `fieldDigest` in PoLS; wrong neighbor effects fail (`test:field`). Not a rename of `prevHash`. |
+| Piece               | Why it is not a rename                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pixel / PoLS**    | Light sequence settlement — not hashrate blocks                                                                                                                |
+| **Lumen**           | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md))                                                                                      |
+| **Kindling**        | Mutual optical presence as spend _authorization_                                                                                                               |
+| **Personal Source** | Optical self-custody for everyone — not MetaMask, not M-Pesa                                                                                                   |
+| **Optical capture** | getUserMedia / raster grid sample — not in-memory theater                                                                                                      |
+| **Energy Truth**    | Labeled waste accounting vs datacenter thirst                                                                                                                  |
+| **SISO**            | Continuity without a forced rewrite VM                                                                                                                         |
+| **FieldWitness**    | Sphere combination lock for tip custody — `fieldDigest` in PoLS; wrong neighbor effects fail (`test:field`). Not a rename of `prevHash`.                       |
+| **World canvas**    | One public picture of humanity — wallets shine in; tip marks; not “everyone inits a private chain.” Destination frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md). |
 
 Full audit: [`INVENTION.md`](./INVENTION.md).
 
