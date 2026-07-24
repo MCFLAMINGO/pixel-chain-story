@@ -15,6 +15,7 @@ import {
   type UnlockedSource,
 } from "./custody";
 import type { OpticalPattern } from "./optical";
+import { attachTransferViaRpc, tipMarkSummary, type TipMarkReceipt } from "./tip-mark";
 
 export const PEOPLE_WALLET_STORAGE_KEY = "pixel.people.wallet.v1";
 
@@ -114,11 +115,42 @@ export async function fetchTipBalance(
   }
 }
 
+/**
+ * Pay from unlocked Source onto the shared tip (POST /tx → tip inclusion).
+ * Vault never leaves the unlock session; only the signed tx hits the wire.
+ */
+export async function payOnSharedTip(params: {
+  rpc: string;
+  unlocked: UnlockedSource;
+  toAddress: string;
+  amount: number;
+  note?: string;
+}): Promise<{ tipMark: TipMarkReceipt; summary: string }> {
+  const to = params.toAddress.trim();
+  if (!to.startsWith("pix")) throw new Error("Pay needs a Pixel address (pix…)");
+  const { tipMark } = await attachTransferViaRpc({
+    rpcBase: params.rpc,
+    from: params.unlocked.keypair,
+    toAddress: to,
+    amount: params.amount,
+    kind: "people-pay",
+    metadata: {
+      description: params.note?.trim() || `People pay · ${params.unlocked.localId}`,
+      recipientLabel: to.slice(0, 12),
+      reference: `PAY-${Date.now().toString(36)}`,
+    },
+  });
+  return {
+    tipMark,
+    summary: tipMarkSummary(tipMark),
+  };
+}
+
 export function peopleWalletThesis(): string {
   return (
     "People wallet: hold a Personal Source without CLI init; pay face shows address only; " +
     "vault stays sealed on device and is never the pay UI. Balance is read from a shared tip " +
-    "RPC when connected — connection to the main picture, not a private notebook."
+    "RPC when connected; pay posts a tip mark on that picture — not a private notebook."
   );
 }
 

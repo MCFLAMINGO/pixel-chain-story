@@ -53,7 +53,7 @@ Regular users need a **wallet** and a **felt connection to the main public pictu
 
 | Door                | What you do                                          | Route / doc                                              |
 | ------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| **Wallet**          | Hold a Personal Source — pay face, tip balance       | `/wallet`                                                |
+| **Wallet**          | Hold a Personal Source — pay face, tip balance, pay  | `/wallet` (+ `?rpc=` / [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)) |
 | **See the picture** | Live field (public tip via rpc; else lab light)      | `/`                                                      |
 | **Shine in**        | Keep a brand/site reachable in the Continuity map    | `/shine`                                                 |
 | **Pay with Pixel**  | Settle at a Continuity booth when it matters         | `/continuity/booth/$domain`                              |

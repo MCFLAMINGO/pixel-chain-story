@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { usePeopleWallet } from "@/hooks/use-people-wallet";
 import { peopleWalletThesis } from "@/lib/pixel/people-wallet";
+import { formatCanvasId, settlementHonesty } from "@/lib/pixel";
 
 /**
  * People wallet door — hold a Personal Source without CLI init.
@@ -28,6 +29,9 @@ function WalletPage() {
   const { rpc: rpcQuery } = Route.useSearch();
   const w = usePeopleWallet(rpcQuery);
   const [name, setName] = useState("you");
+  const [toAddr, setToAddr] = useState("");
+  const [amount, setAmount] = useState("1");
+  const [note, setNote] = useState("");
 
   return (
     <main className="min-h-screen bg-[oklch(0.09_0.02_145)] text-foreground">
@@ -143,9 +147,77 @@ function WalletPage() {
               </button>
             </div>
 
+            {w.rpc ? (
+              <form
+                className="space-y-4 border-t border-primary/15 pt-8"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void w
+                    .pay(toAddr, Math.floor(Number(amount) || 0), note || undefined)
+                    .catch(() => {
+                      /* error surfaced on w.error */
+                    });
+                }}
+              >
+                <p className="font-pixel text-[11px] tracking-[0.18em] text-primary uppercase">
+                  Pay on tip
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Signs from your unlocked Source and posts to the tip feed. Vault is never shown.
+                  Needs PIX on this tip (operator may fund your pay face).
+                </p>
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">To address</span>
+                  <input
+                    value={toAddr}
+                    onChange={(e) => setToAddr(e.target.value)}
+                    placeholder="pix…"
+                    className="mt-1 w-full rounded-md border border-primary/20 bg-black/40 px-3 py-2 font-mono text-sm"
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Amount (PIX)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-primary/20 bg-black/40 px-3 py-2"
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Note (optional)</span>
+                  <input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-primary/20 bg-black/40 px-3 py-2"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={w.busy || !w.unlocked}
+                  className="font-pixel w-full rounded-md bg-primary px-4 py-3 text-sm tracking-[0.18em] text-primary-foreground uppercase disabled:opacity-50"
+                >
+                  {!w.unlocked ? "Unlock to pay" : w.busy ? "Paying…" : "Pay on shared tip"}
+                </button>
+                {w.lastPay ? (
+                  <div className="space-y-1 text-sm" role="status">
+                    <p className="text-primary">{settlementHonesty(w.lastPay.attachment)}</p>
+                    <p className="font-mono text-xs text-muted-foreground break-all">
+                      canvas {formatCanvasId(w.lastPay.canvasId)} · tip #{w.lastPay.tipIndex} ·{" "}
+                      {w.lastPay.txid.slice(0, 20)}…
+                    </p>
+                  </div>
+                ) : null}
+              </form>
+            ) : null}
+
             <p className="text-xs text-muted-foreground">
-              Vault pattern is never drawn on this page (pay face ≠ vault). Lab: device storage only
-              until a public tip is the default feed.
+              Vault pattern is never drawn on this page (pay face ≠ vault). Point{" "}
+              <code className="text-foreground/90">VITE_PIXEL_RPC</code> at the canonical tip so pay
+              marks the public picture — see docs/CANONICAL-TIP.md.
             </p>
           </section>
         )}
