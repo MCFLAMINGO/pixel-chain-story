@@ -65,53 +65,55 @@ export function BillboardScreen({
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/30" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/70" />
 
-      <header className="absolute inset-x-0 top-0 flex items-start justify-between px-8 pt-8 md:px-14 md:pt-12">
+      <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 px-8 pt-8 md:px-14 md:pt-12">
         <div>
-          <p className="font-pixel text-xs font-semibold tracking-[0.45em] text-primary uppercase">
+          <p className="font-pixel text-xs font-semibold tracking-[0.45em] uppercase text-[oklch(0.92_0.18_95)] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
             Live field
           </p>
-          <h1 className="font-pixel mt-2 text-[clamp(3rem,12vw,8rem)] leading-none font-extrabold tracking-tight">
+          <h1 className="font-pixel mt-2 text-[clamp(3rem,12vw,8rem)] leading-none font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
             PIXEL
           </h1>
         </div>
         <div className="font-pixel text-right text-sm md:text-base">
-          <p className="tracking-[0.2em] text-muted-foreground uppercase">
-            {rpc ? (live ? "node feed" : "connecting…") : "genesis light"}
-          </p>
-          <p className="mt-2 text-3xl font-bold md:text-5xl">{countLabel}</p>
-          <p className="mt-1 text-muted-foreground">
-            {pixels.filter((p) => p.illuminated).length} lit
-            {pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
-          </p>
+          <div className="inline-block rounded-md bg-black/70 px-3 py-2 backdrop-blur-sm ring-1 ring-white/10">
+            <p className="tracking-[0.2em] uppercase text-[oklch(0.9_0.02_95)]">
+              {rpc ? (live ? "node feed" : "connecting…") : "genesis light"}
+            </p>
+            <p className="mt-2 text-3xl font-bold text-white md:text-5xl">{countLabel}</p>
+            <p className="mt-1 text-[oklch(0.88_0.02_95)]">
+              {pixels.filter((p) => p.illuminated).length} lit
+              {pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
+            </p>
+          </div>
           {showLabLink && (
-            <p className="pointer-events-auto mt-4 flex flex-col items-end gap-2">
+            <div className="pointer-events-auto mt-4 flex flex-col items-end gap-2">
               <Link
                 to="/doors"
-                className="text-xs tracking-widest text-primary underline decoration-primary/40 underline-offset-4 hover:text-primary"
+                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
               >
                 Doors
               </Link>
               <Link
                 to="/shine"
-                className="text-xs tracking-widest text-primary/90 underline decoration-primary/35 underline-offset-4 hover:text-primary"
+                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
               >
                 Shine in
               </Link>
               <Link
                 to="/lab"
-                className="text-xs tracking-widest text-primary/80 underline decoration-primary/30 underline-offset-4 hover:text-primary"
+                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
               >
                 Lab
               </Link>
-            </p>
+            </div>
           )}
         </div>
       </header>
 
       <footer className="absolute inset-x-0 bottom-0 px-8 pb-8 md:px-14 md:pb-12">
-        <p className="font-pixel max-w-xl text-sm text-foreground/80 md:text-lg">
+        <p className="font-pixel max-w-xl rounded-md bg-black/70 px-4 py-3 text-sm text-white ring-1 ring-white/10 backdrop-blur-sm md:text-lg">
           Genesis fills the frame. As more light arrives, the camera pulls back — the mosaic of
           humanity. Color is absent without light.
         </p>
