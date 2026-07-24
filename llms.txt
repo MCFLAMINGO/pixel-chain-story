@@ -15,7 +15,7 @@ Deep agent call: /docs/AGENTS-SISO.md
 - [Quickstart](docs/QUICKSTART.md): bun install, node, UI, test:all
 - [DOORS](docs/DOORS.md): purpose + on/for/into + people use + seed ideas (`/doors`)
 - [WORLD-CANVAS](docs/WORLD-CANVAS.md): one public picture; people wallet; CanvasId + tip-mark planes; init ≠ mass onboarding
-- [CANONICAL-TIP](docs/CANONICAL-TIP.md): operator recipe for VITE_PIXEL_RPC + shared_tip pay
+- [CANONICAL-TIP](docs/CANONICAL-TIP.md): host tip (tip:host / Docker / Railway) → set VITE_PIXEL_RPC
 - [README](README.md): human front door + doc table
 
 ## Doctrine

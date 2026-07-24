@@ -86,7 +86,7 @@ Custody law still holds: pay face ≠ vault; grid is optional codec ([`CUSTODY.m
 
 1. [x] **People wallet surface (lab)** — `/wallet`: forge / unlock / tip balance without CLI; pay face ≠ vault (`people-wallet.ts`, `test:wallet`). Device localStorage; not yet default public tip.
 2. [x] **Billboard honesty** — `/` labels **lab light** vs **public tip** (`?rpc=` / `VITE_PIXEL_RPC`). Throwaway browser genesis is never called the shared picture.
-3. [~] **Canonical tip feed** — operator recipe + `VITE_PIXEL_RPC` ([`CANONICAL-TIP.md`](./CANONICAL-TIP.md)); people pay via `POST /tx` → `shared_tip` (`attachTransferViaRpc`, `test:shared-tip`). Still open: always-on hosted public tip as production default.
+3. [~] **Canonical tip feed** — host recipe (`tip:host`, `Dockerfile.tip`, [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)) + `VITE_PIXEL_RPC` on site build; people pay via `POST /tx` → `shared_tip` (`test:shared-tip`). Still open: _your_ always-on host + Lovable env set (ops, not more invent).
 4. [x] **Tip mark discipline (lab)** — Continuity digests, Kindling settles, booth pays return `TipMarkReceipt` with attachment plane (`lab_local` | `node_sidecar` | `shared_tip`). Go live binds booth session to the **same** canvas as the map tip. Foreign canvas settles refuse. Shared tip attach when RPC present (`tip-mark.ts`, `test:tip-mark`, `test:shared-tip`).
 5. [x] **Canvas identity (lab)** — `CanvasId = (networkId, genesisHash)`; `/health` + `/sync` + headers expose `genesisHash`; `pix_canvasId` RPC; Billboard shows canvas when live (`canvas-id.ts`).
 6. [ ] **Proximity / discovery** — peers and (later) optical presence converge into one field; brightness as activity truth, not fake physics.

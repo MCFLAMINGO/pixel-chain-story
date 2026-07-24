@@ -55,7 +55,7 @@ Truth badges: `pix_protocolInfo.gates` and `.quantum`. Match every public senten
 | Route                       | Role                                                                     |
 | --------------------------- | ------------------------------------------------------------------------ |
 | `/doors`                    | Every entrance illuminated — on / for / into + people + seeds            |
-| `/wallet`                   | People wallet — pay face + tip balance (no CLI; vault never shown)       |
+| `/wallet`                   | People wallet — pay face + tip balance + pay on tip (vault never shown)  |
 | `/`                         | Live field (lab light vs public tip when rpc set)                        |
 | `/lab`                      | Kindling / Worldlight builders                                           |
 | `/shine`                    | Non-tech Continuity front door (brand → Shine in)                        |
@@ -102,11 +102,11 @@ bun run test:all
 
 ## Highest leverage now (for agents)
 
-1. Gate I — external audit engagement from [`docs/AUDIT.md`](docs/AUDIT.md) scope
-2. Gate E remainder — public Sepolia (or equiv.) ULA tx links
-3. Gate G — live ≥7-provider sovereignty set on the wire
-4. Continuity — invite packs + node webhook shipped; agentic booth runners / Gate J still held
-5. Gate J — public chaos drill evidence (lab `test:chaos-drill` is not that)
+1. **Canonical tip ops** — host `bun run tip:host` / `Dockerfile.tip`, set Lovable `VITE_PIXEL_RPC` ([`docs/CANONICAL-TIP.md`](docs/CANONICAL-TIP.md))
+2. Gate I — external audit engagement from [`docs/AUDIT.md`](docs/AUDIT.md) scope
+3. Gate E remainder — public Sepolia (or equiv.) ULA tx links
+4. Gate G — live ≥7-provider sovereignty set on the wire
+5. Continuity / Gate J — agentic booth runners; public chaos drill evidence
 
 Deep agent call: [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md).  
 Discovery index for crawlers/LLMs: [`llms.txt`](llms.txt).
