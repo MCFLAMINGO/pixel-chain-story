@@ -7,6 +7,9 @@ import { type LedgerPixel } from "@/lib/pixel";
 /**
  * The public face of Pixel — cinema zoom from genesis.
  * Site home and Times Square both point here.
+ *
+ * Without rpc: browser forges local genesis (must stay visibly lit).
+ * With rpc: pulls /pixels from a durable node.
  */
 export function BillboardScreen({
   rpc,
@@ -53,19 +56,53 @@ export function BillboardScreen({
   const pixels = remote ?? local.chain?.pixels ?? [];
   const pendingCount = remote ? pending : local.pending;
   const countLabel = remote ? tip : local.chain ? `#${local.chain.pixels.length - 1}` : "…";
+  const igniting = !rpc && local.busy && pixels.length === 0;
+  const litCount = pixels.filter((p) => p.illuminated).length;
+  const feedLabel = rpc
+    ? live
+      ? "node feed"
+      : "connecting…"
+    : igniting
+      ? "igniting…"
+      : "genesis light";
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-[oklch(0.08_0.02_145)] text-foreground">
       <div className="absolute inset-0">
-        <LedgerField
-          pixels={pixels}
-          pendingCount={pendingCount}
-          fit="cinema"
-          className="h-full min-h-[100svh] w-full"
-        />
+        {igniting ? (
+          <div
+            className="flex h-full min-h-[100svh] w-full items-center justify-center"
+            role="status"
+            aria-live="polite"
+          >
+            <div
+              className="h-[min(72vw,72vh)] w-[min(72vw,72vh)] animate-pulse rounded-sm"
+              style={{
+                background:
+                  "radial-gradient(circle at 50% 50%, oklch(0.72 0.14 95 / 0.85), oklch(0.35 0.08 145 / 0.4) 45%, transparent 70%)",
+                boxShadow: "0 0 80px oklch(0.7 0.14 95 / 0.45)",
+              }}
+            />
+          </div>
+        ) : (
+          <LedgerField
+            pixels={pixels}
+            pendingCount={pendingCount}
+            fit="cinema"
+            className="h-full min-h-[100svh] w-full"
+          />
+        )}
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/70" />
+      {/* Vignette only — keep the center clear so genesis light stays readable */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 65% at 50% 48%, transparent 0%, transparent 42%, oklch(0.05 0.02 145 / 0.55) 78%, oklch(0.04 0.02 145 / 0.88) 100%)",
+        }}
+        aria-hidden
+      />
 
       <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 px-8 pt-8 md:px-14 md:pt-12">
         <div>
@@ -78,13 +115,11 @@ export function BillboardScreen({
         </div>
         <div className="font-pixel text-right text-sm md:text-base">
           <div className="inline-block rounded-md bg-black/70 px-3 py-2 backdrop-blur-sm ring-1 ring-white/10">
-            <p className="tracking-[0.2em] uppercase text-[oklch(0.9_0.02_95)]">
-              {rpc ? (live ? "node feed" : "connecting…") : "genesis light"}
-            </p>
+            <p className="tracking-[0.2em] uppercase text-[oklch(0.9_0.02_95)]">{feedLabel}</p>
             <p className="mt-2 text-3xl font-bold text-white md:text-5xl">{countLabel}</p>
             <p className="mt-1 text-[oklch(0.88_0.02_95)]">
-              {pixels.filter((p) => p.illuminated).length} lit
-              {pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
+              {igniting ? "forging first light…" : `${litCount} lit`}
+              {!igniting && pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
             </p>
           </div>
           {showLabLink && (
@@ -114,9 +149,15 @@ export function BillboardScreen({
 
       <footer className="absolute inset-x-0 bottom-0 px-8 pb-8 md:px-14 md:pb-12">
         <p className="font-pixel max-w-xl rounded-md bg-black/70 px-4 py-3 text-sm text-white ring-1 ring-white/10 backdrop-blur-sm md:text-lg">
-          Genesis fills the frame. As more light arrives, the camera pulls back — the mosaic of
-          humanity. Color is absent without light.
+          {igniting
+            ? "First light is being forged — genesis will fill the frame."
+            : "Genesis fills the frame. As more light arrives, the camera pulls back — the mosaic of humanity. Color is absent without light."}
         </p>
+        {local.error && !rpc ? (
+          <p className="font-pixel mt-3 max-w-xl text-sm text-red-300" role="alert">
+            {local.error}
+          </p>
+        ) : null}
       </footer>
     </main>
   );

@@ -98,7 +98,10 @@ export function LedgerField({
                     : !absent && interactive
                       ? `0 0 10px ${cssRgb(pixel.color, 0.25)}`
                       : !absent && fit === "cinema"
-                        ? `0 0 40px ${cssRgb(pixel.color, 0.35)}`
+                        ? // Genesis (and sparse cinema) must read as lit, not crushed into the void
+                          pixels.length <= 4
+                          ? `0 0 64px ${cssRgb(pixel.color, 0.55)}, 0 0 140px ${cssRgb(pixel.color, 0.28)}, inset 0 0 40px ${cssRgb(pixel.color, 0.2)}`
+                          : `0 0 40px ${cssRgb(pixel.color, 0.35)}`
                         : undefined,
                 opacity: absent ? 0.15 : isNear || isFocus || focus === null ? 1 : 0.35,
               }}
