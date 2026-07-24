@@ -79,7 +79,7 @@ bun run test:all
 | `test:all`                                                                                                          | Default PR bar                          |
 | `test:siso`                                                                                                         | Continuity / SISO model                 |
 | `test:continuity-ops` / `test:chaos-drill` / `test:mcflamingo` / `test:continuity-order` / `test:continuity-deepen` | Continuity desk + booth + packs/webhook |
-| `test:wallet` / `test:tip-mark`                                                                                     | People wallet + tip-mark / canvas id    |
+| `test:wallet` / `test:tip-mark` / `test:shared-tip`                                                                 | People wallet + tip-mark / shared tip   |
 | `test:mldsa` / `test:vectors` / `test:kem`                                                                          | Crypto                                  |
 | `test:net` / `test:four-node` / `test:fault` / `test:light`                                                         | Network / consensus / light client      |
 | `test:ula` / `test:ula-mldsa` / `test:bridge-custody`                                                               | Bridge / custody                        |
