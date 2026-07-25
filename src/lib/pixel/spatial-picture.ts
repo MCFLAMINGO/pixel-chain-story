@@ -8,8 +8,7 @@
  * Not a matplotlib toy — tip-verifiable picture fragment.
  */
 
-import { createHash } from "node:crypto";
-import { sha512Hex, type Hex } from "./crypto";
+import { sha512Hex, sha512SyncHex, type Hex } from "./crypto";
 import { formatCoord, indexToLattice, type LatticeCoord } from "./lattice";
 import { colorToFieldHex } from "./field-witness";
 
@@ -222,5 +221,5 @@ export function spatialPictureThesis(): string {
 
 /** Sync helper — digest of picture for logging. */
 export function pictureDigestShort(root: string): string {
-  return createHash("sha512").update(root).digest("hex").slice(0, 16);
+  return sha512SyncHex(root).slice(0, 16);
 }

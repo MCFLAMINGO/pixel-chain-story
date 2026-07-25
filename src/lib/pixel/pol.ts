@@ -9,8 +9,7 @@
  * address in the rotation may illuminate with skipCount ≥ 1 (lab fault path).
  */
 
-import { createHash } from "node:crypto";
-import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
+import { sha512Hex, sha512SyncHex, type Hex, type LightKeypair } from "./crypto";
 import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
 import { opticalBeacon } from "./optical";
 
@@ -22,9 +21,7 @@ export const POLS_MAX_SKIP = 8;
 
 /** Sync SHA-512 for leader lottery (public inputs only — not a private VRF). */
 function lotteryScore(prevHash: Hex, sequence: number, address: string): string {
-  return createHash("sha512")
-    .update(`pols-lottery|${prevHash}|${sequence}|${address}`)
-    .digest("hex");
+  return sha512SyncHex(`pols-lottery|${prevHash}|${sequence}|${address}`);
 }
 
 export interface LightProof {
@@ -70,9 +67,7 @@ export interface LightProof {
 
 /** Commitment over ordered electable addresses (bound into PoLS message). */
 export function electableCommitment(electable: string[]): string {
-  return createHash("sha512")
-    .update(`pols-electable|${electable.join("|")}`)
-    .digest("hex");
+  return sha512SyncHex(`pols-electable|${electable.join("|")}`);
 }
 
 /**
