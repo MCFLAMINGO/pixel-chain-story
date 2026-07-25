@@ -18,12 +18,11 @@ Borrowing audited crypto is a virtue. Re-implementing Dilithium from scratch wou
 
 ## Invented / distinctive (ours)
 
-<<<<<<< HEAD
 | Piece                          | Why it is not a rename                                                                                                                                                                   |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Pixel as settlement unit**   | Illuminated cell + color-absent-without-light invariant                                                                                                                                  |
 | **PoLS**                       | Deterministic light-sequence reveal — not PoW grind, not stake weight                                                                                                                    |
-| **Lumen DSL**                  | `ghost` / `veil` / `shine` / `collapse` / `paint` → real UTXO state (`src/lumen/*`)                                                                                                      |
+| **Lumen DSL**                  | `ghost` / `veil` / `shine` / `collapse` / `paint` → real UTXO state (`src/lumen/*`); typed rays + modules beside chain                                                                   |
 | **Kindling**                   | Mutual presence seal as _spend authorization_; SMS never spends                                                                                                                          |
 | **Personal Source**            | Optical vault custody for non-coders                                                                                                                                                     |
 | **Optical codec + capture**    | Luminance grid + getUserMedia/raster sample (`optical-capture.ts`)                                                                                                                       |
@@ -34,34 +33,12 @@ Borrowing audited crypto is a virtue. Re-implementing Dilithium from scratch wou
 | **Spatial picture**            | Sparse occupancy Merkle over illuminated cells; `spatialRoot` in PoLS + light-client cell proofs (`test:spatial-proof`). Not a matplotlib toy.                                           |
 | **Wave fan-out**               | Node-local async notify of tip wave hits after sequence/accept (`wave-bus`, `test:wave-fanout`). Tip still recomputes `waveDigest`.                                                      |
 | **Spatial index / wave rules** | Hash-grid occupancy + named `WAVE_DAMPING` + lab energy-cost + partition sim (`test:spatial-index`, `test:wave-partition`).                                                              |
+| **Spatial sink**               | Three.js / web viz of tip illuminated cells + wave hits — UI sink only (`test:spatial-sink`). Not matplotlib-as-product.                                                                 |
 | **World canvas**               | One public picture of humanity — people wallets + tip marks; `CanvasId`; `shared_tip` via `POST /tx` ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md), [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)). |
 | **Worldlight / LockFeeder**    | World artifacts + verified lock → shine-in                                                                                                                                               |
 | **Lock→lead**                  | Named invent: USDC/USD lock → tip lattice lead (`activateLead`, `test:lock-lead`); lockDigest bound in shine-in reference.                                                               |
 | **Energy Truth**               | Labeled model vs datacenter thirst                                                                                                                                                       |
 | **Access ladder**              | Signal bridges invite only                                                                                                                                                               |
-=======
-| Piece                        | Why it is not a rename                                                                                                                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pixel as settlement unit** | Illuminated cell + color-absent-without-light invariant                                                                                                                                                     |
-| **PoLS**                     | Deterministic light-sequence reveal — not PoW grind, not stake weight                                                                                                                                       |
-| **Lumen DSL**                | `ghost` / `veil` / `shine` / `collapse` / `paint` → real UTXO state (`src/lumen/*`)                                                                                                                         |
-| **Kindling**                 | Mutual presence seal as _spend authorization_; SMS never spends                                                                                                                                             |
-| **Personal Source**          | Optical vault custody for non-coders                                                                                                                                                                        |
-| **Optical codec + capture**  | Luminance grid + getUserMedia/raster sample (`optical-capture.ts`)                                                                                                                                          |
-| **SISO**                     | Continuity without a forced rewrite VM                                                                                                                                                                      |
-| **FieldWitness**             | Sphere combination lock — lattice Chebyshev-3 peers, opacity + weighted blend; tip binds `fieldDigest`; mismatch rejects. **Not a rename of `prevHash`.** |
-| **Lattice**                  | Spatial packing + neighbor blend meat for FieldWitness ([`SPATIAL.md`](./SPATIAL.md) S1→S5). Not a disconnected voxel sim.                                                                                   |
-| **Lead wave**                | Tip-bound multi-hop lattice hits + collision fold; `waveDigest` in PoLS (`test:wave`).                                                                                                                       |
-| **Spatial picture**          | Sparse occupancy Merkle over illuminated cells; `spatialRoot` in PoLS + light-client cell proofs (`test:spatial-proof`). Not a matplotlib toy.                                                              |
-| **Wave fan-out**             | Node-local async notify of tip wave hits after sequence/accept (`wave-bus`, `test:wave-fanout`). Tip still recomputes `waveDigest`.                                                                         |
-| **Spatial index / wave rules** | Hash-grid occupancy + named `WAVE_DAMPING` + lab energy-cost + partition sim (`test:spatial-index`, `test:wave-partition`).                                                                               |
-| **World canvas**             | One public picture of humanity — people wallets + tip marks; `CanvasId`; `shared_tip` via `POST /tx` ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md), [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)).                    |
-| **Worldlight / LockFeeder**  | World artifacts + verified lock → shine-in                                                                                                                                                                  |
-| **Lock→lead**                | Named invent: USDC/USD lock → tip lattice lead (`activateLead`, `test:lock-lead`); lockDigest bound in shine-in reference.                                                                                    |
-| **Spatial sink**             | Three.js / web viz of tip illuminated cells + wave hits — UI sink only (`test:spatial-sink`). Not matplotlib-as-product.                                                                                     |
-| **Energy Truth**             | Labeled model vs datacenter thirst                                                                                                                                                                          |
-| **Access ladder**            | Signal bridges invite only                                                                                                                                                                                  |
->>>>>>> origin/main
 
 ## Lumen — evolve it (yes)
 
