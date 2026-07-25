@@ -49,8 +49,8 @@ async function main() {
   assertFieldWitnessesMatch(chain.pixels[0]!.lightProof.fieldDigest, 0, []);
   console.log("▸ genesis empty sphere ✓");
 
-  // Grow a short chain so tip has peer neighbors (distance 1 + 2).
-  for (let i = 0; i < 3; i++) {
+  // Grow a short chain so tip has lattice neighbors (Chebyshev-3 sphere).
+  for (let i = 0; i < 5; i++) {
     const { state: pending } = await proposeTransfer(
       chain,
       alice,
@@ -64,21 +64,24 @@ async function main() {
   }
   if (!(await verifyChain(chain))) throw new Error("grown chain verify failed");
   const tip = chain.pixels[chain.pixels.length - 1]!;
-  if (tip.index < 2) throw new Error("need tip with distance-2 peer");
+  if (tip.index < 2) throw new Error("need tip with lattice peers");
   const expected = buildFieldWitnesses(tip.index, priorFieldColors(chain.pixels.slice(0, -1)));
-  if (expected.length < 2) throw new Error("expected peer witnesses");
+  if (expected.length < 1) throw new Error("expected peer witnesses");
   if (computeFieldDigest(expected) !== tip.lightProof.fieldDigest) {
     throw new Error("tip fieldDigest drift");
   }
   const d1 = expected.find((w) => w.distance === 1);
-  const d2 = expected.find((w) => w.distance === 2);
   if (!d1 || d1.opacity !== "translucent" || !d1.color.startsWith("#")) {
     throw new Error("distance-1 must be translucent with color");
   }
-  if (!d2 || d2.opacity !== "opaque" || d2.color !== "") {
-    throw new Error("distance-2 must be opaque with empty color");
+  if (typeof d1.x !== "number" || d1.weight !== 0.5) {
+    throw new Error("lattice coords + weight required on witnesses");
   }
-  console.log("▸ correct sphere on tip ✓", expected.length, "peers");
+  const d2 = expected.find((w) => w.distance === 2);
+  if (d2 && (d2.opacity !== "opaque" || d2.color !== "" || d2.weight !== 0)) {
+    throw new Error("distance-2 must be opaque with empty color / weight 0");
+  }
+  console.log("▸ correct lattice sphere on tip ✓", expected.length, "peers");
 
   const peer = stateFromPixels(chain.pixels.slice(0, tip.index), chain.sequencers, chain.networkId);
   const accepted = await acceptBlock(peer, tip);

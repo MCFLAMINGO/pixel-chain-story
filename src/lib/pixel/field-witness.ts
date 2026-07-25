@@ -2,13 +2,15 @@
  * FieldWitness — sphere combination lock for tip custody.
  *
  * Invent (not rename of prevHash): tip light-proof message includes fieldDigest
- * over peer indices at Chebyshev distance ≤ FIELD_MAX_DISTANCE, with opacity
- * ∈ {opaque, translucent, lit}. acceptPixel recomputes and rejects mismatch.
+ * over lattice peers at Chebyshev-3 distance ≤ FIELD_MAX_DISTANCE, with opacity
+ * ∈ {opaque, translucent, lit} and opacity-weighted neighbor blend.
+ * acceptPixel recomputes and rejects mismatch.
  *
- * Continuity of the scene, not simile alone.
+ * Continuity of the scene, not simile alone. Geometry: lattice.ts (S1).
  */
 
 import { createHash } from "node:crypto";
+import { formatCoord, indexToLattice, latticePeersInSphere, neighborBlendHex } from "./lattice";
 
 export const FIELD_MAX_DISTANCE = 2;
 
@@ -17,29 +19,23 @@ export type FieldOpacity = "opaque" | "translucent" | "lit";
 
 export type FieldWitness = {
   peerIndex: number;
+  /** Lattice Chebyshev-3 distance from tip */
   distance: number;
   opacity: FieldOpacity;
   /** Empty string when opaque; peer color `#rrggbb` otherwise. */
   color: string;
+  /** Packed coords of peer — part of digest canonical form */
+  x: number;
+  y: number;
+  z: number;
+  /** opacityWeight — translucent 0.5 contributes to neighborBlend */
+  weight: number;
 };
 
-export function opacityForDistance(distance: number): FieldOpacity {
-  if (distance <= 0) return "lit";
-  if (distance === 1) return "translucent";
-  return "opaque";
-}
-
-/** Relative weight of peer color contribution (spec table). */
-export function opacityWeight(opacity: FieldOpacity): number {
-  switch (opacity) {
-    case "lit":
-      return 1;
-    case "translucent":
-      return 0.5;
-    case "opaque":
-      return 0;
-  }
-}
+export {
+  latticeOpacityForDistance as opacityForDistance,
+  latticeOpacityWeight as opacityWeight,
+} from "./lattice";
 
 export function colorToFieldHex(color: { r: number; g: number; b: number }): string {
   return (
@@ -54,45 +50,45 @@ export function colorToFieldHex(color: { r: number; g: number; b: number }): str
   );
 }
 
-function chebyshevDistance(a: number, b: number): number {
-  return Math.abs(a - b);
-}
-
 /**
  * Build ordered peer witnesses for tip at `tipIndex` from prior chain colors.
- * `priorColors[i]` is the `#rrggbb` (or "") of pixel at index i (0..tipIndex-1).
+ * Peers = prior pixels within lattice Chebyshev ≤ FIELD_MAX_DISTANCE of tip.
  */
 export function buildFieldWitnesses(
   tipIndex: number,
   priorColors: readonly string[],
 ): FieldWitness[] {
-  if (tipIndex < 0) {
-    throw new Error("tipIndex must be ≥ 0");
-  }
-  if (priorColors.length !== tipIndex) {
-    throw new Error(`priorColors length ${priorColors.length} must equal tipIndex ${tipIndex}`);
-  }
-
-  const out: FieldWitness[] = [];
-  const lo = Math.max(0, tipIndex - FIELD_MAX_DISTANCE);
-  const hi = tipIndex - 1;
-  for (let peerIndex = lo; peerIndex <= hi; peerIndex++) {
-    const distance = chebyshevDistance(tipIndex, peerIndex);
-    const opacity = opacityForDistance(distance);
-    const color = opacity === "opaque" ? "" : priorColors[peerIndex]!;
-    out.push({ peerIndex, distance, opacity, color });
-  }
-  return out;
+  const peers = latticePeersInSphere(tipIndex, priorColors, FIELD_MAX_DISTANCE);
+  return peers.map((p) => ({
+    peerIndex: p.peerIndex,
+    distance: p.distance,
+    opacity: p.opacity,
+    color: p.color,
+    x: p.coord.x,
+    y: p.coord.y,
+    z: p.coord.z,
+    weight: p.weight,
+  }));
 }
 
 /** Canonical digest bound into tip light-proof message. */
 export function computeFieldDigest(witnesses: readonly FieldWitness[]): string {
-  const canonical = witnesses
-    .slice()
-    .sort((a, b) => a.peerIndex - b.peerIndex)
-    .map((w) => `${w.peerIndex}:${w.distance}:${w.opacity}:${w.color.toLowerCase()}`)
+  const sorted = witnesses.slice().sort((a, b) => a.peerIndex - b.peerIndex);
+  const blend = neighborBlendHex(
+    sorted.map((w) => ({
+      weight: w.weight,
+      color: w.color,
+    })),
+  );
+  const canonical = sorted
+    .map(
+      (w) =>
+        `${w.peerIndex}@${formatCoord({ x: w.x, y: w.y, z: w.z })}:${w.distance}:${w.opacity}:${w.weight}:${w.color.toLowerCase()}`,
+    )
     .join("|");
-  return createHash("sha512").update(`field|${canonical}`).digest("hex");
+  return createHash("sha512")
+    .update(`field|v2|blend=${blend.toLowerCase()}|${canonical}`)
+    .digest("hex");
 }
 
 export function assertFieldWitnessesMatch(
@@ -115,11 +111,16 @@ export function priorFieldColors(
   return pixels.map((p) => colorToFieldHex(p.color));
 }
 
+/** Tip lattice coord — for explorers / Billboard. */
+export function tipLatticeCoord(tipIndex: number) {
+  return indexToLattice(tipIndex);
+}
+
 export function fieldWitnessThesis(): string {
   return (
-    "FieldWitness invents tip custody as a sphere combination lock: peer indices, " +
-    "distance, opacity ∈ {opaque, translucent, lit}; light-proof binds fieldDigest; " +
-    "acceptPixel recomputes and rejects mismatch. Not a rename of prevHash — " +
-    "verification, continuity of the scene, custody of the tip."
+    "FieldWitness invents tip custody as a sphere combination lock: lattice Chebyshev-3 " +
+    "peers, distance, opacity ∈ {opaque, translucent, lit}, opacity-weighted neighbor blend; " +
+    "light-proof binds fieldDigest; acceptPixel recomputes and rejects mismatch. Not a rename " +
+    "of prevHash — verification, continuity of the scene, custody of the tip."
   );
 }
