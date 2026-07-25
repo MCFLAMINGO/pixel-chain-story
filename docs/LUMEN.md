@@ -40,14 +40,14 @@ Lumen programmers write **light verbs**. The host holds quantum schemes and leaf
 
 ## Status
 
-| Piece                      | State                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| Parser (`parse.ts`)        | Real                                                                                       |
-| Interpreter (`runtime.ts`) | Real — UTXO + optical + digest/attest + **tip / kindle / shine_in**                        |
-| `lightDigest`              | Real — shared with tx commitment path                                                      |
-| Example module             | `TRANSFER_LUMEN` — `send` / `exist` / **`tip_sense` / `kindle` / `shine_in` / `holdings`** |
-| Lab UI                     | `/lab` → LumenPanel                                                                        |
-| CI                         | `bun run test:pixel` + `bun run test:lumen`                                                |
+| Piece                      | State                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| Parser (`parse.ts`)        | Real                                                                                           |
+| Interpreter (`runtime.ts`) | Real — UTXO + optical + product rays + **match / aperture / ensure / composition / ownership** |
+| `lightDigest`              | Real — shared with tx commitment path                                                          |
+| Example module             | `TRANSFER_LUMEN` — includes **`funded_kindle` / `pay_composed` / `tip_wave`**                  |
+| Lab UI                     | `/lab` → LumenPanel                                                                            |
+| CI                         | `bun run test:pixel` + `bun run test:lumen`                                                    |
 
 ## Why this answers “quit”
 
