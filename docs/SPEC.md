@@ -70,11 +70,11 @@ Canonical `fieldDigest = SHA-512(field|v2|blend=<hex>\|<peerIndex>@x,y,z:distanc
 
 ### Lead wave (lattice propagation)
 
-Tip illumination emits a deterministic multi-hop wave over occupied lattice cells (`WAVE_MAX_HOPS = 2`). Seed = `prevHash|sequence|merkleRoot`. Hits record `(cellIndex, hop, amplitudeMilli, leadIndex)`. Prior tips within `WAVE_LOOKBACK` leave residue; overlapping cells **collision-fold** by sorting `(leadIndex, leadTipHash)` then mixing amplitudes (not wall-clock order).
+Tip illumination emits a deterministic multi-hop wave over occupied lattice cells (`WAVE_MAX_HOPS = 2`). Seed = `prevHash|sequence|merkleRoot`. Hits record `(cellIndex, hop, amplitudeMilli, leadIndex)`. Amplitude decays by named constant `WAVE_DAMPING = 0.55` per hop (`wave-rules-v1` — consensus-critical). Prior tips within `WAVE_LOOKBACK` leave residue; overlapping cells **collision-fold** by sorting `(leadIndex, leadTipHash)` then mixing amplitudes (not wall-clock order). Neighbor occupancy uses a tip-equivalent **hash grid** (`spatial-index.ts`) — local acceleration, not a PoLS field.
 
-Canonical `waveDigest = SHA-512(wave|v1|<cell>:<hop>:<amp>:<lead>|…)`. Bound into the PoLS message as `|wave=<digest>`. `acceptBlock` / `verifyChain` recompute and reject mismatch.
+Canonical `waveDigest = SHA-512(wave|v1|<cell>:<hop>:<amp>:<lead>|…)`. Bound into the PoLS message as `|wave=<digest>`. `acceptBlock` / `verifyChain` recompute and reject mismatch. Lab energy-cost: `waveEnergyCostMilli(hits)` — labeled model, not Energy Truth Joules / not PIX gas.
 
-**Invent note:** neighbor reaction is tip physics — **not** UI glitter. Evidence: `bun run test:wave`. Path: [`SPATIAL.md`](./SPATIAL.md) S2.
+**Invent note:** neighbor reaction is tip physics — **not** UI glitter. Evidence: `bun run test:wave` · `test:spatial-index` · `test:wave-partition`. Path: [`SPATIAL.md`](./SPATIAL.md) S2–S4.
 
 ### Wave fan-out (node notify plane)
 

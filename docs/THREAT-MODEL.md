@@ -31,9 +31,13 @@
 ## Non-goals (for now)
 
 - Perfect privacy (ZK) — veils are coarse
-- Instant global finality under partitions
+- Instant global finality under partitions — `test:wave-partition` is **lab CI** (conflicting wave tips fail accept), not a BFT partition theorem
 - Replacing AWS compute — we provide **continuity**, not a universal VM
 - Claiming “audited” before an external report lands in [`AUDIT.md`](./AUDIT.md)
+
+## Spatial storage growth (lab note)
+
+Occupied lattice cells grow with tip height (`O(n)` occupancy map / hash-grid buckets). Wave BFS is bounded by `WAVE_MAX_HOPS` and lookback. Sparse occupancy Merkle (`spatialRoot`) commits illuminated cells only. **Control levers (not yet production):** coord-slab sharding, prune dark cells from hot indexes, optional octree after benches. Until Gate F–style published benches, do not claim voxel-scale mainnet storage. See [`SPATIAL.md`](./SPATIAL.md) S4–S5.
 
 ## Trust assumptions
 
