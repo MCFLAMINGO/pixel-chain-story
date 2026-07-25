@@ -7,7 +7,8 @@
  */
 
 import { balanceOf, type PixelChainState, type LedgerPixel, verifyChain } from "./chain";
-import { buildHeadersSync, proveBalance } from "./light-client";
+import { buildHeadersSync, proveBalance, proveTipIlluminatedCell } from "./light-client";
+import { buildSpatialPicture, pictureSnapshot } from "./spatial-picture";
 import { estimatePoLSCost } from "./pol";
 import type { Transaction } from "./transaction";
 
@@ -109,6 +110,15 @@ export async function handlePixelRpc(
       case "pix_getBalanceProof": {
         const address = String(params[0] ?? "");
         return ok(id, await proveBalance(ctx.chain, address));
+      }
+      case "pix_getSpatialSnapshot": {
+        const picture = await buildSpatialPicture(ctx.chain.pixels);
+        return ok(id, pictureSnapshot(picture));
+      }
+      case "pix_proveIlluminatedCell": {
+        const index = Number(params[0] ?? -1);
+        if (!Number.isInteger(index) || index < 0) throw rpcError(-32602, "bad cell index");
+        return ok(id, await proveTipIlluminatedCell(ctx.chain, index));
       }
       case "pix_getHeaders": {
         const from = Number(params[0] ?? 0);

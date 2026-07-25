@@ -46,11 +46,12 @@ State = {
 
 - Links: `prevHash`, `index`, `sequence`
 - Body: `transactions[]`, `merkleRoot`
-- Light: `lightProof` (beacon + sequencer sig + `fieldDigest` + `waveDigest`)
+- Light: `lightProof` (beacon + sequencer sig + `fieldDigest` + `waveDigest` + `spatialRoot`)
 - Appearance: `color`, `illuminated`, `proximity[]`
 - Field: `field[]` — peer `FieldWitness` records (sphere combination lock)
 - Invariant: `illuminated = false` ⇒ color absent (no RGB meaning)
 - Invariant: `lightProof.fieldDigest` matches recomputed digest of peer field; mismatch ⇒ reject
+- Invariant: `lightProof.spatialRoot` matches sparse occupancy Merkle of illuminated cells; mismatch ⇒ reject
 
 ### FieldWitness (sphere combination lock)
 
@@ -75,6 +76,14 @@ Canonical `waveDigest = SHA-512(wave|v1|<cell>:<hop>:<amp>:<lead>|…)`. Bound i
 
 **Invent note:** neighbor reaction is tip physics — **not** UI glitter. Evidence: `bun run test:wave`. Path: [`SPATIAL.md`](./SPATIAL.md) S2.
 
+### Spatial picture (sparse occupancy Merkle)
+
+Illuminated tips form a sparse occupancy set in lattice coords. Leaves are sorted `(x,y,z,index)` with `SHA-512(spatial-cell|coord|index|color|lit)`. Merkle parent `SHA-512(left|right)` (odd last leaf duplicated). Empty picture → `SHA-512(empty-spatial-root)`.
+
+Canonical `spatialRoot` bound into the PoLS message as `|spatial=<root>`. `acceptBlock` / `verifyChain` recompute from tip pixels and reject mismatch. Light clients prove “cell lit” via Merkle path against tip `spatialRoot` (`HeadersSyncPackage.spatialRoot`, `GET /spatial/proof/:index`).
+
+**Invent note:** verifiable illuminated picture fragment — **not** a matplotlib demo. Evidence: `bun run test:spatial-proof`. Path: [`SPATIAL.md`](./SPATIAL.md) S3.
+
 ### Transaction
 
 - UTXO inputs/outputs
@@ -88,11 +97,12 @@ Canonical `waveDigest = SHA-512(wave|v1|<cell>:<hop>:<amp>:<lead>|…)`. Bound i
 2. `electable =` current sequencer registry (ordered); bound into the light proof.
 3. `nextSequencer = argmin SHA-512(pols-lottery|tipHash|sequence|addr)` over `electable` (skip=0).
 4. Elected sequencer builds pixel: coinbase light-reward + pending txs.
-5. Signs light proof (message includes `el=` commitment and `|field=<fieldDigest>`); peers `acceptPixel` with full verify.
+5. Signs light proof (message includes `el=` commitment, `|field=`, `|wave=`, `|spatial=`); peers `acceptPixel` with full verify.
 6. UTXO set updates; pending cleared/conflict-dropped.
 
 Invariant: `lightProof.electable` is the lottery set for that height; every address in it must be in the local registry; join/register after the fact cannot change prior elections.
 Invariant: `lightProof.fieldDigest` is the sphere lock for that tip; wrong neighbor effects ⇒ reject.
+Invariant: `lightProof.waveDigest` / `spatialRoot` are neighbor physics + picture occupancy; mismatch ⇒ reject.
 
 ### 4.1 Fault path (Gate C — lab)
 
@@ -108,7 +118,7 @@ This is **not BFT**. Assumed: loosely synchronized clocks, honest majority of se
 Invariants:
 
 - Only the skip-elected sequencer may produce pixel `n+1` for that `skipCount`
-- Peers reject bad merkle, bad proof, bad color composition, bad fieldDigest, bad linkage, unjustified skip
+- Peers reject bad merkle, bad proof, bad color composition, bad fieldDigest / waveDigest / spatialRoot, bad linkage, unjustified skip
 - Light reward obeys emission schedule and hard cap
 - On-time (`skip=0`) always preferred over skip tips at the same height
 

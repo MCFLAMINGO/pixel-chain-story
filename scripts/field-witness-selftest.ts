@@ -104,6 +104,7 @@ async function main() {
     electable: tip.lightProof.electable,
     fieldDigest: forgedDigest,
     waveDigest: tip.lightProof.waveDigest,
+    spatialRoot: tip.lightProof.spatialRoot,
   });
   const forgedTip: LedgerPixel = {
     ...tip,

@@ -12,6 +12,11 @@ import { sha512Hex, type Hex } from "./crypto";
 import { verifyLightProof, type LightProof } from "./pol";
 import type { LedgerPixel, PixelChainState } from "./chain";
 import { balanceOf } from "./chain";
+import {
+  proveIlluminatedCell,
+  verifyIlluminatedCellProof,
+  type IlluminatedCellProof,
+} from "./spatial-picture";
 
 export interface PixelHeader {
   index: number;
@@ -33,6 +38,11 @@ export interface HeadersSyncPackage {
   tipHash: Hex;
   /** Tip UTXO set root — verify balance proofs against this */
   stateRoot: Hex;
+  /**
+   * Tip sparse occupancy Merkle (illuminated picture).
+   * Light clients prove “cell lit” against this without full UTXO map.
+   */
+  spatialRoot: Hex;
   headers: PixelHeader[];
   sequencers: Array<{ address: string; publicKey: Hex }>;
 }
@@ -203,18 +213,52 @@ export async function buildHeadersSync(state: PixelChainState): Promise<HeadersS
   const stateRoot = await computeStateRoot(state);
   const tip = headers.length - 1;
   const genesisHash = (state.pixels[0]?.hash ?? ("00".repeat(64) as Hex)) as Hex;
+  const tipPixel = tip >= 0 ? state.pixels[tip] : undefined;
+  const spatialRoot = (tipPixel?.lightProof.spatialRoot ?? ("00".repeat(64) as Hex)) as Hex;
   return {
     networkId: state.networkId,
     genesisHash,
     tip,
     tipHash: tip >= 0 ? headers[tip].hash : ("00".repeat(64) as Hex),
     stateRoot,
+    spatialRoot,
     headers,
     sequencers: state.sequencers.map((s) => ({
       address: s.address,
       publicKey: s.publicKey,
     })),
   };
+}
+
+/** Prove illuminated cell against tip picture; null if index not lit. */
+export async function proveTipIlluminatedCell(
+  state: PixelChainState,
+  index: number,
+): Promise<IlluminatedCellProof | null> {
+  return proveIlluminatedCell(state.pixels, index);
+}
+
+/** Verify cell proof against a headers sync package tip spatialRoot. */
+export async function lightIlluminatedCellCheck(
+  pkg: HeadersSyncPackage,
+  proof: IlluminatedCellProof,
+): Promise<{ ok: boolean; reason?: string }> {
+  if (proof.spatialRoot !== pkg.spatialRoot) {
+    return { ok: false, reason: "spatialRoot mismatch" };
+  }
+  const tipHeader = pkg.headers[pkg.tip];
+  if (tipHeader && tipHeader.lightProof.spatialRoot !== pkg.spatialRoot) {
+    return { ok: false, reason: "tip lightProof.spatialRoot drift" };
+  }
+  const chainOk = await verifyHeaderChain(
+    pkg.headers,
+    pkg.sequencers.map((s) => s.address),
+  );
+  if (!chainOk.ok) return { ok: false, reason: chainOk.reason };
+  if (!(await verifyIlluminatedCellProof(proof))) {
+    return { ok: false, reason: "bad illuminated cell proof" };
+  }
+  return { ok: true };
 }
 
 /** Convenience: trusted tip balance check for a light client holding only the sync package. */

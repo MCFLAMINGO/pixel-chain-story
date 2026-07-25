@@ -17,7 +17,7 @@ Related: [`PATH.md`](./PATH.md) · [`SPEC.md`](./SPEC.md) § FieldWitness · [`W
 | Light as finality flag, not wave            | `illuminated` + spectrum color; no hop propagation                           | **Gap — S2**                                |
 | Scalability at voxel scale                  | In-memory tip chain; no spatial index / shard                                | **Later (S4–S5)** — not claim until benches |
 | Consensus depth in spatial context          | PoLS + fieldDigest reject wrong peers; no formal 3D BFT paper                | Harden after geometry unifies (S1–S3)       |
-| Spatial commitments / picture proofs        | Single SHA-512 fieldDigest; no occupancy Merkle                              | **S3**                                      |
+| Spatial commitments / picture proofs        | `spatialRoot` occupancy Merkle in PoLS (`test:spatial-proof`)                | **S3 done**                                 |
 | Edge tests (waves, partitions)              | `test:field` forge reject; not wave collision sims                           | **S2–S4**                                   |
 
 **What we refuse from the sample Python module:** shipping a separate `PixelLedger` class that never signs PoLS. Study the ideas (sparse cells, lead activation, decay, RGB mix). **Port invent into tip-bound TypeScript** — or WASM later — so wrong neighbor physics fail `acceptBlock`.
@@ -30,12 +30,12 @@ Related: [`PATH.md`](./PATH.md) · [`SPEC.md`](./SPEC.md) § FieldWitness · [`W
 Lead illumination (tx settles on tip)
     → lattice coords of tip + peers
     → neighbor reactions (opacity-weighted blend / wave)
-    → fieldDigest (+ later spatialRoot) in PoLS
+    → fieldDigest + waveDigest + spatialRoot in PoLS
     → peers recompute; mismatch ⇒ reject
     → Billboard / world canvas shows the same picture
 ```
 
-Latent / “superposition” language stays **lab**: UTXO pending is already pre-reveal; spatial latent is optional local sim until S2 binds wave steps to tip rules.
+Latent / “superposition” language stays **lab**: UTXO pending is already pre-reveal; wave + picture are tip-bound.
 
 ---
 
@@ -75,18 +75,22 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 **Build**
 
-- Sparse occupancy map for illuminated cells
-- `spatialRoot` Merkle (or hash tree) over occupied coords → optional PoLS bind
-- Light client can verify “cell lit” against tip without full UTXO set
+- [x] Sparse occupancy map for illuminated cells (`spatial-picture.ts`)
+- [x] `spatialRoot` Merkle over occupied coords → bound in PoLS (`|spatial=`)
+- [x] `acceptBlock` / `verifyChain` recompute; forged root rejected
+- [x] Light client: prove/verify “cell lit” + `HeadersSyncPackage.spatialRoot`
+- [x] RPC: `pix_getSpatialSnapshot`, `pix_proveIlluminatedCell`; REST `GET /spatial/snapshot`, `GET /spatial/proof/:index`
 
-**Evidence:** `test:spatial-proof` + light-client extension  
+**Evidence:** `bun run test:spatial-proof` · SPEC § Spatial picture  
 **Claim unlock:** “Verifiable illuminated picture fragment.”
 
 ### S4 — Scale & fault
 
 **Build**
 
-- Spatial index (hash grid); optional shard by coord slab
+- Spatial index (hash grid / octree); optional shard by coord slab
+- Async/event-driven wave fan-out on the node (still tip-recomputable)
+- Damping / energy-cost tracking as labeled lab rules (bind only when digestable)
 - Partition / conflicting-wave sims in CI
 - Storage growth control notes in THREAT-MODEL
 
@@ -94,7 +98,8 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 ### S5 — Acceleration (optional)
 
-- WASM/Rust port of lattice + wave hot path
+- WASM/Rust port of lattice + wave + occupancy Merkle hot path
+- Three.js / web viz as **UI sink** (never consensus source)
 - GPU only if benches prove need — never as costume
 
 ---
@@ -105,10 +110,34 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 | ------------------------- | -------------------------------------------------------- |
 | `field-witness.ts`        | Tip sphere lock + `fieldDigest` (extend, don’t fork)     |
 | `lattice.ts`              | Coords, Chebyshev3, blend, lead-wave helpers             |
+| `wave.ts`                 | Multi-hop lead wave + collision fold + `waveDigest`      |
+| `spatial-picture.ts`      | Sparse occupancy Merkle + cell proofs + `spatialRoot`    |
 | `light-color.ts`          | Align `revealProximity` packing with lattice             |
-| `pol.ts` / `chain.ts`     | Already bind + enforce digest                            |
+| `pol.ts` / `chain.ts`     | Bind + enforce field / wave / spatial digests            |
+| `light-client.ts`         | Headers sync carries `spatialRoot`; cell proof check     |
 | `LedgerField.tsx`         | Sink — render coords when present; never source of truth |
 | Future `lattice/` or WASM | Only after S1–S3 green                                   |
+
+---
+
+## Where we are vs advisor wishlist
+
+Honest map of the external “Python voxel → TS port → RPC → USDC” checklist against tip-bound invent:
+
+| Advisor ask                                         | Status                                                                 | Notes |
+| --------------------------------------------------- | ---------------------------------------------------------------------- | ----- |
+| Run Python file → console + matplotlib 3D “picture” | **Rejected as consensus**                                              | Ideas only (sparse cells, lead, decay). Not a settlement path. |
+| Port Voxel + propagation to TS / Map or octree      | **S1–S3 invent path shipped**                                          | `lattice` + `wave` + sparse occupancy Merkle — tip-bound, not a toy `PixelLedger` class. Octree = S4. |
+| Real PQ signatures on lead activations              | **Done on tip path**                                                   | PoLS already signs with PIX-HASH-OTS / ML-DSA; lead wave + picture are inside that signed message. |
+| Async/event-driven propagation for the node         | **Open (S4)**                                                          | Today: deterministic recompute at sequence/accept. Events can fan-out UI; must not invent a second truth. |
+| Damping, conflict resolution, energy cost tracking  | **Partial**                                                            | Collision fold (S2) is conflict resolution. Damping / energy labels = S4 when digestable. Energy Truth exists separately for PoLS Joules. |
+| Replace matplotlib with Three.js web viz            | **Open (UI sink)**                                                     | Billboard / LedgerField already show tip colors; Three.js optional after S3 — never source of truth. |
+| Drop into test harness alongside UTXO               | **Done**                                                               | Genesis / `sequenceBlock` / `acceptBlock` / `verifyChain` + `test:spatial-proof`. |
+| RPC: illuminate, activate_lead, get_snapshot        | **Partial**                                                            | Illuminate = existing tip path (`POST /tx` + sequencer). Snapshot/proof = `GET /spatial/snapshot`, `GET /spatial/proof/:i`, `pix_getSpatialSnapshot`. Separate `activate_lead` verb not needed — lead = illuminated tip. |
+| Wire USDC locks → lead pixel activations            | **Open (bridge path)**                                                 | LockFeeder + `illuminateIngress` exist; not yet mapped to lattice lead activation as a named invent. |
+| Rust version for production node                    | **Deferred (S5)**                                                      | Prefer tip-bound TS evidence first; WASM/Rust when benches demand. |
+
+**Prefer next:** S4 scale index + damping rules that stay tip-recomputable — or LockFeeder → lead activation invent — over a disconnected Three.js demo.
 
 ---
 
@@ -116,14 +145,15 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 > A module that manages a small lattice, demonstrates a transaction lighting a lead pixel and rippling to neighbors with visible state change, wired into the node/UTXO flow.
 
-Pixel’s version of done:
+Pixel’s version of done (S1–S3):
 
 1. Lead tip illuminates with lattice peers in `field[]`
-2. Neighbor blend changes `fieldDigest`
-3. Peer with wrong blend / wrong coords **fails** `acceptBlock`
-4. Billboard can show lattice-colored tip (UI follows digest)
+2. Neighbor blend changes `fieldDigest`; wave hits bind `waveDigest`
+3. Peer with wrong blend / wave / occupancy **fails** `acceptBlock`
+4. Light client proves a cell is lit against `spatialRoot`
+5. Billboard can show lattice-colored tip (UI follows digest)
 
-Not done: Python viz, octree mainnet, “quantum connections” as marketing without gates.
+Not done: Python viz as product, octree mainnet, USDC→lead wire, “quantum connections” as marketing without gates.
 
 ---
 

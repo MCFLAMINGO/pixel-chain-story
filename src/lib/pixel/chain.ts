@@ -23,6 +23,8 @@ import {
   type FieldWitness,
 } from "./field-witness";
 import { assertWaveDigestMatch, computeTipWaveField, type WaveHit } from "./wave";
+import { assertSpatialRootMatch, buildSpatialPicture } from "./spatial-picture";
+import { opticalBeacon } from "./optical";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import {
   createTransaction,
@@ -253,6 +255,27 @@ export async function createGenesis(
     merkleRoot: root,
     priorTipHashes: [],
   });
+  const timestamp = Date.now();
+  const beacon = await opticalBeacon(0, prevHash);
+  const hash = await hashBlock({
+    index: 0,
+    prevHash,
+    merkleRoot: root,
+    sequence: 0,
+    timestamp,
+    beacon,
+  });
+  const { color, proximity } = await colorFromLight({
+    index: 0,
+    hash,
+    prevHash,
+    merkleRoot: root,
+    beacon,
+    sequence: 0,
+    timestamp,
+    transactions: [revealed],
+  });
+  const picture = await buildSpatialPicture([{ index: 0, illuminated: true, color }]);
   const proof = await createLightProof({
     sequence: 0,
     prevHash,
@@ -260,26 +283,9 @@ export async function createGenesis(
     electable: [sequencer.address],
     fieldDigest,
     waveDigest: waveField.waveDigest as Hex,
+    spatialRoot: picture.spatialRoot,
   });
-  const timestamp = Date.now();
-  const hash = await hashBlock({
-    index: 0,
-    prevHash,
-    merkleRoot: root,
-    sequence: 0,
-    timestamp,
-    beacon: proof.beacon,
-  });
-  const { color, proximity } = await colorFromLight({
-    index: 0,
-    hash,
-    prevHash,
-    merkleRoot: root,
-    beacon: proof.beacon,
-    sequence: 0,
-    timestamp,
-    transactions: [revealed],
-  });
+  if (proof.beacon !== beacon) throw new Error("genesis beacon drift");
   const genesis: LedgerPixel = {
     index: 0,
     prevHash,
@@ -540,6 +546,30 @@ export async function sequenceBlock(
     merkleRoot: root,
     priorTipHashes: state.pixels.map((p) => p.hash),
   });
+  const timestamp = now;
+  const beacon = await opticalBeacon(sequence, tip.hash);
+  const hash = await hashBlock({
+    index: nextIndex,
+    prevHash: tip.hash,
+    merkleRoot: root,
+    sequence,
+    timestamp,
+    beacon,
+  });
+  const { color, proximity } = await colorFromLight({
+    index: nextIndex,
+    hash,
+    prevHash: tip.hash,
+    merkleRoot: root,
+    beacon,
+    sequence,
+    timestamp,
+    transactions: revealed,
+  });
+  const picture = await buildSpatialPicture([
+    ...state.pixels,
+    { index: nextIndex, illuminated: true, color },
+  ]);
   const proof = await createLightProof({
     sequence,
     prevHash: tip.hash,
@@ -548,7 +578,9 @@ export async function sequenceBlock(
     electable: addresses,
     fieldDigest,
     waveDigest: waveField.waveDigest as Hex,
+    spatialRoot: picture.spatialRoot,
   });
+  if (proof.beacon !== beacon) throw new Error("beacon drift");
   if (!(await verifyLightProof(proof, chosen))) {
     throw new Error("Invalid light proof");
   }
@@ -557,26 +589,6 @@ export async function sequenceBlock(
     state.usedOtsLeaves,
     collectOtsUsages(revealed, proof),
   );
-
-  const timestamp = now;
-  const hash = await hashBlock({
-    index: nextIndex,
-    prevHash: tip.hash,
-    merkleRoot: root,
-    sequence,
-    timestamp,
-    beacon: proof.beacon,
-  });
-  const { color, proximity } = await colorFromLight({
-    index: nextIndex,
-    hash,
-    prevHash: tip.hash,
-    merkleRoot: root,
-    beacon: proof.beacon,
-    sequence,
-    timestamp,
-    transactions: revealed,
-  });
 
   const block: LedgerPixel = {
     index: nextIndex,
@@ -686,6 +698,10 @@ export async function acceptBlock(
   if (proximity.join(",") !== block.proximity.join(",")) {
     throw new Error("Proximity cone mismatch");
   }
+
+  // Sparse occupancy Merkle — recompute illuminated picture; reject tamper.
+  const picture = await buildSpatialPicture([...state.pixels, block]);
+  assertSpatialRootMatch(block.lightProof.spatialRoot, picture.spatialRoot, block.index);
 
   for (const tx of block.transactions) {
     if (!(await verifyTransactionSignatures(tx))) {
@@ -914,6 +930,8 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
         merkleRoot: block.merkleRoot,
         priorTipHashes: state.pixels.slice(0, i).map((p) => p.hash),
       });
+      const picture = await buildSpatialPicture(state.pixels.slice(0, i + 1));
+      assertSpatialRootMatch(block.lightProof.spatialRoot, picture.spatialRoot, block.index);
     } catch {
       return false;
     }

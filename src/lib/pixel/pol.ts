@@ -60,6 +60,12 @@ export interface LightProof {
    * Invent (SPATIAL S2): tip physics, not UI glitter.
    */
   waveDigest: Hex;
+  /**
+   * Sparse occupancy Merkle root over illuminated lattice cells (picture).
+   * Bound into the signed message; acceptBlock recomputes and rejects mismatch.
+   * Invent (SPATIAL S3): verifiable illuminated picture fragment.
+   */
+  spatialRoot: Hex;
 }
 
 /** Commitment over ordered electable addresses (bound into PoLS message). */
@@ -128,11 +134,13 @@ export function polsMessage(
   electable?: string[],
   fieldDigest?: string,
   waveDigest?: string,
+  spatialRoot?: string,
 ): string {
   const el = electable && electable.length > 0 ? `|el=${electableCommitment(electable)}` : "";
   const field = `|field=${fieldDigest ?? ""}`;
   const wave = `|wave=${waveDigest ?? ""}`;
-  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}${wave}`;
+  const spatial = `|spatial=${spatialRoot ?? ""}`;
+  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}${wave}${spatial}`;
 }
 
 export async function createLightProof(params: {
@@ -146,6 +154,8 @@ export async function createLightProof(params: {
   fieldDigest: Hex;
   /** Lead wave digest — required for tip neighbor physics (SPATIAL S2). */
   waveDigest: Hex;
+  /** Sparse occupancy Merkle — required for tip picture (SPATIAL S3). */
+  spatialRoot: Hex;
 }): Promise<LightProof> {
   const skipCount = params.skipCount ?? 0;
   const electable =
@@ -163,6 +173,10 @@ export async function createLightProof(params: {
   if (!waveDigest) {
     throw new Error("waveDigest required (lead wave)");
   }
+  const spatialRoot = params.spatialRoot;
+  if (!spatialRoot) {
+    throw new Error("spatialRoot required (illuminated picture)");
+  }
   const beacon = await opticalBeacon(params.sequence, params.prevHash);
   const message = polsMessage(
     params.sequence,
@@ -173,6 +187,7 @@ export async function createLightProof(params: {
     electable,
     fieldDigest,
     waveDigest,
+    spatialRoot,
   );
   const signature = await signPixel(message, params.sequencer);
   const scheme = (params.sequencer.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
@@ -189,6 +204,7 @@ export async function createLightProof(params: {
     electable,
     fieldDigest,
     waveDigest,
+    spatialRoot,
   };
 }
 
@@ -210,6 +226,7 @@ export async function verifyLightProof(
   }
   if (!proof.fieldDigest) return false;
   if (!proof.waveDigest) return false;
+  if (!proof.spatialRoot) return false;
   const message = polsMessage(
     proof.sequence,
     proof.prevHash,
@@ -219,6 +236,7 @@ export async function verifyLightProof(
     proof.electable,
     proof.fieldDigest,
     proof.waveDigest,
+    proof.spatialRoot,
   );
   return verifyPixel(message, proof.signature, proof.sequencerPublicKey);
 }
