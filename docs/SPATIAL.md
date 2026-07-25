@@ -141,7 +141,7 @@ Honest map of the external “Python voxel → TS port → RPC → USDC” check
 | Wire USDC locks → lead pixel activations            | **Done (lab invent)**                                                  | `LockFeeder.activateLead` / `test:lock-lead` — lockDigest in shine-in reference; tip binds wave + spatial. Not mainnet USDC claim. |
 | Rust version for production node                    | **Deferred (S5)**                                                      | Prefer tip-bound TS evidence first; WASM/Rust when benches demand. |
 
-**Prefer next:** Three.js UI sink — or octree-if-benched (S5) — over claiming voxel mainnet.
+**Prefer next:** Three.js UI sink (#51) — then wire durable public tip URL into production `VITE_PIXEL_RPC` (ops) — over claiming voxel mainnet.
 
 ---
 
