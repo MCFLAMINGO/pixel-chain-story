@@ -7,6 +7,7 @@ import { WorldlightPanel } from "@/components/pixel/WorldlightPanel";
 import { LumenPanel } from "@/components/pixel/LumenPanel";
 import { OpticalPanel } from "@/components/pixel/OpticalPanel";
 import { RealityField } from "@/components/pixel/RealityField";
+import { SpatialSinkPanel } from "@/components/pixel/SpatialSinkPanel";
 import { TransferDeck } from "@/components/pixel/TransferDeck";
 import { usePixelChain } from "@/hooks/use-pixel-chain";
 import { EXPRESSION_AXIOM, datacenterRebuke, estimatePoLSCost } from "@/lib/pixel";
@@ -80,6 +81,8 @@ function Lab() {
             <RealityField pixels={blocks} pendingCount={pixel.pending} />
           </div>
         </section>
+
+        <SpatialSinkPanel chain={pixel.chain} />
 
         <WorldlightPanel />
         <KindlingPanel />

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
+import { Route as SpatialRouteImport } from './routes/spatial'
 import { Route as ShineRouteImport } from './routes/shine'
 import { Route as McflamingoRouteImport } from './routes/mcflamingo'
 import { Route as LabRouteImport } from './routes/lab'
@@ -23,6 +24,11 @@ import { Route as ContinuityBoothDomainRouteImport } from './routes/continuity_.
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpatialRoute = SpatialRouteImport.update({
+  id: '/spatial',
+  path: '/spatial',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShineRoute = ShineRouteImport.update({
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
+  '/spatial': typeof SpatialRoute
   '/wallet': typeof WalletRoute
   '/continuity/booth/$domain': typeof ContinuityBoothDomainRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
+  '/spatial': typeof SpatialRoute
   '/wallet': typeof WalletRoute
   '/continuity/booth/$domain': typeof ContinuityBoothDomainRoute
   '/continuity/join/$token': typeof ContinuityJoinTokenRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
   '/shine': typeof ShineRoute
+  '/spatial': typeof SpatialRoute
   '/wallet': typeof WalletRoute
   '/continuity_/booth/$domain': typeof ContinuityBoothDomainRoute
   '/continuity_/join/$token': typeof ContinuityJoinTokenRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/mcflamingo'
     | '/shine'
+    | '/spatial'
     | '/wallet'
     | '/continuity/booth/$domain'
     | '/continuity/join/$token'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/mcflamingo'
     | '/shine'
+    | '/spatial'
     | '/wallet'
     | '/continuity/booth/$domain'
     | '/continuity/join/$token'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/mcflamingo'
     | '/shine'
+    | '/spatial'
     | '/wallet'
     | '/continuity_/booth/$domain'
     | '/continuity_/join/$token'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   LabRoute: typeof LabRoute
   McflamingoRoute: typeof McflamingoRoute
   ShineRoute: typeof ShineRoute
+  SpatialRoute: typeof SpatialRoute
   WalletRoute: typeof WalletRoute
   ContinuityBoothDomainRoute: typeof ContinuityBoothDomainRoute
   ContinuityJoinTokenRoute: typeof ContinuityJoinTokenRoute
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/wallet'
       fullPath: '/wallet'
       preLoaderRoute: typeof WalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/spatial': {
+      id: '/spatial'
+      path: '/spatial'
+      fullPath: '/spatial'
+      preLoaderRoute: typeof SpatialRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shine': {
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   LabRoute: LabRoute,
   McflamingoRoute: McflamingoRoute,
   ShineRoute: ShineRoute,
+  SpatialRoute: SpatialRoute,
   WalletRoute: WalletRoute,
   ContinuityBoothDomainRoute: ContinuityBoothDomainRoute,
   ContinuityJoinTokenRoute: ContinuityJoinTokenRoute,

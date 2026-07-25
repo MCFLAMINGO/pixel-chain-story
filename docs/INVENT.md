@@ -39,6 +39,7 @@ Primitive → advanced is allowed for uptake. **Settling on the primitive rung i
 | **Spatial index (S4)** | Tip-equivalent hash grid for occupied cells — local acceleration (`test:spatial-index`). Not octree mainnet.                                           |
 | **Wave rules (S4)** | Named `WAVE_DAMPING` + lab energy-cost milli; partition/conflict CI (`test:wave-partition`). Not Energy Truth Joules.                                  |
 | **Lock→lead**       | Verified USDC/USD lock shines in as a tip lattice lead — `lockDigest` in tx reference; wave + spatial bind (`test:lock-lead`). Not a new opcode.     |
+| **Spatial sink (S5)** | Three.js tip picture — UI sink only (`/spatial`, `test:spatial-sink`). Never consensus truth.                                                      |
 | **World canvas**    | One public picture of humanity — wallets shine in; tip marks; not “everyone inits a private chain.” Destination frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md). |
 
 Full audit: [`INVENTION.md`](./INVENTION.md).

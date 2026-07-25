@@ -23,6 +23,7 @@ export * from "./wave-rules";
 export * from "./wave-bus";
 export * from "./spatial-index";
 export * from "./spatial-picture";
+export * from "./spatial-sink";
 export * from "./light-color";
 export * from "./expression";
 export * from "./interactions";
