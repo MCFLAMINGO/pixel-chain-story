@@ -22,26 +22,26 @@ Primitive → advanced is allowed for uptake. **Settling on the primitive rung i
 
 ## What is invention here
 
-| Piece               | Why it is not a rename                                                                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pixel / PoLS**    | Light sequence settlement — not hashrate blocks                                                                                                                |
-| **Lumen**           | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md))                                                                                      |
-| **Kindling**        | Mutual optical presence as spend _authorization_                                                                                                               |
-| **Personal Source** | Optical self-custody for everyone — not MetaMask, not M-Pesa                                                                                                   |
-| **Optical capture** | getUserMedia / raster grid sample — not in-memory theater                                                                                                      |
-| **Energy Truth**    | Labeled waste accounting vs datacenter thirst                                                                                                                  |
-| **SISO**            | Continuity without a forced rewrite VM                                                                                                                         |
-| **FieldWitness**    | Sphere combination lock for tip custody — `fieldDigest` in PoLS; wrong neighbor effects fail (`test:field`). Not a rename of `prevHash`.                       |
-| **Lattice (S1)**    | Spatial coords + Chebyshev-3 peers + opacity-weighted blend bound into FieldWitness — tip physics, not a game voxel rename ([`SPATIAL.md`](./SPATIAL.md)).     |
-| **Lead wave (S2)**  | Multi-hop lattice propagation + collision fold; `waveDigest` in PoLS — neighbors react on the tip, not in a toy sim ([`SPATIAL.md`](./SPATIAL.md)).            |
-| **Spatial picture (S3)** | Sparse occupancy Merkle; `spatialRoot` in PoLS + prove cell lit — verifiable picture fragment, not matplotlib ([`SPATIAL.md`](./SPATIAL.md)).            |
-| **Wave fan-out (S4)** | Async/event-driven notify after tip illuminate/accept — subscribers see hits; not a second consensus truth (`test:wave-fanout`).                        |
-| **Spatial index (S4)** | Tip-equivalent hash grid for occupied cells — local acceleration (`test:spatial-index`). Not octree mainnet.                                           |
-| **Wave rules (S4)** | Named `WAVE_DAMPING` + lab energy-cost milli; partition/conflict CI (`test:wave-partition`). Not Energy Truth Joules.                                  |
-| **Lock→lead**       | Verified USDC/USD lock shines in as a tip lattice lead — `lockDigest` in tx reference; wave + spatial bind (`test:lock-lead`). Not a new opcode.     |
-| **Spatial sink (S5)** | Three.js tip picture — UI sink only (`/spatial`, `test:spatial-sink`). Never consensus truth.                                                      |
-| **Tip host contract** | Durable tip feed surface + restart same Earth (`test:tip-host`); prod can refuse lab light (`VITE_REQUIRE_PUBLIC_TIP`). Ops still host the URL. |
-| **World canvas**    | One public picture of humanity — wallets shine in; tip marks; not “everyone inits a private chain.” Destination frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md). |
+| Piece                    | Why it is not a rename                                                                                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pixel / PoLS**         | Light sequence settlement — not hashrate blocks                                                                                                                |
+| **Lumen**                | Light-native language → real UTXOs — evolve it ([`LUMEN.md`](./LUMEN.md))                                                                                      |
+| **Kindling**             | Mutual optical presence as spend _authorization_                                                                                                               |
+| **Personal Source**      | Optical self-custody for everyone — not MetaMask, not M-Pesa                                                                                                   |
+| **Optical capture**      | getUserMedia / raster grid sample — not in-memory theater                                                                                                      |
+| **Energy Truth**         | Labeled waste accounting vs datacenter thirst                                                                                                                  |
+| **SISO**                 | Continuity without a forced rewrite VM                                                                                                                         |
+| **FieldWitness**         | Sphere combination lock for tip custody — `fieldDigest` in PoLS; wrong neighbor effects fail (`test:field`). Not a rename of `prevHash`.                       |
+| **Lattice (S1)**         | Spatial coords + Chebyshev-3 peers + opacity-weighted blend bound into FieldWitness — tip physics, not a game voxel rename ([`SPATIAL.md`](./SPATIAL.md)).     |
+| **Lead wave (S2)**       | Multi-hop lattice propagation + collision fold; `waveDigest` in PoLS — neighbors react on the tip, not in a toy sim ([`SPATIAL.md`](./SPATIAL.md)).            |
+| **Spatial picture (S3)** | Sparse occupancy Merkle; `spatialRoot` in PoLS + prove cell lit — verifiable picture fragment, not matplotlib ([`SPATIAL.md`](./SPATIAL.md)).                  |
+| **Wave fan-out (S4)**    | Async/event-driven notify after tip illuminate/accept — subscribers see hits; not a second consensus truth (`test:wave-fanout`).                               |
+| **Spatial index (S4)**   | Tip-equivalent hash grid for occupied cells — local acceleration (`test:spatial-index`). Not octree mainnet.                                                   |
+| **Wave rules (S4)**      | Named `WAVE_DAMPING` + lab energy-cost milli; partition/conflict CI (`test:wave-partition`). Not Energy Truth Joules.                                          |
+| **Lock→lead**            | Verified USDC/USD lock shines in as a tip lattice lead — `lockDigest` in tx reference; wave + spatial bind (`test:lock-lead`). Not a new opcode.               |
+| **Spatial sink (S5)**    | Three.js tip picture — UI sink only (`/spatial`, `test:spatial-sink`). Never consensus truth.                                                                  |
+| **Tip host contract**    | Durable tip feed surface + restart same Earth (`test:tip-host`); prod can refuse lab light (`VITE_REQUIRE_PUBLIC_TIP`). Ops still host the URL.                |
+| **World canvas**         | One public picture of humanity — wallets shine in; tip marks; not “everyone inits a private chain.” Destination frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md). |
 
 Full audit: [`INVENTION.md`](./INVENTION.md).
 

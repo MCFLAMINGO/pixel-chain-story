@@ -133,18 +133,18 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 Honest map of the external “Python voxel → TS port → RPC → USDC” checklist against tip-bound invent:
 
-| Advisor ask                                         | Status                                                                 | Notes |
-| --------------------------------------------------- | ---------------------------------------------------------------------- | ----- |
-| Run Python file → console + matplotlib 3D “picture” | **Rejected as consensus**                                              | Ideas only (sparse cells, lead, decay). Not a settlement path. |
-| Port Voxel + propagation to TS / Map or octree      | **S1–S4 invent path**                                                  | `lattice` + `wave` + occupancy Merkle + hash-grid index. Octree optional S5 if benches demand. |
-| Real PQ signatures on lead activations              | **Done on tip path**                                                   | PoLS already signs with PIX-HASH-OTS / ML-DSA; lead wave + picture are inside that signed message. |
-| Async/event-driven propagation for the node         | **Done (S4 fan-out)**                                                  | `wave-bus` + node `onWaveHits` after sequence/accept/replace; `test:wave-fanout`. Tip still recomputes `waveDigest`. |
-| Damping, conflict resolution, energy cost tracking  | **Done (lab rules)**                                                   | Collision fold (S2); `WAVE_DAMPING` + `waveEnergyCostMilli` (`test:wave-partition`). Energy Truth = separate PoLS Joules plane. |
-| Replace matplotlib with Three.js web viz            | **Done (UI sink)**                                                     | `SpatialSinkPanel` / `/spatial` — Three.js tip cells + wave hits; `test:spatial-sink`. Never consensus. |
-| Drop into test harness alongside UTXO               | **Done**                                                               | Genesis / `sequenceBlock` / `acceptBlock` / `verifyChain` + spatial tests. |
-| RPC: illuminate, activate_lead, get_snapshot        | **Partial**                                                            | Illuminate = existing tip path; spatial/wave snapshot RPC live. Lead = illuminated tip. |
-| Wire USDC locks → lead pixel activations            | **Done (lab invent)**                                                  | `LockFeeder.activateLead` / `test:lock-lead` — lockDigest in shine-in reference; tip binds wave + spatial. Not mainnet USDC claim. |
-| Rust version for production node                    | **Deferred (S5)**                                                      | Prefer tip-bound TS evidence first; WASM/Rust when benches demand. |
+| Advisor ask                                         | Status                    | Notes                                                                                                                              |
+| --------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Run Python file → console + matplotlib 3D “picture” | **Rejected as consensus** | Ideas only (sparse cells, lead, decay). Not a settlement path.                                                                     |
+| Port Voxel + propagation to TS / Map or octree      | **S1–S4 invent path**     | `lattice` + `wave` + occupancy Merkle + hash-grid index. Octree optional S5 if benches demand.                                     |
+| Real PQ signatures on lead activations              | **Done on tip path**      | PoLS already signs with PIX-HASH-OTS / ML-DSA; lead wave + picture are inside that signed message.                                 |
+| Async/event-driven propagation for the node         | **Done (S4 fan-out)**     | `wave-bus` + node `onWaveHits` after sequence/accept/replace; `test:wave-fanout`. Tip still recomputes `waveDigest`.               |
+| Damping, conflict resolution, energy cost tracking  | **Done (lab rules)**      | Collision fold (S2); `WAVE_DAMPING` + `waveEnergyCostMilli` (`test:wave-partition`). Energy Truth = separate PoLS Joules plane.    |
+| Replace matplotlib with Three.js web viz            | **Done (UI sink)**        | `SpatialSinkPanel` / `/spatial` — Three.js tip cells + wave hits; `test:spatial-sink`. Never consensus.                            |
+| Drop into test harness alongside UTXO               | **Done**                  | Genesis / `sequenceBlock` / `acceptBlock` / `verifyChain` + spatial tests.                                                         |
+| RPC: illuminate, activate_lead, get_snapshot        | **Partial**               | Illuminate = existing tip path; spatial/wave snapshot RPC live. Lead = illuminated tip.                                            |
+| Wire USDC locks → lead pixel activations            | **Done (lab invent)**     | `LockFeeder.activateLead` / `test:lock-lead` — lockDigest in shine-in reference; tip binds wave + spatial. Not mainnet USDC claim. |
+| Rust version for production node                    | **Deferred (S5)**         | Prefer tip-bound TS evidence first; WASM/Rust when benches demand.                                                                 |
 
 **Prefer next:** Wire durable public tip URL into production `VITE_PIXEL_RPC` (ops; tip-host contract + `test:tip-host`) — or WASM/octree only if benches demand — over claiming voxel mainnet.
 
