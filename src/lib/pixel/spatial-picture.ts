@@ -174,8 +174,7 @@ export async function verifyIlluminatedCellProof(proof: IlluminatedCellProof): P
   });
   let idx = proof.leafIndex;
   for (const sibling of proof.siblings) {
-    hash =
-      idx % 2 === 0 ? await merkleParent(hash, sibling) : await merkleParent(sibling, hash);
+    hash = idx % 2 === 0 ? await merkleParent(hash, sibling) : await merkleParent(sibling, hash);
     idx = Math.floor(idx / 2);
   }
   return hash === proof.spatialRoot;

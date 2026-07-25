@@ -23,10 +23,7 @@ import {
   type FieldWitness,
 } from "./field-witness";
 import { assertWaveDigestMatch, computeTipWaveField, type WaveHit } from "./wave";
-import {
-  assertSpatialRootMatch,
-  buildSpatialPicture,
-} from "./spatial-picture";
+import { assertSpatialRootMatch, buildSpatialPicture } from "./spatial-picture";
 import { opticalBeacon } from "./optical";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import {
@@ -278,9 +275,7 @@ export async function createGenesis(
     timestamp,
     transactions: [revealed],
   });
-  const picture = await buildSpatialPicture([
-    { index: 0, illuminated: true, color },
-  ]);
+  const picture = await buildSpatialPicture([{ index: 0, illuminated: true, color }]);
   const proof = await createLightProof({
     sequence: 0,
     prevHash,
