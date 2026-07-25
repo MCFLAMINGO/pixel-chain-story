@@ -153,9 +153,16 @@ Ops still required for the claim: host the tip (Railway/VPS), set `VITE_PIXEL_RP
 
 - [x] Tip feed contract + restart same Earth — `bun run test:tip-host` (lab)
 - [x] Production refuse-lab-light gate — `VITE_REQUIRE_PUBLIC_TIP=1`
-- [ ] Tip process always on; volume persists across restarts (ops)
-- [ ] `curl …/health` returns stable `genesisHash` after restart on the **public** host
+- [x] Tip process always on; volume persists across restarts (ops) — Railway `pixel-tip` @ `https://pixel-tip-production.up.railway.app`, volume `/data/pixel`
+- [x] `curl …/health` returns stable `genesisHash` after restart on the **public** host — genesis `51a9df90…428a48`
 - [ ] Site built with `VITE_PIXEL_RPC` (+ require flag) → `/` shows **public tip**
 - [ ] `/wallet` balance + pay leave a tip mark on that canvas
+
+**Lovable / site build (ops left):**
+
+```bash
+VITE_PIXEL_RPC=https://pixel-tip-production.up.railway.app
+VITE_REQUIRE_PUBLIC_TIP=1
+```
 
 PATH: claim “default public tip for humanity” only when the public host checklist is green. Until then: recipe + lab contract evidence + honest labels.
