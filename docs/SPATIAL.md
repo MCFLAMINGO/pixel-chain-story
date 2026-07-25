@@ -63,11 +63,12 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 **Build**
 
-- Deterministic one-hop (then multi-hop) reaction from lead tip coords
-- Collision rule when two tips claim overlapping peers (order by tip hash / sequence)
-- Selftest: concurrent leads → stable digest; tampered wave → reject
+- [x] Deterministic multi-hop BFS from lead tip coords (`wave.ts`, `WAVE_MAX_HOPS=2`)
+- [x] Collision fold when overlapping leads: sort `(leadIndex, tipHash)` then mix amplitudes
+- [x] `waveDigest` bound in PoLS (`|wave=`); `acceptBlock` / `verifyChain` reject tamper
+- [x] Selftest: stable collision + forged waveDigest fails
 
-**Evidence:** `test:wave` (name TBD) + SPEC wave section  
+**Evidence:** `bun run test:wave` · SPEC § Lead wave  
 **Claim unlock:** “Neighbor reaction is tip physics, not UI glitter.”
 
 ### S3 — Spatial commitment (picture proof)

@@ -103,6 +103,7 @@ async function main() {
     skipCount: tip.lightProof.skipCount ?? 0,
     electable: tip.lightProof.electable,
     fieldDigest: forgedDigest,
+    waveDigest: tip.lightProof.waveDigest,
   });
   const forgedTip: LedgerPixel = {
     ...tip,

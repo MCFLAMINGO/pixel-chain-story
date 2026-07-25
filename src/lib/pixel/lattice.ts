@@ -124,8 +124,7 @@ export function neighborBlendHex(peers: readonly { weight: number; color: string
 }
 
 /**
- * Lab lead-wave preview — deterministic decay over lattice neighbors.
- * Not tip consensus by itself; S2 binds wave steps into tip rules.
+ * Simple amplitude map (lab preview). Tip consensus uses `wave.ts` / waveDigest.
  */
 export function leadWaveAmplitudes(
   leadIndex: number,

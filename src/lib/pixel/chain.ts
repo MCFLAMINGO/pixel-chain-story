@@ -22,6 +22,7 @@ import {
   priorFieldColors,
   type FieldWitness,
 } from "./field-witness";
+import { assertWaveDigestMatch, computeTipWaveField, type WaveHit } from "./wave";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import {
   createTransaction,
@@ -52,6 +53,8 @@ export interface LedgerPixel {
   proximity: number[];
   /** Sphere combination lock witnesses (peer field); digest bound in lightProof. */
   field: FieldWitness[];
+  /** Lead wave hits (lattice multi-hop); digest bound in lightProof.waveDigest. */
+  wave?: WaveHit[];
 }
 
 /** Public sequencer identity — safe to gossip / persist. */
@@ -240,16 +243,24 @@ export async function createGenesis(
   });
   const revealed = finalizeTransaction(revealTransaction(mint, 0));
   const prevHash = "0".repeat(128);
+  const root = await merkleRoot([revealed.txid]);
   const field = buildFieldWitnesses(0, []);
   const fieldDigest = computeFieldDigest(field);
+  const waveField = computeTipWaveField({
+    tipIndex: 0,
+    sequence: 0,
+    prevHash,
+    merkleRoot: root,
+    priorTipHashes: [],
+  });
   const proof = await createLightProof({
     sequence: 0,
     prevHash,
     sequencer,
     electable: [sequencer.address],
     fieldDigest,
+    waveDigest: waveField.waveDigest as Hex,
   });
-  const root = await merkleRoot([revealed.txid]);
   const timestamp = Date.now();
   const hash = await hashBlock({
     index: 0,
@@ -282,6 +293,7 @@ export async function createGenesis(
     illuminated: true,
     proximity,
     field,
+    wave: waveField.hits,
   };
 
   const utxos = new Map<string, Utxo>();
@@ -518,8 +530,16 @@ export async function sequenceBlock(
   const afterTxs = assertAndMergeOtsLeaves(state.usedOtsLeaves, collectOtsUsages(revealed));
   advancePastUsedOtsLeaves(localSequencer, afterTxs);
 
+  const root = await merkleRoot(revealed.map((t) => t.txid));
   const field = buildFieldWitnesses(nextIndex, priorFieldColors(state.pixels));
   const fieldDigest = computeFieldDigest(field);
+  const waveField = computeTipWaveField({
+    tipIndex: nextIndex,
+    sequence,
+    prevHash: tip.hash,
+    merkleRoot: root,
+    priorTipHashes: state.pixels.map((p) => p.hash),
+  });
   const proof = await createLightProof({
     sequence,
     prevHash: tip.hash,
@@ -527,6 +547,7 @@ export async function sequenceBlock(
     skipCount,
     electable: addresses,
     fieldDigest,
+    waveDigest: waveField.waveDigest as Hex,
   });
   if (!(await verifyLightProof(proof, chosen))) {
     throw new Error("Invalid light proof");
@@ -537,7 +558,6 @@ export async function sequenceBlock(
     collectOtsUsages(revealed, proof),
   );
 
-  const root = await merkleRoot(revealed.map((t) => t.txid));
   const timestamp = now;
   const hash = await hashBlock({
     index: nextIndex,
@@ -571,6 +591,7 @@ export async function sequenceBlock(
     illuminated: true,
     proximity,
     field,
+    wave: waveField.hits,
   };
 
   return {
@@ -619,6 +640,14 @@ export async function acceptBlock(
     block.index,
     priorFieldColors(state.pixels),
   );
+  // Lead wave — recompute lattice propagation; reject tampered neighbor physics.
+  assertWaveDigestMatch(block.lightProof.waveDigest, {
+    tipIndex: block.index,
+    sequence: block.sequence,
+    prevHash: block.prevHash,
+    merkleRoot: block.merkleRoot,
+    priorTipHashes: state.pixels.map((p) => p.hash),
+  });
   if (skipCount > 0) {
     const anchor = stallAnchorMs(state);
     if (block.timestamp < anchor + POLS_STALL_MS) {
@@ -878,6 +907,13 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
         block.index,
         priorFieldColors(state.pixels.slice(0, i)),
       );
+      assertWaveDigestMatch(block.lightProof.waveDigest, {
+        tipIndex: block.index,
+        sequence: block.sequence,
+        prevHash: block.prevHash,
+        merkleRoot: block.merkleRoot,
+        priorTipHashes: state.pixels.slice(0, i).map((p) => p.hash),
+      });
     } catch {
       return false;
     }
