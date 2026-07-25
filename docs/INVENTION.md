@@ -50,10 +50,10 @@ It is also **tiny**. To stay “something different,” expand it — do not aba
 
 1. [x] Surface a Lumen panel on `/lab` (edit ray → run → balances move)
 2. [x] Product rays: `kindle`, `shine_in`, `holdings`/`balance`, `tip_sense`
-3. Types / errors that talk in light vocabulary (not generic JS exceptions)
-4. Persist modules beside chain state
-5. Keep every ray mapped to real `One.*` / chain calls — no decorative DSL
-6. `when aperture` — revelation gate as first-class stmt (still open)
+3. [x] Language power class (vs Rust): `match`, `when aperture`, `ensure`/`refuse`, ray composition, field projection, ghost ownership
+4. [x] `LumenRuntimeError` / parse errors in light vocabulary
+5. Persist modules beside chain state
+6. Keep every ray mapped to real `One.*` / chain calls — no decorative DSL
 
 See [`LUMEN.md`](./LUMEN.md).
 

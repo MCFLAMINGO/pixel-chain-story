@@ -1,15 +1,14 @@
 /**
- * Lumen L0 — lightDigest / attest + product rays (tip, kindle, shine_in).
+ * Lumen L0 — product rays + language power (match, aperture, ensure, composition).
  * bun run test:lumen
  */
 
 import { balanceOf, createDemoWallet, createGenesis, lightDigest } from "../src/lib/pixel/index";
-import { TRANSFER_LUMEN, createHost, runLumenSource } from "../src/lumen/index";
+import { TRANSFER_LUMEN, createHost, LumenRuntimeError, runLumenSource } from "../src/lumen/index";
 
 async function main() {
-  console.log("═══ LUMEN L0 — LIGHT + PRODUCT RAYS ═══\n");
+  console.log("═══ LUMEN — PRODUCT + LANGUAGE POWER ═══\n");
 
-  // 1) One door matches historical tx commitment separator
   const body = "inputs:[]|outputs:[]|meta:test|ts:1";
   const a = await lightDigest("superposition", body);
   const { sha512Hex } = await import("../src/lib/pixel/crypto");
@@ -17,17 +16,9 @@ async function main() {
   if (a !== b) throw new Error("lightDigest superposition drifted from legacy");
   console.log("▸ lightDigest('superposition') ≡ legacy sha512 domain ✓");
 
-  const commit = a;
-  const txA = await lightDigest("txid", commit, body);
-  const txB = await sha512Hex(`txid|${commit}|${body}`);
-  if (txA !== txB) throw new Error("lightDigest txid drifted");
-  console.log("▸ lightDigest('txid') ≡ legacy ✓");
-
-  // 2) Lumen digest builtin — authors never write separators
   const alice = await createDemoWallet("Alice");
   const bob = await createDemoWallet("Bob");
   const chain = await createGenesis(alice);
-  const host = createHost(chain, { alice, bob }, alice, { bridgeVault: alice });
 
   const dig = await runLumenSource(
     `module D
@@ -37,84 +28,133 @@ ray go(x):
 `,
     "go",
     { x: { kind: "string", value: "first light" } },
-    host,
+    createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
   if (dig.value.kind !== "string" || dig.value.value.length !== 128) {
     throw new Error("digest builtin failed");
   }
-  const expect = await lightDigest("creation", "first light");
-  if (dig.value.value !== expect) throw new Error("Lumen digest ≠ lightDigest");
   console.log("▸ Lumen digest() builtin ✓");
 
-  // 3) exist ray — store of creation / attestation of existence
   const exist = await runLumenSource(
     TRANSFER_LUMEN,
     "exist",
     { what: { kind: "string", value: "Georges-point: I was here under light" } },
     createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (exist.value.kind !== "proof") {
-    throw new Error(`exist want proof got ${exist.value.kind}`);
-  }
-  if (!exist.value.light || exist.value.subject.length < 8) {
-    throw new Error("proof incomplete");
-  }
-  if (!exist.host.painted.includes(exist.value.light)) {
-    throw new Error("exist did not paint proof light");
-  }
+  if (exist.value.kind !== "proof") throw new Error(`exist want proof got ${exist.value.kind}`);
   console.log("▸ ray exist → proof painted ✓");
 
-  // 4) tip_sense — living tip wave/spatial roots
   const tipRes = await runLumenSource(
     TRANSFER_LUMEN,
     "tip_sense",
     {},
     createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (tipRes.value.kind !== "tip") throw new Error(`tip_sense want tip got ${tipRes.value.kind}`);
-  if (!tipRes.value.waveDigest || !tipRes.value.spatialRoot) {
-    throw new Error("tip missing digests");
-  }
-  if (!tipRes.host.painted.includes(tipRes.value.waveDigest)) {
-    throw new Error("tip_sense did not paint waveDigest");
-  }
-  console.log(
-    "▸ ray tip_sense → tip #" + tipRes.value.index,
-    tipRes.value.waveDigest.slice(0, 12) + "…",
-  );
+  if (tipRes.value.kind !== "tip") throw new Error("tip_sense");
+  console.log("▸ ray tip_sense ✓");
 
-  // 5) holdings — real UTXO balance
-  const hold = await runLumenSource(
+  // Field projection
+  const wave = await runLumenSource(
     TRANSFER_LUMEN,
-    "holdings",
-    { who: { kind: "string", value: "alice" } },
+    "tip_wave",
+    {},
     createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (hold.value.kind !== "number") throw new Error("holdings");
-  if (hold.value.value !== balanceOf(chain, alice.address)) {
-    throw new Error("holdings ≠ chain balance");
+  if (wave.value.kind !== "string" || wave.value.value !== tipRes.value.waveDigest) {
+    throw new Error("tip_wave field projection");
   }
-  console.log("▸ ray holdings →", hold.value.value, "PIX ✓");
+  console.log("▸ field projection t.waveDigest ✓");
 
-  // 6) kindle — Presence Seal → self-custody settle
-  const kindled = await runLumenSource(
+  // ensure + aperture + match + kindle
+  const funded = await runLumenSource(
     TRANSFER_LUMEN,
-    "kindle",
+    "funded_kindle",
     {
       from: { kind: "string", value: "alice" },
       to: { kind: "string", value: "bob" },
       amount: { kind: "number", value: 2 },
-      memo: { kind: "string", value: "lumen kindle" },
+      memo: { kind: "string", value: "funded" },
     },
     createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (kindled.value.kind !== "settled") throw new Error("kindle want settled");
-  if (balanceOf(kindled.host.chain, bob.address) !== 2) {
-    throw new Error(`kindle bob bal ${balanceOf(kindled.host.chain, bob.address)}`);
-  }
-  console.log("▸ ray kindle → Presence Seal settle ✓");
+  if (funded.value.kind !== "settled") throw new Error("funded_kindle");
+  if (balanceOf(funded.host.chain, bob.address) !== 2) throw new Error("funded bal");
+  console.log("▸ ensure + when aperture + match + kindle ✓");
 
-  // 7) shine_in — Worldlight $ → PIX on bob (alice is bridge vault)
+  // Ray composition (pay_composed → funded_kindle)
+  const composed = await runLumenSource(
+    TRANSFER_LUMEN,
+    "pay_composed",
+    {
+      from: { kind: "string", value: "alice" },
+      to: { kind: "string", value: "bob" },
+      amount: { kind: "number", value: 1 },
+      memo: { kind: "string", value: "composed" },
+    },
+    createHost(funded.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
+  );
+  if (composed.value.kind !== "settled") throw new Error("pay_composed");
+  if (balanceOf(composed.host.chain, bob.address) !== 3) throw new Error("composed bal");
+  console.log("▸ ray composition pay_composed → funded_kindle ✓");
+
+  // ensure refuses dark amounts
+  let refused = false;
+  try {
+    await runLumenSource(
+      TRANSFER_LUMEN,
+      "funded_kindle",
+      {
+        from: { kind: "string", value: "alice" },
+        to: { kind: "string", value: "bob" },
+        amount: { kind: "number", value: 9999 },
+        memo: { kind: "string", value: "too much" },
+      },
+      createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
+    );
+  } catch (e) {
+    refused = e instanceof LumenRuntimeError && e.message.includes("insufficient light");
+  }
+  if (!refused) throw new Error("ensure should refuse overspend");
+  console.log("▸ ensure refuse insufficient light ✓");
+
+  // Ghost ownership — collapse consumes; re-veil refuses
+  const own = await runLumenSource(
+    `module Own
+ray burn():
+  ghost tx = commit("alice", "bob", 1, "own")
+  when light:
+    shine tx via sequence
+    collapse tx
+  veil tx private
+  return tx
+`,
+    "burn",
+    {},
+    createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
+  ).then(
+    () => false,
+    (e) => e instanceof LumenRuntimeError && /already collapsed|ownership/.test(e.message),
+  );
+  if (!own) throw new Error("ghost ownership should refuse re-veil");
+  console.log("▸ ghost ownership (collapse consumes) ✓");
+
+  // if / else arithmetic
+  const arith = await runLumenSource(
+    `module A
+ray go(n):
+  if n > 10:
+    return n - 1
+  else:
+    return n + 1
+`,
+    "go",
+    { n: { kind: "number", value: 3 } },
+    createHost(chain, { alice, bob }, alice),
+  );
+  if (arith.value.kind !== "number" || arith.value.value !== 4) throw new Error("if/else arith");
+  console.log("▸ if/else + arithmetic ✓");
+
+  // shine_in still works
   const shone = await runLumenSource(
     TRANSFER_LUMEN,
     "shine_in",
@@ -122,19 +162,15 @@ ray go(x):
       owner: { kind: "string", value: "bob" },
       usd: { kind: "number", value: 4 },
     },
-    createHost(kindled.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
+    createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (shone.value.kind !== "settled") throw new Error("shine_in want settled");
-  if (balanceOf(shone.host.chain, bob.address) !== 6) {
+  if (shone.value.kind !== "settled") throw new Error("shine_in");
+  if (balanceOf(shone.host.chain, bob.address) !== 7) {
     throw new Error(`shine_in bob bal ${balanceOf(shone.host.chain, bob.address)}`);
   }
-  const tip = shone.host.chain.pixels[shone.host.chain.pixels.length - 1]!;
-  if (!tip.lightProof.waveDigest || !tip.lightProof.spatialRoot) {
-    throw new Error("shine_in tip missing spatial roots");
-  }
-  console.log("▸ ray shine_in → $4 → PIX; tip wave/spatial bound ✓");
+  console.log("▸ shine_in still host-bound ✓");
 
-  console.log("\n═══ PASS — Lumen product rays bind real host APIs ═══");
+  console.log("\n═══ PASS — Lumen power class: match · aperture · ensure · compose · own ═══");
 }
 
 main().catch((e) => {

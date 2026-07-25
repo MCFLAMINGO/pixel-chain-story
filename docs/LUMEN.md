@@ -65,18 +65,36 @@ Lumen programmers write **light verbs**. The host holds quantum schemes and leaf
 | `shine_in(owner,usd)`      | `ingressUsd` + `illuminateIngress`  | Worldlight $ → PIX on Personal Source |
 | `balance(who)`             | `balanceOf`                         | UTXO holdings                         |
 
+## Power class (vs Rust)
+
+Rust is excellent for systems memory. Lumen aims for the **same class of power for light** — invent, don’t rename:
+
+| Rust power       | Lumen invent                           | Binding                                                     |
+| ---------------- | -------------------------------------- | ----------------------------------------------------------- |
+| Ownership / move | Ghost consume on `collapse`            | Re-veil / re-shine of collapsed ghost → `LumenRuntimeError` |
+| `match`          | `match pay: settled: … _: …`           | Branches on light kind                                      |
+| `Result` / `?`   | `ensure cond, "msg"` / `refuse("msg")` | Light vocabulary failures                                   |
+| Guarded blocks   | `when aperture <cond>:`                | Body runs only when condition holds                         |
+| Functions        | Ray composition `funded_kindle(...)`   | Module rays callable like functions                         |
+| Field access     | `t.waveDigest`                         | Tip / proof / settled / ghost payload                       |
+| `if` + arith     | `if n >= amount:` / `+ - * /`          | Amount gates before spend                                   |
+
+Not a Rust clone. No borrow checker cosplay. The physics is superposition → shine → collapse → paint.
+
 ## Evolve plan
 
 1. [x] Lab editor — `/lab` LumenPanel
 2. [x] `digest` / `attest` — one hash door
 3. [x] Rays for Kindling / Worldlight `shine_in` + tip sense
-4. Better diagnostics — parse errors with light vocabulary
-5. No fake ops — every builtin must touch chain/optical/custody for real
+4. [x] Language power — match, aperture, ensure/refuse, composition, ownership
+5. [x] Diagnostics — `LumenParseError` / `LumenRuntimeError` with light vocabulary
+6. Persist modules beside chain state
+7. No fake ops — every builtin must touch chain/optical/custody for real
 
 ## Run today
 
 ```bash
-bun run test:lumen   # digest + attest + tip/kindle/shine_in
+bun run test:lumen   # product rays + language power
 bun run test:pixel   # send + read_key still green
 bun run test:wallet  # people-wallet nextLeaf across unlock
 ```

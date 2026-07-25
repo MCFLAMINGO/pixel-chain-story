@@ -25,14 +25,15 @@ export function LumenPanel({
     try {
       // alice holds genesis — bridgeVault for shine_in; also signer for kindle/send.
       const host = createHost(chain, { alice, bob }, alice, { bridgeVault: alice });
+      const payArgs = {
+        from: { kind: "string" as const, value: "alice" },
+        to: { kind: "string" as const, value: "bob" },
+        amount: { kind: "number" as const, value: 1 },
+        memo: { kind: "string" as const, value: "lumen lab" },
+      };
       const args =
-        ray === "send" || ray === "kindle"
-          ? {
-              from: { kind: "string" as const, value: "alice" },
-              to: { kind: "string" as const, value: "bob" },
-              amount: { kind: "number" as const, value: 1 },
-              memo: { kind: "string" as const, value: "lumen lab" },
-            }
+        ray === "send" || ray === "kindle" || ray === "funded_kindle" || ray === "pay_composed"
+          ? payArgs
           : ray === "shine_in"
             ? {
                 owner: { kind: "string" as const, value: "bob" },
@@ -40,7 +41,7 @@ export function LumenPanel({
               }
             : ray === "holdings"
               ? { who: { kind: "string" as const, value: "alice" } }
-              : ray === "tip_sense"
+              : ray === "tip_sense" || ray === "tip_wave"
                 ? {}
                 : ray === "exist"
                   ? {
@@ -69,12 +70,14 @@ export function LumenPanel({
         Guided by light it never names
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        L0: where there is light, there is verification.{" "}
+        Same power class as Rust for light: ownership of ghosts,{" "}
+        <code className="text-foreground/80">match</code>,{" "}
+        <code className="text-foreground/80">ensure</code>/
+        <code className="text-foreground/80">refuse</code>,{" "}
+        <code className="text-foreground/80">when aperture</code>, ray composition. Host verbs{" "}
         <code className="text-foreground/80">tip</code> /{" "}
         <code className="text-foreground/80">kindle</code> /{" "}
-        <code className="text-foreground/80">shine_in</code> bind the living tip, Presence Seal, and
-        Worldlight — not costume verbs. <code className="text-foreground/80">digest</code> /{" "}
-        <code className="text-foreground/80">attest</code> still hide the hash soup.
+        <code className="text-foreground/80">shine_in</code> stay real.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -86,9 +89,12 @@ export function LumenPanel({
             className="ml-2 border-b border-border bg-transparent py-1 outline-none"
           >
             <option value="send">send</option>
+            <option value="funded_kindle">funded_kindle</option>
+            <option value="pay_composed">pay_composed</option>
             <option value="kindle">kindle</option>
             <option value="shine_in">shine_in</option>
             <option value="tip_sense">tip_sense</option>
+            <option value="tip_wave">tip_wave</option>
             <option value="holdings">holdings</option>
             <option value="exist">exist</option>
             <option value="read_key">read_key</option>

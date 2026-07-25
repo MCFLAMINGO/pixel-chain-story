@@ -2,8 +2,15 @@
  * Lumen runtime — executes light ceremonies against the Pixel chain.
  * This is the bridge: Lumen structure → real UTXO settlement + optical keys.
  *
+ * Language power (same *class* as Rust, light-native):
+ *   - ghost ownership: collapse consumes; re-shine refuses
+ *   - match on light kinds
+ *   - ensure / refuse (Result vocabulary)
+ *   - when aperture <cond> (gated revelation)
+ *   - ray composition (module rays callable like functions)
+ *   - field projection + arithmetic / comparisons
+ *
  * Hash complexity stays behind `digest` / `attest` (lightDigest).
- * Authors never write sha512 domain separators or OTS leaf math.
  */
 
 import {
@@ -28,8 +35,23 @@ import {
   type PixelChainState,
   type Transaction,
 } from "@/lib/pixel";
-import type { Expr, LumenModule, LumenValue, Ray, Stmt } from "./ast";
+import type { BinOp, Expr, LumenModule, LumenValue, Ray, Stmt } from "./ast";
 import { parseLumen } from "./parse";
+
+const MAX_RAY_DEPTH = 32;
+
+/** Runtime failure with light vocabulary (not a bare JS exception). */
+export class LumenRuntimeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LumenRuntimeError";
+  }
+}
+
+/** Early return from nested if / match / aperture blocks. */
+class LumenReturn {
+  constructor(public value: LumenValue) {}
+}
 
 export interface LumenHost {
   chain: PixelChainState;
@@ -43,6 +65,8 @@ export interface LumenHost {
   bridgeVault?: LightKeypair;
   /** Named ghost txs awaiting light */
   ghosts: Map<string, Transaction>;
+  /** Collapsed ghost ids — ownership: cannot re-enter superposition */
+  consumed: Set<string>;
   painted: string[];
   log: string[];
 }
@@ -60,13 +84,14 @@ export function createHost(
   opts?: { bridgeVault?: LightKeypair },
 ): LumenHost {
   const seq = sequencer ?? wallets.alice ?? Object.values(wallets)[0];
-  if (!seq) throw new Error("Lumen host needs a sequencer key");
+  if (!seq) throw new LumenRuntimeError("Lumen host needs a sequencer key");
   return {
     chain,
     wallets,
     sequencer: seq,
     bridgeVault: opts?.bridgeVault ?? seq,
     ghosts: new Map(),
+    consumed: new Set(),
     painted: [],
     log: [],
   };
@@ -87,11 +112,23 @@ export async function runRay(
   rayName: string,
   args: Record<string, LumenValue>,
   host: LumenHost,
+  depth = 0,
 ): Promise<LumenResult> {
+  if (depth > MAX_RAY_DEPTH) {
+    throw new LumenRuntimeError(`ray recursion exceeded ${MAX_RAY_DEPTH} — light loop`);
+  }
   const ray = mod.rays.find((r) => r.name === rayName);
-  if (!ray) throw new Error(`Lumen: ray '${rayName}' not found in module ${mod.name}`);
+  if (!ray) {
+    throw new LumenRuntimeError(`ray '${rayName}' not found in module ${mod.name}`);
+  }
   const env = new Map<string, LumenValue>(Object.entries(args));
-  const value = await execBlock(ray.body, env, host, ray);
+  let value: LumenValue;
+  try {
+    value = await execBlock(ray.body, env, host, ray, mod, depth);
+  } catch (e) {
+    if (e instanceof LumenReturn) value = e.value;
+    else throw e;
+  }
   return { host, value, logs: [...host.log] };
 }
 
@@ -100,11 +137,12 @@ async function execBlock(
   env: Map<string, LumenValue>,
   host: LumenHost,
   ray: Ray,
+  mod: LumenModule,
+  depth: number,
 ): Promise<LumenValue> {
   let last: LumenValue = { kind: "unit" };
   for (const stmt of body) {
-    last = await execStmt(stmt, env, host, ray);
-    if (stmt.type === "return") return last;
+    last = await execStmt(stmt, env, host, ray, mod, depth);
   }
   return last;
 }
@@ -114,17 +152,24 @@ async function execStmt(
   env: Map<string, LumenValue>,
   host: LumenHost,
   ray: Ray,
+  mod: LumenModule,
+  depth: number,
 ): Promise<LumenValue> {
   switch (stmt.type) {
     case "let": {
-      const v = await evalExpr(stmt.expr, env, host);
+      const v = await evalExpr(stmt.expr, env, host, mod, depth);
       env.set(stmt.name, v);
       return v;
     }
     case "ghost": {
-      const v = await evalExpr(stmt.expr, env, host);
+      const v = await evalExpr(stmt.expr, env, host, mod, depth);
       env.set(stmt.name, v);
       if (v.kind === "ghost") {
+        if (host.consumed.has(v.id)) {
+          throw new LumenRuntimeError(
+            `ghost ${stmt.name} already collapsed — cannot re-bind consumed light`,
+          );
+        }
         host.log.push(`ghost ${stmt.name} held in superposition (${v.id.slice(0, 12)}…)`);
       }
       if (v.kind === "proof") {
@@ -135,16 +180,24 @@ async function execStmt(
     case "veil": {
       const g = env.get(stmt.name);
       if (g?.kind === "ghost") {
+        assertGhostAlive(host, g.id, stmt.name);
         const tx = host.ghosts.get(g.id);
         if (tx) {
           tx.privacy = stmt.level;
           host.log.push(`veil ${stmt.name} → ${stmt.level}`);
         }
+      } else if (g?.kind === "settled" && host.consumed.has(g.txid)) {
+        throw new LumenRuntimeError(
+          `veil ${stmt.name}: ghost already collapsed — ownership forbids re-entry (${g.txid.slice(0, 12)}…)`,
+        );
       }
       return { kind: "unit" };
     }
     case "shine": {
-      const target = await evalExpr(stmt.target, env, host);
+      const target = await evalExpr(stmt.target, env, host, mod, depth);
+      if (target.kind === "ghost") {
+        assertGhostAlive(host, target.id, "shine target");
+      }
       if (stmt.via === "sequence" || !stmt.via) {
         if (host.chain.pending.length > 0) {
           host.chain = await sequenceBlock(host.chain, host.sequencer);
@@ -203,10 +256,12 @@ async function execStmt(
         return g;
       }
       if (g?.kind === "ghost") {
+        assertGhostAlive(host, g.id, stmt.name);
         const settled = env.get("_last_settled");
         if (settled) {
+          host.consumed.add(g.id);
           env.set(stmt.name, settled);
-          host.log.push(`collapse ${stmt.name} → one truth`);
+          host.log.push(`collapse ${stmt.name} → one truth (ghost consumed)`);
           return settled;
         }
       }
@@ -218,33 +273,67 @@ async function execStmt(
           txid: tx.txid,
           summary: humanSummary(tx),
         };
+        if (g?.kind === "ghost") host.consumed.add(g.id);
         env.set(stmt.name, settled);
         return settled;
       }
       return { kind: "unit" };
     }
     case "paint": {
-      const v = await evalExpr(stmt.expr, env, host);
-      const id =
-        v.kind === "settled"
-          ? v.txid
-          : v.kind === "ghost"
-            ? v.id
-            : v.kind === "proof"
-              ? v.light
-              : v.kind === "tip"
-                ? v.waveDigest
-                : "unit";
+      const v = await evalExpr(stmt.expr, env, host, mod, depth);
+      const id = paintId(v);
       host.painted.push(id);
       host.log.push(`paint ledger pixel for ${id.slice(0, 12)}…`);
       return v;
     }
     case "when_light": {
       host.log.push("when light — aperture open");
-      return execBlock(stmt.body, env, host, ray);
+      return execBlock(stmt.body, env, host, ray, mod, depth);
     }
-    case "return":
-      return evalExpr(stmt.expr, env, host);
+    case "when_aperture": {
+      const cond = await evalExpr(stmt.condition, env, host, mod, depth);
+      if (!truthy(cond)) {
+        host.log.push("when aperture — closed (condition dark)");
+        return { kind: "unit" };
+      }
+      host.log.push("when aperture — open");
+      return execBlock(stmt.body, env, host, ray, mod, depth);
+    }
+    case "if": {
+      const cond = await evalExpr(stmt.condition, env, host, mod, depth);
+      if (truthy(cond)) {
+        return execBlock(stmt.thenBody, env, host, ray, mod, depth);
+      }
+      if (stmt.elseBody) {
+        return execBlock(stmt.elseBody, env, host, ray, mod, depth);
+      }
+      return { kind: "unit" };
+    }
+    case "match": {
+      const scrut = await evalExpr(stmt.scrutinee, env, host, mod, depth);
+      const arm =
+        stmt.arms.find((a) => a.pattern === scrut.kind) ?? stmt.arms.find((a) => a.pattern === "_");
+      if (!arm) {
+        throw new LumenRuntimeError(
+          `match exhausted — no arm for kind '${scrut.kind}' (add \`_:\`)`,
+        );
+      }
+      host.log.push(`match ${scrut.kind} → arm ${arm.pattern}`);
+      return execBlock(arm.body, env, host, ray, mod, depth);
+    }
+    case "ensure": {
+      const cond = await evalExpr(stmt.condition, env, host, mod, depth);
+      if (!truthy(cond)) {
+        throw new LumenRuntimeError(`ensure failed — ${stmt.message}`);
+      }
+      return { kind: "bool", value: true };
+    }
+    case "refuse":
+      throw new LumenRuntimeError(`refuse — ${stmt.message}`);
+    case "return": {
+      const v = await evalExpr(stmt.expr, env, host, mod, depth);
+      throw new LumenReturn(v);
+    }
     default:
       return { kind: "unit" };
   }
@@ -254,19 +343,32 @@ async function evalExpr(
   expr: Expr,
   env: Map<string, LumenValue>,
   host: LumenHost,
+  mod: LumenModule,
+  depth: number,
 ): Promise<LumenValue> {
   switch (expr.type) {
     case "number":
       return { kind: "number", value: expr.value };
     case "string":
       return { kind: "string", value: expr.value };
+    case "bool":
+      return { kind: "bool", value: expr.value };
     case "ident": {
       const v = env.get(expr.name);
-      if (!v) throw new Error(`Lumen: unknown name '${expr.name}'`);
+      if (!v) throw new LumenRuntimeError(`unknown name '${expr.name}'`);
       return v;
     }
+    case "member": {
+      const obj = await evalExpr(expr.object, env, host, mod, depth);
+      return projectField(obj, expr.field);
+    }
+    case "binary": {
+      const left = await evalExpr(expr.left, env, host, mod, depth);
+      const right = await evalExpr(expr.right, env, host, mod, depth);
+      return evalBinary(expr.op, left, right);
+    }
     case "call":
-      return evalCall(expr.name, expr.args, env, host);
+      return evalCall(expr.name, expr.args, env, host, mod, depth);
   }
 }
 
@@ -275,8 +377,10 @@ async function evalCall(
   args: Expr[],
   env: Map<string, LumenValue>,
   host: LumenHost,
+  mod: LumenModule,
+  depth: number,
 ): Promise<LumenValue> {
-  const vals = await Promise.all(args.map((a) => evalExpr(a, env, host)));
+  const vals = await Promise.all(args.map((a) => evalExpr(a, env, host, mod, depth)));
 
   if (name === "commit") {
     const fromName = str(vals[0]);
@@ -285,7 +389,9 @@ async function evalCall(
     const memo = str(vals[3] ?? { kind: "string", value: "Lumen transfer" });
     const from = host.wallets[fromName];
     const to = host.wallets[toName];
-    if (!from || !to) throw new Error(`Lumen commit: wallet missing (${fromName}/${toName})`);
+    if (!from || !to) {
+      throw new LumenRuntimeError(`commit: wallet missing (${fromName}/${toName})`);
+    }
 
     const { state, tx } = await proposeTransfer(
       host.chain,
@@ -303,7 +409,6 @@ async function evalCall(
       kind: "ghost",
       id: tx.txid,
       payload: {
-        /** Prefer `light` — commitment is the same hex via lightDigest. */
         light: tx.commitment,
         commitment: tx.commitment,
         amount,
@@ -316,14 +421,13 @@ async function evalCall(
 
   if (name === "balance") {
     const w = host.wallets[str(vals[0])];
-    if (!w) throw new Error("Lumen balance: unknown wallet");
+    if (!w) throw new LumenRuntimeError("balance: unknown wallet");
     return { kind: "number", value: balanceOf(host.chain, w.address) };
   }
 
-  /** Sense the living tip — waveDigest + spatialRoot from host chain. */
   if (name === "tip") {
     const tip = host.chain.pixels[host.chain.pixels.length - 1];
-    if (!tip) throw new Error("Lumen tip: empty chain");
+    if (!tip) throw new LumenRuntimeError("tip: empty chain");
     const sense: LumenValue = {
       kind: "tip",
       index: tip.index,
@@ -337,10 +441,6 @@ async function evalCall(
     return sense;
   }
 
-  /**
-   * Kindling ceremony → Presence Seal → self-custody settle on host chain.
-   * Lab uses simulated optical confluence (same as kindling selftest).
-   */
   if (name === "kindle") {
     const fromName = str(vals[0]);
     const toName = str(vals[1]);
@@ -348,7 +448,9 @@ async function evalCall(
     const memo = str(vals[3] ?? { kind: "string", value: "Lumen kindle" });
     const from = host.wallets[fromName];
     const to = host.wallets[toName];
-    if (!from || !to) throw new Error(`Lumen kindle: wallet missing (${fromName}/${toName})`);
+    if (!from || !to) {
+      throw new LumenRuntimeError(`kindle: wallet missing (${fromName}/${toName})`);
+    }
     const intent = {
       fromLocal: fromName,
       toLocal: toName,
@@ -358,7 +460,7 @@ async function evalCall(
     const offer = await kindleOffer(intent, { partyId: `${fromName}-offer` });
     const accept = await kindleAccept(intent, { partyId: `${toName}-accept` });
     const conf = await confluentSeal(offer, accept);
-    if (!conf.ok) throw new Error(`Lumen kindle: confluence ${conf.reason}`);
+    if (!conf.ok) throw new LumenRuntimeError(`kindle: confluence ${conf.reason}`);
     const settled = await settleKindling({
       state: host.chain,
       from,
@@ -377,15 +479,11 @@ async function evalCall(
     };
   }
 
-  /**
-   * Worldlight shine-in: foreign $ lock → PIX on owner's Personal Source.
-   * Uses host.bridgeVault (escrow) — never the owner's seed.
-   */
   if (name === "shine_in") {
     const ownerName = str(vals[0]);
     const usd = num(vals[1]);
     const owner = host.wallets[ownerName];
-    if (!owner) throw new Error(`Lumen shine_in: unknown wallet ${ownerName}`);
+    if (!owner) throw new LumenRuntimeError(`shine_in: unknown wallet ${ownerName}`);
     const vault = host.bridgeVault ?? host.sequencer;
     const prepared = await ingressUsd(
       usd,
@@ -408,7 +506,6 @@ async function evalCall(
     };
   }
 
-  /** One labeled hash — the complex hash issue becomes a verb. */
   if (name === "digest") {
     const label = str(vals[0]);
     const material = vals.slice(1).map(valueMaterial);
@@ -416,10 +513,6 @@ async function evalCall(
     return { kind: "string", value: light };
   }
 
-  /**
-   * Attest existence under light — store of creation.
-   * Recomputable wherever lightDigest still runs (EMP elsewhere ≠ erasure here).
-   */
   if (name === "attest") {
     const subject = valueMaterial(vals[0]);
     const extra = vals.slice(1).map(valueMaterial);
@@ -447,7 +540,7 @@ async function evalCall(
 
   if (name === "recover") {
     const pic = vals[0];
-    if (pic.kind !== "picture") throw new Error("recover expects picture");
+    if (pic.kind !== "picture") throw new LumenRuntimeError("recover expects picture");
     const captured = simulateCameraCapture(
       {
         cells: pic.cells,
@@ -459,7 +552,9 @@ async function evalCall(
       0,
     );
     const result = await verifyCapturedPattern(captured, pic.checksum);
-    if (!result.ok || !result.payload) throw new Error("recover failed — light did not align");
+    if (!result.ok || !result.payload) {
+      throw new LumenRuntimeError("recover failed — light did not align");
+    }
     return { kind: "string", value: pic.payloadHex };
   }
 
@@ -475,7 +570,194 @@ async function evalCall(
     };
   }
 
-  throw new Error(`Lumen: unknown ray/builtin '${name}'`);
+  if (name === "kind_of") {
+    return { kind: "string", value: vals[0]?.kind ?? "unit" };
+  }
+
+  // Ray composition — call another ray in this module (function power).
+  const other = mod.rays.find((r) => r.name === name);
+  if (other) {
+    if (vals.length !== other.params.length) {
+      throw new LumenRuntimeError(
+        `ray ${name} expects ${other.params.length} args, got ${vals.length}`,
+      );
+    }
+    const bound: Record<string, LumenValue> = {};
+    other.params.forEach((p, i) => {
+      bound[p] = vals[i]!;
+    });
+    const nested = await runRay(mod, name, bound, host, depth + 1);
+    return nested.value;
+  }
+
+  throw new LumenRuntimeError(`unknown ray/builtin '${name}'`);
+}
+
+function assertGhostAlive(host: LumenHost, id: string, label: string): void {
+  if (host.consumed.has(id)) {
+    throw new LumenRuntimeError(
+      `${label}: ghost already collapsed — ownership forbids re-entry (${id.slice(0, 12)}…)`,
+    );
+  }
+}
+
+function projectField(obj: LumenValue, field: string): LumenValue {
+  switch (obj.kind) {
+    case "tip": {
+      const map: Record<string, LumenValue> = {
+        index: { kind: "number", value: obj.index },
+        tipHash: { kind: "string", value: obj.tipHash },
+        waveDigest: { kind: "string", value: obj.waveDigest },
+        spatialRoot: { kind: "string", value: obj.spatialRoot },
+        kind: { kind: "string", value: "tip" },
+      };
+      const v = map[field];
+      if (!v) throw new LumenRuntimeError(`tip has no field '${field}'`);
+      return v;
+    }
+    case "proof": {
+      const map: Record<string, LumenValue> = {
+        light: { kind: "string", value: obj.light },
+        subject: { kind: "string", value: obj.subject },
+        label: { kind: "string", value: obj.label },
+        at: { kind: "number", value: obj.at },
+        kind: { kind: "string", value: "proof" },
+      };
+      const v = map[field];
+      if (!v) throw new LumenRuntimeError(`proof has no field '${field}'`);
+      return v;
+    }
+    case "settled": {
+      const map: Record<string, LumenValue> = {
+        txid: { kind: "string", value: obj.txid },
+        summary: { kind: "string", value: obj.summary },
+        kind: { kind: "string", value: "settled" },
+      };
+      const v = map[field];
+      if (!v) throw new LumenRuntimeError(`settled has no field '${field}'`);
+      return v;
+    }
+    case "ghost": {
+      if (field === "id") return { kind: "string", value: obj.id };
+      if (field === "kind") return { kind: "string", value: "ghost" };
+      const raw = obj.payload[field];
+      if (typeof raw === "number") return { kind: "number", value: raw };
+      if (typeof raw === "string") return { kind: "string", value: raw };
+      if (typeof raw === "boolean") return { kind: "bool", value: raw };
+      throw new LumenRuntimeError(`ghost has no field '${field}'`);
+    }
+    case "picture": {
+      const map: Record<string, LumenValue> = {
+        checksum: { kind: "string", value: obj.checksum },
+        payloadHex: { kind: "string", value: obj.payloadHex },
+        kind: { kind: "string", value: "picture" },
+      };
+      const v = map[field];
+      if (!v) throw new LumenRuntimeError(`picture has no field '${field}'`);
+      return v;
+    }
+    default:
+      throw new LumenRuntimeError(`cannot project '.${field}' from ${obj.kind}`);
+  }
+}
+
+function evalBinary(op: BinOp, left: LumenValue, right: LumenValue): LumenValue {
+  if (op === "==" || op === "!=") {
+    const equal = lumenEqual(left, right);
+    return { kind: "bool", value: op === "==" ? equal : !equal };
+  }
+
+  if (
+    op === "+" ||
+    op === "-" ||
+    op === "*" ||
+    op === "/" ||
+    op === ">" ||
+    op === "<" ||
+    op === ">=" ||
+    op === "<="
+  ) {
+    if (left.kind !== "number" || right.kind !== "number") {
+      throw new LumenRuntimeError(`operator ${op} needs numbers, got ${left.kind}/${right.kind}`);
+    }
+    const a = left.value;
+    const b = right.value;
+    switch (op) {
+      case "+":
+        return { kind: "number", value: a + b };
+      case "-":
+        return { kind: "number", value: a - b };
+      case "*":
+        return { kind: "number", value: a * b };
+      case "/":
+        if (b === 0) throw new LumenRuntimeError("division by dark (zero)");
+        return { kind: "number", value: a / b };
+      case ">":
+        return { kind: "bool", value: a > b };
+      case "<":
+        return { kind: "bool", value: a < b };
+      case ">=":
+        return { kind: "bool", value: a >= b };
+      case "<=":
+        return { kind: "bool", value: a <= b };
+    }
+  }
+  throw new LumenRuntimeError(`unknown operator ${op}`);
+}
+
+function lumenEqual(a: LumenValue, b: LumenValue): boolean {
+  if (a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case "number":
+      return a.value === (b as typeof a).value;
+    case "string":
+    case "address":
+      return a.value === (b as typeof a).value;
+    case "bool":
+      return a.value === (b as typeof a).value;
+    case "unit":
+      return true;
+    case "ghost":
+      return a.id === (b as typeof a).id;
+    case "settled":
+      return a.txid === (b as typeof a).txid;
+    case "tip":
+      return a.tipHash === (b as typeof a).tipHash;
+    case "proof":
+      return a.light === (b as typeof a).light;
+    case "picture":
+      return a.checksum === (b as typeof a).checksum;
+  }
+}
+
+function truthy(v: LumenValue): boolean {
+  switch (v.kind) {
+    case "bool":
+      return v.value;
+    case "number":
+      return v.value !== 0;
+    case "string":
+      return v.value.length > 0;
+    case "unit":
+      return false;
+    default:
+      return true;
+  }
+}
+
+function paintId(v: LumenValue): string {
+  switch (v.kind) {
+    case "settled":
+      return v.txid;
+    case "ghost":
+      return v.id;
+    case "proof":
+      return v.light;
+    case "tip":
+      return v.waveDigest;
+    default:
+      return "unit";
+  }
 }
 
 function valueMaterial(v: LumenValue): string {
@@ -504,12 +786,12 @@ function valueMaterial(v: LumenValue): string {
 
 function str(v: LumenValue): string {
   if (v.kind === "string" || v.kind === "address") return v.value;
-  throw new Error(`Lumen: expected string, got ${v.kind}`);
+  throw new LumenRuntimeError(`expected string, got ${v.kind}`);
 }
 
 function num(v: LumenValue): number {
   if (v.kind === "number") return v.value;
-  throw new Error(`Lumen: expected number, got ${v.kind}`);
+  throw new LumenRuntimeError(`expected number, got ${v.kind}`);
 }
 
 export { parseLumen };
