@@ -36,6 +36,7 @@ Borrowing audited crypto is a virtue. Re-implementing Dilithium from scratch wou
 | **World canvas**             | One public picture of humanity — people wallets + tip marks; `CanvasId`; `shared_tip` via `POST /tx` ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md), [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)).                    |
 | **Worldlight / LockFeeder**  | World artifacts + verified lock → shine-in                                                                                                                                                                  |
 | **Lock→lead**                | Named invent: USDC/USD lock → tip lattice lead (`activateLead`, `test:lock-lead`); lockDigest bound in shine-in reference.                                                                                    |
+| **Spatial sink**             | Three.js / web viz of tip illuminated cells + wave hits — UI sink only (`test:spatial-sink`). Not matplotlib-as-product.                                                                                     |
 | **Energy Truth**             | Labeled model vs datacenter thirst                                                                                                                                                                          |
 | **Access ladder**            | Signal bridges invite only                                                                                                                                                                                  |
 
