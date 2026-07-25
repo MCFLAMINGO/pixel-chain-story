@@ -9,7 +9,7 @@
  * Continuity of the scene, not simile alone. Geometry: lattice.ts (S1).
  */
 
-import { createHash } from "node:crypto";
+import { sha512SyncHex } from "./crypto";
 import { formatCoord, indexToLattice, latticePeersInSphere, neighborBlendHex } from "./lattice";
 
 export const FIELD_MAX_DISTANCE = 2;
@@ -86,9 +86,7 @@ export function computeFieldDigest(witnesses: readonly FieldWitness[]): string {
         `${w.peerIndex}@${formatCoord({ x: w.x, y: w.y, z: w.z })}:${w.distance}:${w.opacity}:${w.weight}:${w.color.toLowerCase()}`,
     )
     .join("|");
-  return createHash("sha512")
-    .update(`field|v2|blend=${blend.toLowerCase()}|${canonical}`)
-    .digest("hex");
+  return sha512SyncHex(`field|v2|blend=${blend.toLowerCase()}|${canonical}`);
 }
 
 export function assertFieldWitnessesMatch(

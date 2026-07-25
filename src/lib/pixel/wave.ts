@@ -11,7 +11,7 @@
  * Not UI glitter. Not a disconnected voxel sim.
  */
 
-import { createHash } from "node:crypto";
+import { sha512Sync, sha512SyncHex } from "./crypto";
 import { chebyshev3, indexToLattice, type LatticeCoord } from "./lattice";
 import { buildOccupancyIndex, indexGet } from "./spatial-index";
 import { WAVE_DAMPING } from "./wave-rules";
@@ -62,7 +62,7 @@ export function outgoingWaveHits(
   }
   const occ = buildOccupancyIndex(tipIndex);
   const leadCoord = indexToLattice(leadIndex);
-  const base = createHash("sha512").update(`wave-seed|${seed}|lead=${leadIndex}`).digest();
+  const base = sha512Sync(`wave-seed|${seed}|lead=${leadIndex}`);
   const strengthMilli = 2000 + (base[0]! << 8) + base[1]!; // 2000…67535 → clamp later
   const startAmp = Math.min(10000, strengthMilli);
 
@@ -162,7 +162,7 @@ export function computeWaveDigest(hits: readonly WaveHit[]): string {
     )
     .map((h) => `${h.cellIndex}:${h.hop}:${h.amplitudeMilli}:${h.leadIndex}`)
     .join("|");
-  return createHash("sha512").update(`wave|v1|${canonical}`).digest("hex");
+  return sha512SyncHex(`wave|v1|${canonical}`);
 }
 
 /**
@@ -190,7 +190,7 @@ export function computeTipWaveField(params: {
     leadHashes.set(i, priorTipHashes[i]!);
   }
   // Tip lead uses seed commitment (hash not yet finalized)
-  leadHashes.set(tipIndex, createHash("sha512").update(`tip-lead|${seed}`).digest("hex"));
+  leadHashes.set(tipIndex, sha512SyncHex(`tip-lead|${seed}`));
 
   const raw: WaveHit[] = [];
   // Outgoing from this tip

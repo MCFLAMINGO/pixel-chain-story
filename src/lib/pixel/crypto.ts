@@ -9,7 +9,12 @@
  * PIX-HASH-OTS-128 is a Merkle window of one-time Lamport keys. Each sign
  * consumes one leaf. Local wallets advance `nextLeaf`; the ledger rejects
  * reuse of `(publicKey, leafIndex)` in `chain.ts` (consensus, not honor system).
+ *
+ * Sync SHA-512 uses @noble/hashes (browser-safe). Never import node:crypto
+ * from modules that load in the Continuity desk / Vite client.
  */
+
+import { sha512 as sha512Noble } from "@noble/hashes/sha2.js";
 
 export type Hex = string;
 
@@ -52,6 +57,16 @@ export async function sha512(data: Uint8Array | string): Promise<Uint8Array> {
 
 export async function sha512Hex(data: Uint8Array | string): Promise<Hex> {
   return bytesToHex(await sha512(data));
+}
+
+/** Sync SHA-512 for PoLS lottery / wave / field digests (matches node:crypto). */
+export function sha512Sync(data: Uint8Array | string): Uint8Array {
+  const bytes = typeof data === "string" ? textEncoder.encode(data) : data;
+  return sha512Noble(bytes);
+}
+
+export function sha512SyncHex(data: Uint8Array | string): Hex {
+  return bytesToHex(sha512Sync(data));
 }
 
 export function randomBytes(length: number): Uint8Array {
