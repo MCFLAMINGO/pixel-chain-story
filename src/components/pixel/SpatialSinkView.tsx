@@ -132,7 +132,7 @@ export function SpatialSinkView({ scene }: { scene: SpatialSinkScene }) {
       });
       resizeObs.observe(host);
 
-      void THREE as ThreeMod;
+      void (THREE as unknown as ThreeMod);
     })();
 
     return () => {
