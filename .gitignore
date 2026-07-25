@@ -39,3 +39,4 @@ contracts/cosmwasm/ula-verifier/target
 *.njsproj
 *.sln
 *.sw?
+data/
