@@ -46,7 +46,7 @@ State = {
 
 - Links: `prevHash`, `index`, `sequence`
 - Body: `transactions[]`, `merkleRoot`
-- Light: `lightProof` (beacon + sequencer sig + `fieldDigest`)
+- Light: `lightProof` (beacon + sequencer sig + `fieldDigest` + `waveDigest`)
 - Appearance: `color`, `illuminated`, `proximity[]`
 - Field: `field[]` — peer `FieldWitness` records (sphere combination lock)
 - Invariant: `illuminated = false` ⇒ color absent (no RGB meaning)
@@ -66,6 +66,14 @@ Peers = prior pixels with Chebyshev-3 ≤ `FIELD_MAX_DISTANCE` (2) of the tip.
 Canonical `fieldDigest = SHA-512(field|v2|blend=<hex>\|<peerIndex>@x,y,z:distance:opacity:weight:color|…)` (peers sorted by index; `blend` = opacity-weighted RGB mix). Bound into the PoLS message as `|field=<digest>`. `acceptBlock` / `verifyChain` recompute from prior pixel colors and reject mismatch.
 
 **Invent note:** verification + continuity of the scene + tip custody — **not** a rename of `prevHash`, **not** a game voxel engine. Evidence: `bun run test:field` · `bun run test:lattice`.
+
+### Lead wave (lattice propagation)
+
+Tip illumination emits a deterministic multi-hop wave over occupied lattice cells (`WAVE_MAX_HOPS = 2`). Seed = `prevHash|sequence|merkleRoot`. Hits record `(cellIndex, hop, amplitudeMilli, leadIndex)`. Prior tips within `WAVE_LOOKBACK` leave residue; overlapping cells **collision-fold** by sorting `(leadIndex, leadTipHash)` then mixing amplitudes (not wall-clock order).
+
+Canonical `waveDigest = SHA-512(wave|v1|<cell>:<hop>:<amp>:<lead>|…)`. Bound into the PoLS message as `|wave=<digest>`. `acceptBlock` / `verifyChain` recompute and reject mismatch.
+
+**Invent note:** neighbor reaction is tip physics — **not** UI glitter. Evidence: `bun run test:wave`. Path: [`SPATIAL.md`](./SPATIAL.md) S2.
 
 ### Transaction
 

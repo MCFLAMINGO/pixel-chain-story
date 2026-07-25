@@ -18,6 +18,7 @@ export * from "./transaction";
 export * from "./pol";
 export * from "./field-witness";
 export * from "./lattice";
+export * from "./wave";
 export * from "./light-color";
 export * from "./expression";
 export * from "./interactions";
