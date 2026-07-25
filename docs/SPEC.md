@@ -54,17 +54,18 @@ State = {
 
 ### FieldWitness (sphere combination lock)
 
-Tip custody is not linear `prevHash` alone. Peers at Chebyshev distance ≤ `FIELD_MAX_DISTANCE` (2) form a field:
+Tip custody is not linear `prevHash` alone. Peers form a field in **lattice space** (`index → (x,y,z)` packing, S1 z=0 slice — [`SPATIAL.md`](./SPATIAL.md)):
 
-| distance | opacity       | color in digest     |
-| -------- | ------------- | ------------------- |
-| 0        | `lit`         | full peer `#rrggbb` |
-| 1        | `translucent` | full peer `#rrggbb` |
-| ≥ 2      | `opaque`      | empty (no color)    |
+| Lattice Chebyshev-3 | opacity       | weight | color in digest     |
+| ------------------- | ------------- | ------ | ------------------- |
+| 0                   | `lit`         | 1      | full peer `#rrggbb` |
+| 1                   | `translucent` | 0.5    | full peer `#rrggbb` |
+| ≥ 2 (≤ max)         | `opaque`      | 0      | empty (no color)    |
 
-Canonical `fieldDigest = SHA-512(field|peerIndex:distance:opacity:color|…)` (peers sorted by index). Bound into the PoLS message as `|field=<digest>`. `acceptBlock` / `verifyChain` recompute from prior pixel colors and reject mismatch.
+Peers = prior pixels with Chebyshev-3 ≤ `FIELD_MAX_DISTANCE` (2) of the tip.  
+Canonical `fieldDigest = SHA-512(field|v2|blend=<hex>\|<peerIndex>@x,y,z:distance:opacity:weight:color|…)` (peers sorted by index; `blend` = opacity-weighted RGB mix). Bound into the PoLS message as `|field=<digest>`. `acceptBlock` / `verifyChain` recompute from prior pixel colors and reject mismatch.
 
-**Invent note:** this is verification + continuity of the scene + tip custody — **not** a rename of `prevHash`. Evidence: `bun run test:field`.
+**Invent note:** verification + continuity of the scene + tip custody — **not** a rename of `prevHash`, **not** a game voxel engine. Evidence: `bun run test:field` · `bun run test:lattice`.
 
 ### Transaction
 
