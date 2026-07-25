@@ -203,14 +203,19 @@ export async function illuminateIngress(params: {
     if (prepared.bridgeMessage.toAddress !== prepared.request.ownerAddress) {
       throw new Error("Shine-in credit must land on the owner's Personal Source");
     }
+    // Bind foreign lockDigest into tip-verifiable tx metadata (lock→lead invent).
+    const lockSlice = (prepared.request.valueLock?.lockDigest ?? prepared.artifact.digest).slice(
+      0,
+      16,
+    );
     const spoken = await proposeTransfer(
       state,
       params.bridgeVault,
       [{ address: prepared.request.ownerAddress, amount: prepared.pixCredit }],
       {
-        description: prepared.bridgeMessage.memo || "Worldlight shineIn",
+        description: prepared.bridgeMessage.memo || `Worldlight shineIn lock=${lockSlice}`,
         recipientLabel: prepared.request.ownerLocalId,
-        reference: `SHINEIN-${prepared.bridgeMessage.nonce}`,
+        reference: `SHINEIN-${prepared.bridgeMessage.nonce}|lock=${lockSlice}`,
       },
     );
     state = spoken.state;

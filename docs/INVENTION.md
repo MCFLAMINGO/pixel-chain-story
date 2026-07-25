@@ -35,6 +35,7 @@ Borrowing audited crypto is a virtue. Re-implementing Dilithium from scratch wou
 | **Spatial index / wave rules** | Hash-grid occupancy + named `WAVE_DAMPING` + lab energy-cost + partition sim (`test:spatial-index`, `test:wave-partition`).                                                                               |
 | **World canvas**             | One public picture of humanity — people wallets + tip marks; `CanvasId`; `shared_tip` via `POST /tx` ([`WORLD-CANVAS.md`](./WORLD-CANVAS.md), [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)).                    |
 | **Worldlight / LockFeeder**  | World artifacts + verified lock → shine-in                                                                                                                                                                  |
+| **Lock→lead**                | Named invent: USDC/USD lock → tip lattice lead (`activateLead`, `test:lock-lead`); lockDigest bound in shine-in reference.                                                                                    |
 | **Energy Truth**             | Labeled model vs datacenter thirst                                                                                                                                                                          |
 | **Access ladder**            | Signal bridges invite only                                                                                                                                                                                  |
 

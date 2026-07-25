@@ -44,6 +44,7 @@ export * from "./custody";
 export * from "./people-wallet";
 export * from "./worldlight";
 export * from "./lock-feeder";
+export * from "./lock-lead";
 export * from "./chain";
 export * from "./canvas-id";
 export * from "./tip-mark";
