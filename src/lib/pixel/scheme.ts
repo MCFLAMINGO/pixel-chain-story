@@ -21,6 +21,7 @@ import {
   type Hex,
   type LightKeypair,
 } from "./crypto";
+import { parseSignatureEnvelope } from "./validators";
 
 export type SchemeId = "PIX-HASH-OTS-128" | "PIX-ML-DSA-65";
 
@@ -123,15 +124,13 @@ export async function verifyPixel(
   publicKey: Hex,
 ): Promise<boolean> {
   try {
-    const parsed = JSON.parse(signatureJson) as { alg?: string };
-    const alg = parsed.alg;
-    if (alg === "PIX-ML-DSA-65") {
-      const sig = parsed as { alg: string; sig: string };
-      if (!sig.sig) return false;
+    const parsed = parseSignatureEnvelope(signatureJson);
+    if (!parsed) return false;
+    if (parsed.alg === "PIX-ML-DSA-65") {
       const msg = domainSeparatedMessage(message, "PIX-ML-DSA-65");
-      return ml_dsa65.verify(hexToBytes(sig.sig), msg, hexToBytes(publicKey));
+      return ml_dsa65.verify(hexToBytes(parsed.sig), msg, hexToBytes(publicKey));
     }
-    if (alg === "PIX-HASH-OTS-128") {
+    if (parsed.alg === "PIX-HASH-OTS-128") {
       return verifyLightFull(message, signatureJson, publicKey);
     }
     return false;
@@ -141,15 +140,8 @@ export async function verifyPixel(
 }
 
 export function schemeFromSignature(signatureJson: string): SchemeId | null {
-  try {
-    const parsed = JSON.parse(signatureJson) as { alg?: string };
-    if (parsed.alg === "PIX-ML-DSA-65" || parsed.alg === "PIX-HASH-OTS-128") {
-      return parsed.alg;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  const parsed = parseSignatureEnvelope(signatureJson);
+  return parsed?.alg ?? null;
 }
 
 export function quantumStatus(): {

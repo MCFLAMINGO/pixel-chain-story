@@ -15,6 +15,11 @@
  */
 
 import { sha512 as sha512Noble } from "@noble/hashes/sha2.js";
+import {
+  MAX_SIGNATURE_JSON_BYTES,
+  parseMldsaSignatureJson,
+  parseOtsSignatureJson,
+} from "./validators";
 
 export type Hex = string;
 
@@ -29,7 +34,27 @@ export function bytesToHex(bytes: Uint8Array): Hex {
     .join("");
 }
 
-/** Decode hex → bytes. Rejects non-hex; odd length pads a leading `0` (legacy). */
+/**
+ * Strip optional `0x`, validate charset, require even length, lowercase.
+ * Use for commitments / address derivation (canonical wire form).
+ */
+export function canonicalizeHex(hex: Hex): Hex {
+  if (typeof hex !== "string") throw new Error("canonicalizeHex: expected string");
+  const normalized = hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
+  if (normalized.length === 0) return "";
+  if (!/^[0-9a-fA-F]+$/.test(normalized)) {
+    throw new Error(`canonicalizeHex: non-hex input (${normalized.slice(0, 24)}…)`);
+  }
+  if (normalized.length % 2 !== 0) {
+    throw new Error(`canonicalizeHex: odd length (${normalized.length})`);
+  }
+  return normalized.toLowerCase();
+}
+
+/**
+ * Decode hex → bytes. Rejects non-hex; lowercases; odd length pads a leading `0`
+ * (legacy byte decode). Prefer `canonicalizeHex` for commitment strings.
+ */
 export function hexToBytes(hex: Hex): Uint8Array {
   if (typeof hex !== "string") throw new Error("hexToBytes: expected string");
   const normalized = hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
@@ -37,7 +62,8 @@ export function hexToBytes(hex: Hex): Uint8Array {
   if (!/^[0-9a-fA-F]+$/.test(normalized)) {
     throw new Error(`hexToBytes: non-hex input (${normalized.slice(0, 24)}…)`);
   }
-  const clean = normalized.length % 2 === 0 ? normalized : `0${normalized}`;
+  const lower = normalized.toLowerCase();
+  const clean = lower.length % 2 === 0 ? lower : `0${lower}`;
   const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++) {
     out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
@@ -84,7 +110,8 @@ export function randomBytes(length: number): Uint8Array {
 
 /** Deterministic address from a public key commitment (Merkle root). */
 export async function addressFromPublicKey(publicKey: Hex): Promise<string> {
-  const digest = await sha512Hex(`pix-addr|${publicKey}`);
+  const pk = canonicalizeHex(publicKey);
+  const digest = sha512SyncHex(`pix-addr|${pk}`);
   return `pix1${digest.slice(0, 38)}`;
 }
 
@@ -132,13 +159,37 @@ export interface LightKeypair {
 const MSG_BITS = 128;
 const CHUNK = 32;
 
-async function hashChain(seed: Uint8Array, label: string): Promise<Uint8Array> {
-  return sha512(concatBytes(seed, textEncoder.encode(label)));
+function hashChainSync(seed: Uint8Array, label: string): Uint8Array {
+  return sha512Sync(concatBytes(seed, textEncoder.encode(label)));
 }
 
-async function deriveLeafSeed(master: Uint8Array, index: number): Promise<Uint8Array> {
-  const digest = await sha512(concatBytes(master, textEncoder.encode(`ots-leaf|${index}`)));
-  return digest.slice(0, 32);
+function deriveLeafSeedSync(master: Uint8Array, index: number): Uint8Array {
+  return sha512Sync(concatBytes(master, textEncoder.encode(`ots-leaf|${index}`))).slice(0, 32);
+}
+
+/** Sync OTS leaf material — @noble SHA-512 in the hot loop (no serial await). */
+function leafMaterialSync(
+  master: Uint8Array,
+  index: number,
+): {
+  privatePairs: Hex[][];
+  leafPublicKey: Hex;
+} {
+  const s = deriveLeafSeedSync(master, index);
+  const privatePairs: Hex[][] = [];
+  const publicParts: string[] = [];
+
+  for (let i = 0; i < MSG_BITS; i++) {
+    const zero = hashChainSync(s, `sk|${i}|0`);
+    const one = hashChainSync(s, `sk|${i}|1`);
+    privatePairs.push([bytesToHex(zero.slice(0, CHUNK)), bytesToHex(one.slice(0, CHUNK))]);
+    const pz = sha512SyncHex(zero.slice(0, CHUNK));
+    const po = sha512SyncHex(one.slice(0, CHUNK));
+    publicParts.push(`${pz.slice(0, 16)}${po.slice(0, 16)}`);
+  }
+
+  const leafPublicKey = sha512SyncHex(publicParts.join("|"));
+  return { privatePairs, leafPublicKey };
 }
 
 async function leafMaterial(
@@ -148,64 +199,58 @@ async function leafMaterial(
   privatePairs: Hex[][];
   leafPublicKey: Hex;
 }> {
-  const s = await deriveLeafSeed(master, index);
-  const privatePairs: Hex[][] = [];
-  const publicParts: string[] = [];
-
-  for (let i = 0; i < MSG_BITS; i++) {
-    const zero = await hashChain(s, `sk|${i}|0`);
-    const one = await hashChain(s, `sk|${i}|1`);
-    privatePairs.push([bytesToHex(zero.slice(0, CHUNK)), bytesToHex(one.slice(0, CHUNK))]);
-    const pz = await sha512Hex(zero.slice(0, CHUNK));
-    const po = await sha512Hex(one.slice(0, CHUNK));
-    publicParts.push(`${pz.slice(0, 16)}${po.slice(0, 16)}`);
-  }
-
-  const leafPublicKey = await sha512Hex(publicParts.join("|"));
-  return { privatePairs, leafPublicKey };
+  return leafMaterialSync(master, index);
 }
 
-async function merkleRootFromLeaves(leaves: Hex[]): Promise<{ root: Hex; layers: Hex[][] }> {
+function merkleRootFromLeavesSync(leaves: Hex[]): { root: Hex; layers: Hex[][] } {
   if (leaves.length === 0) throw new Error("empty merkle");
   let layer = [...leaves];
   const layers: Hex[][] = [layer];
   while (layer.length > 1) {
     const next: Hex[] = [];
     for (let i = 0; i < layer.length; i += 2) {
-      const left = layer[i];
+      const left = layer[i]!;
       const right = layer[i + 1] ?? left;
-      next.push(await sha512Hex(`ots-merkle|${left}|${right}`));
+      next.push(sha512SyncHex(`ots-merkle|${left}|${right}`));
     }
     layer = next;
     layers.push(layer);
   }
-  return { root: layer[0], layers };
+  return { root: layer[0]!, layers };
+}
+
+async function merkleRootFromLeaves(leaves: Hex[]): Promise<{ root: Hex; layers: Hex[][] }> {
+  return merkleRootFromLeavesSync(leaves);
 }
 
 function authPathFor(layers: Hex[][], index: number): Hex[] {
   const path: Hex[] = [];
   let i = index;
   for (let level = 0; level < layers.length - 1; level++) {
-    const layer = layers[level];
-    const sibling = i % 2 === 0 ? (layer[i + 1] ?? layer[i]) : layer[i - 1];
+    const layer = layers[level]!;
+    const sibling = i % 2 === 0 ? (layer[i + 1] ?? layer[i]!) : layer[i - 1]!;
     path.push(sibling);
     i = Math.floor(i / 2);
   }
   return path;
 }
 
-async function climbMerkle(leaf: Hex, index: number, authPath: Hex[]): Promise<Hex> {
+function climbMerkleSync(leaf: Hex, index: number, authPath: Hex[]): Hex {
   let hash = leaf;
   let i = index;
   for (const sibling of authPath) {
     if (i % 2 === 0) {
-      hash = await sha512Hex(`ots-merkle|${hash}|${sibling}`);
+      hash = sha512SyncHex(`ots-merkle|${hash}|${sibling}`);
     } else {
-      hash = await sha512Hex(`ots-merkle|${sibling}|${hash}`);
+      hash = sha512SyncHex(`ots-merkle|${sibling}|${hash}`);
     }
     i = Math.floor(i / 2);
   }
   return hash;
+}
+
+async function climbMerkle(leaf: Hex, index: number, authPath: Hex[]): Promise<Hex> {
+  return climbMerkleSync(leaf, index, authPath);
 }
 
 export async function generateLightKeypair(seed?: Uint8Array): Promise<LightKeypair> {
@@ -213,13 +258,14 @@ export async function generateLightKeypair(seed?: Uint8Array): Promise<LightKeyp
   const leafPublicKeys: Hex[] = [];
   let firstPairs: Hex[][] = [];
 
+  // Sync leaf build — same digests as former await sha512Hex path, no serial microtasks.
   for (let i = 0; i < OTS_LEAF_COUNT; i++) {
-    const leaf = await leafMaterial(s, i);
+    const leaf = leafMaterialSync(s, i);
     leafPublicKeys.push(leaf.leafPublicKey);
     if (i === 0) firstPairs = leaf.privatePairs;
   }
 
-  const { root } = await merkleRootFromLeaves(leafPublicKeys);
+  const { root } = merkleRootFromLeavesSync(leafPublicKeys);
   const address = await addressFromPublicKey(root);
   return {
     scheme: "PIX-HASH-OTS-128",
@@ -282,30 +328,30 @@ export async function signLightFull(message: string, keypair: LightKeypair): Pro
 
   const master = hexToBytes(keypair.seed);
   const leafIndex = keypair.nextLeaf;
-  const { privatePairs, leafPublicKey } = await leafMaterial(master, leafIndex);
+  const { privatePairs, leafPublicKey } = leafMaterialSync(master, leafIndex);
   if (leafPublicKey !== keypair.leafPublicKeys[leafIndex]) {
     throw new Error("OTS leaf mismatch — corrupt key material");
   }
 
-  const digest = await sha512(message);
+  const digest = sha512Sync(message);
   const bits = digest.slice(0, MSG_BITS / 8);
   const revealed: string[] = [];
   const complements: string[] = [];
 
   for (let i = 0; i < MSG_BITS; i++) {
-    const byte = bits[Math.floor(i / 8)];
+    const byte = bits[Math.floor(i / 8)]!;
     const bit = (byte >> (7 - (i % 8))) & 1;
     const other = 1 - bit;
-    revealed.push(privatePairs[i][bit]);
-    complements.push(await sha512Hex(hexToBytes(privatePairs[i][other])));
+    revealed.push(privatePairs[i]![bit]!);
+    complements.push(sha512SyncHex(hexToBytes(privatePairs[i]![other]!)));
   }
 
-  const { layers } = await merkleRootFromLeaves(keypair.leafPublicKeys);
+  const { layers } = merkleRootFromLeavesSync(keypair.leafPublicKeys);
   const authPath = authPathFor(layers, leafIndex);
 
   keypair.nextLeaf = leafIndex + 1;
   if (keypair.nextLeaf < keypair.leafCount) {
-    const next = await leafMaterial(master, keypair.nextLeaf);
+    const next = leafMaterialSync(master, keypair.nextLeaf);
     keypair.privatePairs = next.privatePairs;
   }
 
@@ -325,42 +371,21 @@ export async function verifyLightFull(
   publicKey: Hex,
 ): Promise<boolean> {
   try {
-    const sig = JSON.parse(signatureJson) as {
-      alg: string;
-      leafIndex?: number;
-      leafPublicKey?: string;
-      authPath?: string[];
-      revealed: string[];
-      complements: string[];
-      /** Legacy weak envelope — rejected. */
-      pubCommit?: string;
-    };
+    const sig = parseOtsSignatureJson(signatureJson);
+    if (!sig) return false;
 
     // Reject the old forgeable format that only carried pubCommit.
     if (sig.pubCommit && !sig.complements) return false;
 
-    if (
-      sig.alg !== "PIX-HASH-OTS-128" ||
-      sig.revealed.length !== MSG_BITS ||
-      sig.complements.length !== MSG_BITS ||
-      typeof sig.leafIndex !== "number" ||
-      !sig.leafPublicKey ||
-      !Array.isArray(sig.authPath)
-    ) {
-      return false;
-    }
-
-    if (sig.leafIndex < 0 || sig.leafIndex >= OTS_LEAF_COUNT) return false;
-
-    const digest = await sha512(message);
+    const digest = sha512Sync(message);
     const bits = digest.slice(0, MSG_BITS / 8);
     const publicParts: string[] = [];
 
     for (let i = 0; i < MSG_BITS; i++) {
-      const byte = bits[Math.floor(i / 8)];
+      const byte = bits[Math.floor(i / 8)]!;
       const bit = (byte >> (7 - (i % 8))) & 1;
-      const revealedHash = (await sha512Hex(hexToBytes(sig.revealed[i]))).slice(0, 16);
-      const complement = sig.complements[i];
+      const revealedHash = sha512SyncHex(hexToBytes(sig.revealed[i]!)).slice(0, 16);
+      const complement = sig.complements[i]!;
       if (bit === 0) {
         publicParts.push(`${revealedHash}${complement}`);
       } else {
@@ -368,11 +393,11 @@ export async function verifyLightFull(
       }
     }
 
-    const rebuiltLeaf = await sha512Hex(publicParts.join("|"));
+    const rebuiltLeaf = sha512SyncHex(publicParts.join("|"));
     if (rebuiltLeaf !== sig.leafPublicKey) return false;
 
-    const root = await climbMerkle(sig.leafPublicKey, sig.leafIndex, sig.authPath);
-    return root === publicKey;
+    const root = climbMerkleSync(sig.leafPublicKey, sig.leafIndex, sig.authPath);
+    return root === canonicalizeHex(publicKey);
   } catch {
     return false;
   }
@@ -389,12 +414,12 @@ export async function publicKeyMatchesAddress(publicKey: Hex, address: string): 
  */
 export function parseOtsLeafIndex(signatureJson: string): number | null {
   try {
-    const sig = JSON.parse(signatureJson) as { alg?: string; leafIndex?: number };
-    if (sig.alg === "PIX-ML-DSA-65") return null;
-    if (sig.alg !== "PIX-HASH-OTS-128") return null;
-    if (typeof sig.leafIndex !== "number") return null;
-    if (sig.leafIndex < 0 || sig.leafIndex >= OTS_LEAF_COUNT) return null;
-    return sig.leafIndex;
+    if (signatureJson.length > MAX_SIGNATURE_JSON_BYTES) return null;
+    const sig = parseOtsSignatureJson(signatureJson);
+    if (sig) return sig.leafIndex;
+    // ML-DSA / non-OTS — no leaf to track (size already gated; schema-soft parse).
+    if (parseMldsaSignatureJson(signatureJson)) return null;
+    return null;
   } catch {
     return null;
   }

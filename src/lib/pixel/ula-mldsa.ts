@@ -29,6 +29,7 @@ import {
   verifyEvmUlaPackage,
   type EvmUlaPackage,
 } from "./ula-evm";
+import { parseMldsaSignatureJson } from "./validators";
 
 export const ULA_MLDSA_GATE_ALG = "PIX-ML-DSA-65-OFFCHAIN-GATE" as const;
 
@@ -87,14 +88,9 @@ export async function buildMldsaGateReceipt(
 
   const sig = att.lightProof.signature;
   const pk = att.lightProof.sequencerPublicKey;
-  let parsed: { alg?: string };
-  try {
-    parsed = JSON.parse(sig) as { alg?: string };
-  } catch {
-    return { ok: false, reason: "light proof signature not JSON" };
-  }
-  if (parsed.alg !== "PIX-ML-DSA-65") {
-    return { ok: false, reason: "light proof is not PIX-ML-DSA-65" };
+  const parsed = parseMldsaSignatureJson(sig);
+  if (!parsed) {
+    return { ok: false, reason: "light proof signature failed ML-DSA schema / size check" };
   }
 
   const receipt: MldsaGateReceipt = {

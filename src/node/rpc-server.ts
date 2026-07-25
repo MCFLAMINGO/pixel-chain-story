@@ -4,6 +4,14 @@
 
 import type { PixelLedgerNode } from "./node";
 import type { JsonRpcRequest, Transaction } from "../lib/pixel/index";
+import {
+  MAX_RPC_BODY_BYTES,
+  jsonRpcRequestSchema,
+  parseJsonWithSchema,
+  readBodyWithLimit,
+  transactionSchema,
+  ValidationError,
+} from "../lib/pixel/validators";
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
 
 const CORS: Record<string, string> = {
@@ -139,9 +147,19 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
 
       /** Submit a signed tx into mempool + gossip (Gate B live path). */
       if (req.method === "POST" && url.pathname === "/tx") {
-        const tx = (await req.json()) as Transaction;
-        if (!tx?.txid || !Array.isArray(tx.inputs)) {
-          return json({ ok: false, error: "bad tx" }, { status: 400 });
+        const body = await readBodyWithLimit(req, MAX_RPC_BODY_BYTES);
+        if (!body.ok) {
+          return json({ ok: false, error: body.error }, { status: 413 });
+        }
+        let tx: Transaction;
+        try {
+          tx = parseJsonWithSchema(body.text, transactionSchema, {
+            maxBytes: MAX_RPC_BODY_BYTES,
+            label: "tx",
+          }) as Transaction;
+        } catch (e) {
+          const msg = e instanceof ValidationError ? e.message : "bad tx";
+          return json({ ok: false, error: msg }, { status: 400 });
         }
         await node.submitTx(tx);
         // Elected sequencer may be this node — try illuminate
@@ -155,8 +173,24 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
       }
 
       if (req.method === "POST" && (url.pathname === "/" || url.pathname === "/rpc")) {
-        const body = (await req.json()) as JsonRpcRequest;
-        const result = await node.rpc(body);
+        const body = await readBodyWithLimit(req, MAX_RPC_BODY_BYTES);
+        if (!body.ok) {
+          return json({ ok: false, error: body.error }, { status: 413 });
+        }
+        let rpcReq: JsonRpcRequest;
+        try {
+          rpcReq = parseJsonWithSchema(body.text, jsonRpcRequestSchema, {
+            maxBytes: MAX_RPC_BODY_BYTES,
+            label: "rpc",
+          }) as JsonRpcRequest;
+        } catch (e) {
+          const msg = e instanceof ValidationError ? e.message : "bad rpc";
+          return json(
+            { jsonrpc: "2.0", id: null, error: { code: -32700, message: msg } },
+            { status: 400 },
+          );
+        }
+        const result = await node.rpc(rpcReq);
         return json(result);
       }
 
