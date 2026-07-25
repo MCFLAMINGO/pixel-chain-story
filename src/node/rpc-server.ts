@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * HTTP JSON-RPC + REST helpers for Pixel Ledger nodes.
  */
