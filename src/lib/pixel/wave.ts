@@ -13,6 +13,8 @@
 
 import { createHash } from "node:crypto";
 import { chebyshev3, indexToLattice, type LatticeCoord } from "./lattice";
+import { buildOccupancyIndex, indexGet } from "./spatial-index";
+import { WAVE_DAMPING } from "./wave-rules";
 
 /** Multi-hop radius from the lead (Chebyshev). */
 export const WAVE_MAX_HOPS = 2;
@@ -33,19 +35,6 @@ export type WaveField = {
   waveDigest: string;
 };
 
-function coordKey(c: LatticeCoord): string {
-  return `${c.x},${c.y},${c.z}`;
-}
-
-/** Occupied cells: prior indices + tip (lead sits on the lattice). */
-function occupancyMap(tipIndex: number): Map<string, number> {
-  const map = new Map<string, number>();
-  for (let i = 0; i <= tipIndex; i++) {
-    map.set(coordKey(indexToLattice(i)), i);
-  }
-  return map;
-}
-
 function neighbors6(c: LatticeCoord): LatticeCoord[] {
   return [
     { x: c.x + 1, y: c.y, z: c.z },
@@ -59,7 +48,8 @@ function neighbors6(c: LatticeCoord): LatticeCoord[] {
 
 /**
  * Outgoing BFS wave from a lead through occupied lattice cells.
- * Amplitude decays by hop; only occupied cells are hits.
+ * Amplitude decays by WAVE_DAMPING per hop; only occupied cells are hits.
+ * Uses hash-grid occupancy index (tip-equivalent; not a second truth).
  */
 export function outgoingWaveHits(
   leadIndex: number,
@@ -70,7 +60,7 @@ export function outgoingWaveHits(
   if (leadIndex < 0 || leadIndex > tipIndex) {
     throw new Error("leadIndex out of range");
   }
-  const occ = occupancyMap(tipIndex);
+  const occ = buildOccupancyIndex(tipIndex);
   const leadCoord = indexToLattice(leadIndex);
   const base = createHash("sha512").update(`wave-seed|${seed}|lead=${leadIndex}`).digest();
   const strengthMilli = 2000 + (base[0]! << 8) + base[1]!; // 2000…67535 → clamp later
@@ -97,12 +87,12 @@ export function outgoingWaveHits(
     for (const n of neighbors6(c)) {
       // Stay inside Chebyshev ball from lead (sphere lock alignment)
       if (chebyshev3(leadCoord, n) > maxHops) continue;
-      const idx = occ.get(coordKey(n));
+      const idx = indexGet(occ, n);
       if (idx === undefined || seen.has(idx)) continue;
       queue.push({
         index: idx,
         hop: cur.hop + 1,
-        amp: cur.amp * 0.55,
+        amp: cur.amp * WAVE_DAMPING,
       });
     }
   }
@@ -238,6 +228,7 @@ export function assertWaveDigestMatch(
 export function waveThesis(): string {
   return (
     "Lead wave invents tip-bound lattice propagation: multi-hop neighbor hits, " +
+    `damping=${WAVE_DAMPING} (named lab rule in amplitudes), ` +
     "collision fold by (leadIndex, tipHash), waveDigest in PoLS. Peers recompute and reject " +
     "tampered waves. Not UI glitter — verification of the scene on the tip."
   );
