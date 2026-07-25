@@ -99,9 +99,13 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 ### S5 — Acceleration (optional)
 
+- [x] Three.js / web viz as **UI sink** (never consensus source) — `SpatialSinkPanel` / `/spatial`, adapter `spatial-sink.ts`, `test:spatial-sink`
 - WASM/Rust port of lattice + wave + occupancy Merkle hot path
-- Three.js / web viz as **UI sink** (never consensus source)
+- Octree only if hash-grid benches fail (not costume)
 - GPU only if benches prove need — never as costume
+
+**Evidence (sink slice):** `bun run test:spatial-sink` · `bun run build`  
+**Claim unlock:** “Tip picture viewable in Three.js — display only.”
 
 ---
 
@@ -120,6 +124,7 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 | `pol.ts` / `chain.ts`     | Bind + enforce field / wave / spatial digests            |
 | `light-client.ts`         | Headers sync carries `spatialRoot`; cell proof check     |
 | `LedgerField.tsx`         | Sink — render coords when present; never source of truth |
+| `spatial-sink.ts` + panel | Three.js tip picture — UI sink only (`/spatial`, `/lab`) |
 | Future `lattice/` or WASM | Only after S1–S3 green                                   |
 
 ---
@@ -135,13 +140,13 @@ Honest map of the external “Python voxel → TS port → RPC → USDC” check
 | Real PQ signatures on lead activations              | **Done on tip path**                                                   | PoLS already signs with PIX-HASH-OTS / ML-DSA; lead wave + picture are inside that signed message. |
 | Async/event-driven propagation for the node         | **Done (S4 fan-out)**                                                  | `wave-bus` + node `onWaveHits` after sequence/accept/replace; `test:wave-fanout`. Tip still recomputes `waveDigest`. |
 | Damping, conflict resolution, energy cost tracking  | **Done (lab rules)**                                                   | Collision fold (S2); `WAVE_DAMPING` + `waveEnergyCostMilli` (`test:wave-partition`). Energy Truth = separate PoLS Joules plane. |
-| Replace matplotlib with Three.js web viz            | **Open (UI sink)**                                                     | Billboard / LedgerField already show tip colors; Three.js optional — never source of truth. |
+| Replace matplotlib with Three.js web viz            | **Done (UI sink)**                                                     | `SpatialSinkPanel` / `/spatial` — Three.js tip cells + wave hits; `test:spatial-sink`. Never consensus. |
 | Drop into test harness alongside UTXO               | **Done**                                                               | Genesis / `sequenceBlock` / `acceptBlock` / `verifyChain` + spatial tests. |
 | RPC: illuminate, activate_lead, get_snapshot        | **Partial**                                                            | Illuminate = existing tip path; spatial/wave snapshot RPC live. Lead = illuminated tip. |
 | Wire USDC locks → lead pixel activations            | **Done (lab invent)**                                                  | `LockFeeder.activateLead` / `test:lock-lead` — lockDigest in shine-in reference; tip binds wave + spatial. Not mainnet USDC claim. |
 | Rust version for production node                    | **Deferred (S5)**                                                      | Prefer tip-bound TS evidence first; WASM/Rust when benches demand. |
 
-**Prefer next:** Three.js UI sink — or octree-if-benched (S5) — over claiming voxel mainnet.
+**Prefer next:** Hosted public tip as production default — or WASM/octree only if benches demand — over claiming voxel mainnet.
 
 ---
 
@@ -157,7 +162,7 @@ Pixel’s version of done (S1–S3):
 4. Light client proves a cell is lit against `spatialRoot`
 5. Billboard can show lattice-colored tip (UI follows digest)
 
-Not done: Python viz as product, octree mainnet, USDC→lead wire, “quantum connections” as marketing without gates.
+Not done: Python viz as product, octree mainnet, WASM production node, “quantum connections” as marketing without gates.
 
 ---
 

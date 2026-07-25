@@ -82,6 +82,12 @@ const PEOPLE_DOORS = [
     to: "/lab" as const,
     cta: "Lab",
   },
+  {
+    title: "Spatial sink",
+    line: "Three.js tip picture — view only, not consensus.",
+    to: "/spatial" as const,
+    cta: "Spatial",
+  },
 ] as const;
 
 const SEEDS = [
