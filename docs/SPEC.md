@@ -76,6 +76,12 @@ Canonical `waveDigest = SHA-512(wave|v1|<cell>:<hop>:<amp>:<lead>|…)`. Bound i
 
 **Invent note:** neighbor reaction is tip physics — **not** UI glitter. Evidence: `bun run test:wave`. Path: [`SPATIAL.md`](./SPATIAL.md) S2.
 
+### Wave fan-out (node notify plane)
+
+After a tip is sequenced, accepted, or replaced, the node emits an async `WaveFanoutEvent` (`tipIndex`, `waveDigest`, `hits`, `source`) on a local bus (`wave-bus.ts`). Subscribers and `GET /wave/tip` may observe hits without blocking PoLS. **The bus is not consensus truth** — `acceptBlock` / `verifyChain` still recompute `waveDigest` from tip inputs and reject mismatch.
+
+**Invent note:** event-driven propagation for UI/ops — tip-recomputable only. Evidence: `bun run test:wave-fanout`. Path: [`SPATIAL.md`](./SPATIAL.md) S4.
+
 ### Spatial picture (sparse occupancy Merkle)
 
 Illuminated tips form a sparse occupancy set in lattice coords. Leaves are sorted `(x,y,z,index)` with `SHA-512(spatial-cell|coord|index|color|lit)`. Merkle parent `SHA-512(left|right)` (odd last leaf duplicated). Empty picture → `SHA-512(empty-spatial-root)`.

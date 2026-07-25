@@ -88,13 +88,14 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 
 **Build**
 
+- [x] Async/event-driven wave fan-out on the node (still tip-recomputable) — `wave-bus.ts`, node emit after sequence/accept/replace; `GET /wave/tip`
 - Spatial index (hash grid / octree); optional shard by coord slab
-- Async/event-driven wave fan-out on the node (still tip-recomputable)
 - Damping / energy-cost tracking as labeled lab rules (bind only when digestable)
 - Partition / conflicting-wave sims in CI
 - Storage growth control notes in THREAT-MODEL
 
-**Claim unlock:** only with published benches (Gate F style).
+**Evidence (fan-out slice):** `bun run test:wave-fanout`  
+**Claim unlock:** only with published benches (Gate F style) for scale; fan-out claim = “notify plane, not second truth.”
 
 ### S5 — Acceleration (optional)
 
@@ -111,6 +112,7 @@ Latent / “superposition” language stays **lab**: UTXO pending is already pre
 | `field-witness.ts`        | Tip sphere lock + `fieldDigest` (extend, don’t fork)     |
 | `lattice.ts`              | Coords, Chebyshev3, blend, lead-wave helpers             |
 | `wave.ts`                 | Multi-hop lead wave + collision fold + `waveDigest`      |
+| `wave-bus.ts`             | Local async fan-out after tip — notify, not consensus    |
 | `spatial-picture.ts`      | Sparse occupancy Merkle + cell proofs + `spatialRoot`    |
 | `light-color.ts`          | Align `revealProximity` packing with lattice             |
 | `pol.ts` / `chain.ts`     | Bind + enforce field / wave / spatial digests            |
@@ -129,15 +131,15 @@ Honest map of the external “Python voxel → TS port → RPC → USDC” check
 | Run Python file → console + matplotlib 3D “picture” | **Rejected as consensus**                                              | Ideas only (sparse cells, lead, decay). Not a settlement path. |
 | Port Voxel + propagation to TS / Map or octree      | **S1–S3 invent path shipped**                                          | `lattice` + `wave` + sparse occupancy Merkle — tip-bound, not a toy `PixelLedger` class. Octree = S4. |
 | Real PQ signatures on lead activations              | **Done on tip path**                                                   | PoLS already signs with PIX-HASH-OTS / ML-DSA; lead wave + picture are inside that signed message. |
-| Async/event-driven propagation for the node         | **Open (S4)**                                                          | Today: deterministic recompute at sequence/accept. Events can fan-out UI; must not invent a second truth. |
-| Damping, conflict resolution, energy cost tracking  | **Partial**                                                            | Collision fold (S2) is conflict resolution. Damping / energy labels = S4 when digestable. Energy Truth exists separately for PoLS Joules. |
+| Async/event-driven propagation for the node         | **Done (S4 fan-out)**                                                  | `wave-bus` + node `onWaveHits` after sequence/accept/replace; `test:wave-fanout`. Tip still recomputes `waveDigest`. |
+| Damping, conflict resolution, energy cost tracking  | **Partial**                                                            | Collision fold (S2) is conflict resolution. Damping / energy labels = next S4 slice when digestable. Energy Truth exists separately for PoLS Joules. |
 | Replace matplotlib with Three.js web viz            | **Open (UI sink)**                                                     | Billboard / LedgerField already show tip colors; Three.js optional after S3 — never source of truth. |
 | Drop into test harness alongside UTXO               | **Done**                                                               | Genesis / `sequenceBlock` / `acceptBlock` / `verifyChain` + `test:spatial-proof`. |
 | RPC: illuminate, activate_lead, get_snapshot        | **Partial**                                                            | Illuminate = existing tip path (`POST /tx` + sequencer). Snapshot/proof = `GET /spatial/snapshot`, `GET /spatial/proof/:i`, `pix_getSpatialSnapshot`. Separate `activate_lead` verb not needed — lead = illuminated tip. |
 | Wire USDC locks → lead pixel activations            | **Open (bridge path)**                                                 | LockFeeder + `illuminateIngress` exist; not yet mapped to lattice lead activation as a named invent. |
 | Rust version for production node                    | **Deferred (S5)**                                                      | Prefer tip-bound TS evidence first; WASM/Rust when benches demand. |
 
-**Prefer next:** S4 scale index + damping rules that stay tip-recomputable — or LockFeeder → lead activation invent — over a disconnected Three.js demo.
+**Prefer next:** S4 spatial index (hash grid/octree) + tip-recomputable damping — or LockFeeder → lead activation invent — over a disconnected Three.js demo.
 
 ---
 

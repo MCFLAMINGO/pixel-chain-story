@@ -32,6 +32,8 @@ import {
   verifyChain,
   verifyHeaderChain,
   verifyHelloAuth,
+  createWaveBus,
+  waveFanoutFromPixel,
   type JsonRpcRequest,
   type KemKeypair,
   type LightKeypair,
@@ -40,6 +42,10 @@ import {
   type ReadableMeta,
   type Transaction,
   type TxOutput,
+  type LedgerPixel,
+  type WaveBus,
+  type WaveFanoutListener,
+  type WaveFanoutSource,
 } from "../lib/pixel/index";
 import { createBunGossip } from "./gossip-bun";
 import type { GossipNet, PeerMessage } from "./p2p";
@@ -90,9 +96,23 @@ export class PixelLedgerNode {
   private helloSigTip = "";
   /** Opt-in PQ transport (PIXEL_TRANSPORT_KEM=1) */
   transportKem: KemKeypair | null = null;
+  /**
+   * Local wave fan-out bus (SPATIAL S4) — notify after tip illuminate/accept.
+   * Not consensus truth; acceptBlock still recomputes waveDigest.
+   */
+  readonly waveBus: WaveBus = createWaveBus();
 
   constructor(private opts: NodeOptions) {
     this.datadir = opts.datadir;
+  }
+
+  /** Subscribe to async wave hits after tip progress. */
+  onWaveHits(listener: WaveFanoutListener): () => void {
+    return this.waveBus.on(listener);
+  }
+
+  private fanoutWave(pixel: LedgerPixel, source: WaveFanoutSource): void {
+    this.waveBus.emit(waveFanoutFromPixel(pixel, source));
   }
 
   private async refreshHelloSig(): Promise<void> {
@@ -324,6 +344,7 @@ export class PixelLedgerNode {
       const pixel = this.chain.pixels[this.chain.pixels.length - 1];
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
+      this.fanoutWave(pixel, "sequence");
       this.queuePersist();
       console.log(
         `[pixel-ledger] illuminated pixel #${pixel.index}` + (skip > 0 ? ` (skip=${skip})` : ""),
@@ -353,6 +374,7 @@ export class PixelLedgerNode {
         this.chain = await acceptBlock(this.chain, pixel);
         n++;
         this.noteTipProgress();
+        this.fanoutWave(pixel, "accept");
         console.log(`[pixel-ledger] accepted pixel #${pixel.index} from peer`);
       } catch (err) {
         console.error("[pixel-ledger] reject pixel", err);
@@ -459,6 +481,8 @@ export class PixelLedgerNode {
             if (replaced) {
               this.chain = replaced;
               this.noteTipProgress();
+              const tip = this.chain.pixels[this.chain.pixels.length - 1]!;
+              this.fanoutWave(tip, "replace");
               this.queuePersist();
               console.log(`[pixel-ledger] tip replaced at #${msg.pixel.index} (fork-choice)`);
             }
