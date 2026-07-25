@@ -34,7 +34,7 @@ function WalletPage() {
   const [note, setNote] = useState("");
 
   return (
-    <main className="min-h-screen bg-[oklch(0.09_0.02_145)] text-foreground">
+    <main className="wallet-page min-h-screen bg-[oklch(0.09_0.02_145)] text-foreground">
       <div className="mx-auto max-w-lg px-6 py-12">
         <div className="flex flex-wrap gap-4">
           <Link
