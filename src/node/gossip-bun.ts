@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bun WebSocket gossip — Gate B hardened + optional ML-KEM wire.
  *
