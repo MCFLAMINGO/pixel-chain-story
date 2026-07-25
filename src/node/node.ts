@@ -61,6 +61,9 @@ import {
   savePeers,
   saveWallet,
 } from "./store";
+import { loadOrSeedLumenModules, saveLumenModules } from "./lumen-store";
+import type { PersistedLumenBundle } from "../lumen/persist";
+import { TRANSFER_LUMEN } from "../lumen/index";
 
 export interface NodeOptions {
   datadir: string;
@@ -101,6 +104,8 @@ export class PixelLedgerNode {
    * Not consensus truth; acceptBlock still recomputes waveDigest.
    */
   readonly waveBus: WaveBus = createWaveBus();
+  /** Lumen modules beside chain.json — source text, re-parsed on load. */
+  lumen!: PersistedLumenBundle;
 
   constructor(private opts: NodeOptions) {
     this.datadir = opts.datadir;
@@ -137,6 +142,7 @@ export class PixelLedgerNode {
     }
     this.lastTipIndex = this.chain.pixels.length - 1;
     this.lastTipChangeAt = Date.now();
+    this.lumen = await loadOrSeedLumenModules(this.datadir, TRANSFER_LUMEN);
     await this.persist();
 
     const seeds = this.opts.seeds ?? (await loadPeers(this.datadir));
@@ -242,10 +248,24 @@ export class PixelLedgerNode {
 
   async persist(): Promise<void> {
     await saveChain(this.datadir, this.chain);
+    if (this.lumen) {
+      await saveLumenModules(this.datadir, this.lumen);
+    }
     const identity = await loadIdentity(this.datadir);
     if (identity) {
       await persistIdentityLeaf(this.datadir, identity, this.keypair);
     }
+  }
+
+  /** Replace/upsert a Lumen module source and persist beside the chain. */
+  async saveLumenSource(source: string): Promise<PersistedLumenBundle> {
+    const { upsertLumenModule } = await import("../lumen/persist");
+    this.lumen = upsertLumenModule(
+      this.lumen ?? { v: 1, updatedAt: 0, activeName: "", modules: [] },
+      source,
+    );
+    await saveLumenModules(this.datadir, this.lumen);
+    return this.lumen;
   }
 
   private queuePersist(): void {

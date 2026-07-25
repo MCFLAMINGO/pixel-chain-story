@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { LightKeypair, PixelChainState } from "@/lib/pixel";
-import { TRANSFER_LUMEN, createHost, runLumenSource } from "@/lumen";
+import { createHost, runLumenSource } from "@/lumen";
+import { useLumenModules } from "@/hooks/use-lumen-modules";
 
 /** Edit & run Lumen rays against live chain state — invention surface, not a toy. */
 export function LumenPanel({
@@ -14,7 +15,7 @@ export function LumenPanel({
   bob: (LightKeypair & { label: string }) | null;
   onChain: (next: PixelChainState, note?: string) => void | Promise<void>;
 }) {
-  const [source, setSource] = useState(TRANSFER_LUMEN);
+  const modules = useLumenModules();
   const [ray, setRay] = useState("send");
   const [log, setLog] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,24 +24,35 @@ export function LumenPanel({
     if (!chain || !alice || !bob) return;
     setBusy(true);
     try {
-      const host = createHost(chain, { alice, bob });
+      modules.persistNow();
+      const host = createHost(chain, { alice, bob }, alice, { bridgeVault: alice });
+      const payArgs = {
+        from: { kind: "string" as const, value: "alice" },
+        to: { kind: "string" as const, value: "bob" },
+        amount: { kind: "number" as const, value: 1 },
+        memo: { kind: "string" as const, value: "lumen lab" },
+      };
       const args =
-        ray === "send"
-          ? {
-              from: { kind: "string" as const, value: "alice" },
-              to: { kind: "string" as const, value: "bob" },
-              amount: { kind: "number" as const, value: 1 },
-              memo: { kind: "string" as const, value: "lumen lab" },
-            }
-          : ray === "exist"
+        ray === "send" || ray === "kindle" || ray === "funded_kindle" || ray === "pay_composed"
+          ? payArgs
+          : ray === "shine_in"
             ? {
-                what: {
-                  kind: "string" as const,
-                  value: `creation:${alice.address.slice(0, 20)}`,
-                },
+                owner: { kind: "string" as const, value: "bob" },
+                usd: { kind: "number" as const, value: 3 },
               }
-            : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
-      const result = await runLumenSource(source, ray, args as never, host);
+            : ray === "holdings"
+              ? { who: { kind: "string" as const, value: "alice" } }
+              : ray === "tip_sense" || ray === "tip_wave"
+                ? {}
+                : ray === "exist"
+                  ? {
+                      what: {
+                        kind: "string" as const,
+                        value: `creation:${alice.address.slice(0, 20)}`,
+                      },
+                    }
+                  : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
+      const result = await runLumenSource(modules.source, ray, args as never, host);
       await onChain(result.host.chain, `Lumen ray \`${ray}\` settled`);
       setLog([...result.logs, `result: ${JSON.stringify(result.value)}`].join("\n"));
     } catch (e) {
@@ -59,11 +71,10 @@ export function LumenPanel({
         Guided by light it never names
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        L0: where there is light, there is verification.{" "}
-        <code className="text-foreground/80">digest</code> /{" "}
-        <code className="text-foreground/80">attest</code> hide the hash soup;{" "}
-        <code className="text-foreground/80">exist</code> stores creation, not only wealth. ghost →
-        shine → collapse → paint still settles real UTXOs.
+        Typed rays + modules persisted beside chain state.{" "}
+        <code className="text-foreground/80">ensure</code> /{" "}
+        <code className="text-foreground/80">match</code> /{" "}
+        <code className="text-foreground/80">when aperture</code> stay host-bound — not costume.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -75,6 +86,13 @@ export function LumenPanel({
             className="ml-2 border-b border-border bg-transparent py-1 outline-none"
           >
             <option value="send">send</option>
+            <option value="funded_kindle">funded_kindle</option>
+            <option value="pay_composed">pay_composed</option>
+            <option value="kindle">kindle</option>
+            <option value="shine_in">shine_in</option>
+            <option value="tip_sense">tip_sense</option>
+            <option value="tip_wave">tip_wave</option>
+            <option value="holdings">holdings</option>
             <option value="exist">exist</option>
             <option value="read_key">read_key</option>
             <option value="open_key">open_key</option>
@@ -88,14 +106,35 @@ export function LumenPanel({
         >
           Run ray
         </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => modules.persistNow()}
+          className="font-pixel rounded-md border border-border px-4 py-2 text-xs font-semibold disabled:opacity-45"
+        >
+          Persist module
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => modules.reset()}
+          className="font-pixel rounded-md border border-border px-4 py-2 text-xs font-semibold disabled:opacity-45"
+        >
+          Reset
+        </button>
       </div>
 
       <textarea
-        value={source}
-        onChange={(e) => setSource(e.target.value)}
+        value={modules.source}
+        onChange={(e) => modules.setSource(e.target.value)}
         spellCheck={false}
         className="mt-4 h-56 w-full max-w-3xl resize-y rounded-md border border-border bg-background/50 p-3 font-mono text-xs leading-relaxed outline-none focus:border-primary"
       />
+      {modules.typeErrors.length > 0 && (
+        <pre className="mt-2 max-w-3xl whitespace-pre-wrap text-xs text-destructive">
+          {modules.typeErrors.join("\n")}
+        </pre>
+      )}
       {log && (
         <pre className="mt-4 max-w-3xl overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
           {log}

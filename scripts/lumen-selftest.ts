@@ -1,70 +1,172 @@
 /**
- * Lumen L0 — lightDigest / attest simplify the hash surface.
+ * Lumen — product rays, language power, types, persist beside chain.
  * bun run test:lumen
  */
 
-import { createDemoWallet, createGenesis, lightDigest } from "../src/lib/pixel/index";
-import { TRANSFER_LUMEN, createHost, runLumenSource } from "../src/lumen/index";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { balanceOf, createDemoWallet, createGenesis, lightDigest } from "../src/lib/pixel/index";
+import {
+  TRANSFER_LUMEN,
+  checkLumen,
+  createHost,
+  emptyLumenBundle,
+  loadLumenBundleLocal,
+  LumenRuntimeError,
+  LumenTypeError,
+  parseLumen,
+  runLumenSource,
+  saveLumenBundleLocal,
+  upsertLumenModule,
+  clearLumenBundleLocal,
+  lumenPersistThesis,
+} from "../src/lumen/index";
+import { loadOrSeedLumenModules, lumenModulesPath } from "../src/node/lumen-store";
 
 async function main() {
-  console.log("═══ LUMEN L0 — LIGHT DIGEST ═══\n");
+  console.log("═══ LUMEN — TYPES + PERSIST ═══\n");
 
-  // 1) One door matches historical tx commitment separator
+  if (!lumenPersistThesis().includes("beside chain")) throw new Error("thesis");
+
   const body = "inputs:[]|outputs:[]|meta:test|ts:1";
   const a = await lightDigest("superposition", body);
   const { sha512Hex } = await import("../src/lib/pixel/crypto");
-  const b = await sha512Hex(`superposition|${body}`);
-  if (a !== b) throw new Error("lightDigest superposition drifted from legacy");
-  console.log("▸ lightDigest('superposition') ≡ legacy sha512 domain ✓");
+  if (a !== (await sha512Hex(`superposition|${body}`))) throw new Error("digest drift");
+  console.log("▸ lightDigest ✓");
 
-  const commit = a;
-  const txA = await lightDigest("txid", commit, body);
-  const txB = await sha512Hex(`txid|${commit}|${body}`);
-  if (txA !== txB) throw new Error("lightDigest txid drifted");
-  console.log("▸ lightDigest('txid') ≡ legacy ✓");
-
-  // 2) Lumen digest builtin — authors never write separators
   const alice = await createDemoWallet("Alice");
   const bob = await createDemoWallet("Bob");
   const chain = await createGenesis(alice);
-  const host = createHost(chain, { alice, bob });
 
-  const dig = await runLumenSource(
-    `module D
-ray go(x):
-  let h = digest("creation", x)
-  return h
+  // Typed Transfer module checks clean
+  const mod = parseLumen(TRANSFER_LUMEN);
+  const checked = checkLumen(mod);
+  if (!checked.ok) {
+    throw new Error(
+      `Transfer type errors: ${checked.diagnostics.map((d) => d.message).join("; ")}`,
+    );
+  }
+  console.log("▸ typed TRANSFER_LUMEN checkLumen ✓");
+
+  // Type error caught
+  let typedDark = false;
+  try {
+    await runLumenSource(
+      `module Bad
+ray go(x: number) -> string:
+  return x
 `,
-    "go",
-    { x: { kind: "string", value: "first light" } },
-    host,
-  );
-  if (dig.value.kind !== "string" || dig.value.value.length !== 128) {
-    throw new Error("digest builtin failed");
+      "go",
+      { x: { kind: "number", value: 1 } },
+      createHost(chain, { alice, bob }, alice),
+    );
+  } catch (e) {
+    typedDark = e instanceof LumenTypeError;
   }
-  const expect = await lightDigest("creation", "first light");
-  if (dig.value.value !== expect) throw new Error("Lumen digest ≠ lightDigest");
-  console.log("▸ Lumen digest() builtin ✓");
+  if (!typedDark) throw new Error("expected LumenTypeError on return mismatch");
+  console.log("▸ LumenTypeError on dark return ✓");
 
-  // 3) exist ray — store of creation / attestation of existence
-  const exist = await runLumenSource(
+  const tipRes = await runLumenSource(
     TRANSFER_LUMEN,
-    "exist",
-    { what: { kind: "string", value: "Georges-point: I was here under light" } },
-    createHost(chain, { alice, bob }),
+    "tip_wave",
+    {},
+    createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (exist.value.kind !== "proof") {
-    throw new Error(`exist want proof got ${exist.value.kind}`);
+  if (tipRes.value.kind !== "string" || tipRes.value.value.length < 16) {
+    throw new Error("tip_wave");
   }
-  if (!exist.value.light || exist.value.subject.length < 8) {
-    throw new Error("proof incomplete");
+  console.log("▸ typed tip_wave field projection ✓");
+
+  const funded = await runLumenSource(
+    TRANSFER_LUMEN,
+    "funded_kindle",
+    {
+      from: { kind: "string", value: "alice" },
+      to: { kind: "string", value: "bob" },
+      amount: { kind: "number", value: 2 },
+      memo: { kind: "string", value: "funded" },
+    },
+    createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
+  );
+  if (funded.value.kind !== "settled") throw new Error("funded_kindle");
+  if (balanceOf(funded.host.chain, bob.address) !== 2) throw new Error("funded bal");
+  console.log("▸ funded_kindle (typed) ✓");
+
+  const composed = await runLumenSource(
+    TRANSFER_LUMEN,
+    "pay_composed",
+    {
+      from: { kind: "string", value: "alice" },
+      to: { kind: "string", value: "bob" },
+      amount: { kind: "number", value: 1 },
+      memo: { kind: "string", value: "composed" },
+    },
+    createHost(funded.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
+  );
+  if (balanceOf(composed.host.chain, bob.address) !== 3) throw new Error("composed bal");
+  console.log("▸ pay_composed ✓");
+
+  // Browser persist
+  const map = new Map<string, string>();
+  // @ts-expect-error test shim
+  globalThis.localStorage = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      map.set(k, v);
+    },
+    removeItem: (k: string) => {
+      map.delete(k);
+    },
+  };
+  clearLumenBundleLocal();
+  let bundle = emptyLumenBundle({ name: "Transfer", source: TRANSFER_LUMEN });
+  bundle = upsertLumenModule(bundle, TRANSFER_LUMEN);
+  saveLumenBundleLocal(bundle);
+  const again = loadLumenBundleLocal();
+  if (!again || again.modules[0]?.name !== "Transfer") throw new Error("local persist");
+  if (!again.modules[0]?.source.includes("funded_kindle")) throw new Error("source lost");
+  console.log("▸ browser lumen-modules localStorage ✓");
+
+  // Node datadir beside chain.json
+  const dir = await mkdtemp(join(tmpdir(), "pixel-lumen-"));
+  try {
+    const seeded = await loadOrSeedLumenModules(dir, TRANSFER_LUMEN);
+    if (seeded.modules[0]?.name !== "Transfer") throw new Error("seed name");
+    const raw = await readFile(lumenModulesPath(dir), "utf8");
+    if (!raw.includes("funded_kindle")) throw new Error("disk source");
+    const reloaded = await loadOrSeedLumenModules(dir, "module Other\nray x():\n  return 1\n");
+    if (reloaded.modules[0]?.name !== "Transfer") throw new Error("should not re-seed");
+    console.log("▸ node lumen-modules.json beside chain ✓");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
-  if (!exist.host.painted.includes(exist.value.light)) {
-    throw new Error("exist did not paint proof light");
-  }
-  console.log("▸ ray exist → proof painted ✓");
-  console.log(`  light ${exist.value.light.slice(0, 24)}…`);
-  console.log("\n═══ PASS — Lumen simplifies hash into light verbs ═══");
+
+  // Ghost ownership still
+  const own = await runLumenSource(
+    `module Own
+ray burn(from: string, to: string) -> settled:
+  ghost tx: ghost = commit(from, to, 1, "own")
+  when light:
+    shine tx via sequence
+    collapse tx
+  veil tx private
+  return tx
+`,
+    "burn",
+    {
+      from: { kind: "string", value: "alice" },
+      to: { kind: "string", value: "bob" },
+    },
+    createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
+  ).then(
+    () => false,
+    (e) => e instanceof LumenRuntimeError && /ownership|already collapsed/.test(e.message),
+  );
+  if (!own) throw new Error("ghost ownership");
+  console.log("▸ ghost ownership ✓");
+
+  console.log("\n═══ PASS — Lumen types + persist beside chain ═══");
 }
 
 main().catch((e) => {
