@@ -64,8 +64,11 @@ async function main() {
   const snap = node.syncSnapshot();
   console.log(`[canonical-tip] RPC listening on :${rpcPort}`);
   console.log(`[canonical-tip] canvasId ${snap.canvasId}`);
-  console.log(`[canonical-tip] GET /health  POST /tx  GET /sync  GET /pixels`);
+  console.log(`[canonical-tip] GET /health /sync /pixels /spatial/snapshot /wave/tip  POST /tx`);
   console.log(`[canonical-tip] Set site build: VITE_PIXEL_RPC=https://<this-host>`);
+  console.log(
+    `[canonical-tip] Production default: also VITE_REQUIRE_PUBLIC_TIP=1 (refuse lab light)`,
+  );
   console.log(`[canonical-tip] datadir ${datadir} — do not wipe (new Earth)`);
 
   await new Promise(() => {});

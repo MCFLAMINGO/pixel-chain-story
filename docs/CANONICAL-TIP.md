@@ -135,11 +135,27 @@ CI evidence (no host required): `bun run test:shared-tip`.
 
 ---
 
+## Production default gate
+
+Lab invent (code):
+
+| Piece | Role |
+| --- | --- |
+| `probeTipHost` / `test:tip-host` | Tip feed contract: `/health` + `/sync` + `/spatial/snapshot` + `/wave/tip`; restart keeps `genesisHash` |
+| `VITE_REQUIRE_PUBLIC_TIP=1` | Production builds **refuse lab light** as the public picture until `VITE_PIXEL_RPC` is set |
+| `.env.example` | Documents both vars |
+
+Ops still required for the claim: host the tip (Railway/VPS), set `VITE_PIXEL_RPC` on the site build.
+
+---
+
 ## Checklist (done when…)
 
-- [ ] Tip process always on; volume persists across restarts
-- [ ] `curl …/health` returns stable `genesisHash` after restart (same Earth)
-- [ ] Site built with `VITE_PIXEL_RPC` → `/` shows **public tip**
+- [x] Tip feed contract + restart same Earth — `bun run test:tip-host` (lab)
+- [x] Production refuse-lab-light gate — `VITE_REQUIRE_PUBLIC_TIP=1`
+- [ ] Tip process always on; volume persists across restarts (ops)
+- [ ] `curl …/health` returns stable `genesisHash` after restart on the **public** host
+- [ ] Site built with `VITE_PIXEL_RPC` (+ require flag) → `/` shows **public tip**
 - [ ] `/wallet` balance + pay leave a tip mark on that canvas
 
-PATH: claim “default public tip for humanity” only when this is the production default and evidence is green. Until then: this recipe + honest labels.
+PATH: claim “default public tip for humanity” only when the public host checklist is green. Until then: recipe + lab contract evidence + honest labels.
