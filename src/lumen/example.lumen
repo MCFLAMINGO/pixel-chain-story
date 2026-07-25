@@ -1,4 +1,4 @@
-# Example LUMEN program
+# Example LUMEN program (minimal REPL — not product rays)
 # Simple arithmetic + variables
 let a = 2
 let b = 3
