@@ -16,6 +16,10 @@
  *   veil       privacy — light reaches only chosen eyes
  *   digest     one labeled light hash (hides sha512 domain soup)
  *   attest     existence proof — store of creation, not only wealth
+ *   tip        sense living tip (waveDigest / spatialRoot)
+ *   kindle     Presence Seal → self-custody settle
+ *   shine_in   Worldlight $ → PIX on Personal Source
+ *   balance    UTXO holdings for a host wallet
  *
  * Programs read like ceremonies of light, not memory layouts.
  */
@@ -28,6 +32,14 @@ export type LumenValue =
   | { kind: "ghost"; id: string; payload: Record<string, unknown> }
   | { kind: "picture"; cells: number[]; checksum: string; payloadHex: string }
   | { kind: "settled"; txid: string; summary: string }
+  /** Living tip sense — wave + spatial roots from the host chain tip. */
+  | {
+      kind: "tip";
+      index: number;
+      tipHash: string;
+      waveDigest: string;
+      spatialRoot: string;
+    }
   /** Recomputable existence receipt — light that survives elsewhere. */
   | {
       kind: "proof";

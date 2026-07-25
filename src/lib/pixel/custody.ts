@@ -19,6 +19,7 @@ import {
   generateLightKeypair,
   hexToBytes,
   randomBytes,
+  restoreLightKeypair,
   type Hex,
   type LightKeypair,
 } from "./crypto";
@@ -84,10 +85,14 @@ export async function forgePersonalSource(
   };
 }
 
-/** Unlock Source from light capture — person + camera; no custodian password DB. */
+/**
+ * Unlock Source from light capture — person + camera; no custodian password DB.
+ * Pass persisted `nextLeaf` so OTS leaves are not reused after a prior spend.
+ */
 export async function unlockPersonalSource(
   source: PersonalSource,
   capturedCells?: number[],
+  opts?: { nextLeaf?: number },
 ): Promise<UnlockedSource> {
   const cells = capturedCells ?? simulateCameraCapture(source.vault, 0);
   const verified = await verifyCapturedPattern(cells, source.vault.checksum);
@@ -97,7 +102,7 @@ export async function unlockPersonalSource(
       "Light vault unreadable — Source stays sealed",
     );
   }
-  const keypair = await generateLightKeypair(verified.payload);
+  const keypair = await restoreLightKeypair(verified.payload, opts?.nextLeaf ?? 0);
   if (keypair.address !== source.address) {
     throw new CustodyError("address_mismatch", "Vault light does not match this Source");
   }

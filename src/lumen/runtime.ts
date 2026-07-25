@@ -10,12 +10,18 @@ import {
   asOpticalPayload,
   attestExistence,
   balanceOf,
+  confluentSeal,
   encodeMazeCard,
   encodeOpticalPattern,
   humanSummary,
+  illuminateIngress,
+  ingressUsd,
+  kindleAccept,
+  kindleOffer,
   lightDigest,
   proposeTransfer,
   sequenceBlock,
+  settleKindling,
   simulateCameraCapture,
   verifyCapturedPattern,
   type LightKeypair,
@@ -30,6 +36,11 @@ export interface LumenHost {
   wallets: Record<string, LightKeypair>;
   /** Key used when this host sequences (usually alice / node key). */
   sequencer: LightKeypair;
+  /**
+   * Bridge escrow for `shine_in` — must hold PIX (usually genesis holder).
+   * Defaults to sequencer when omitted.
+   */
+  bridgeVault?: LightKeypair;
   /** Named ghost txs awaiting light */
   ghosts: Map<string, Transaction>;
   painted: string[];
@@ -46,6 +57,7 @@ export function createHost(
   chain: PixelChainState,
   wallets: Record<string, LightKeypair>,
   sequencer?: LightKeypair,
+  opts?: { bridgeVault?: LightKeypair },
 ): LumenHost {
   const seq = sequencer ?? wallets.alice ?? Object.values(wallets)[0];
   if (!seq) throw new Error("Lumen host needs a sequencer key");
@@ -53,6 +65,7 @@ export function createHost(
     chain,
     wallets,
     sequencer: seq,
+    bridgeVault: opts?.bridgeVault ?? seq,
     ghosts: new Map(),
     painted: [],
     log: [],
@@ -219,7 +232,9 @@ async function execStmt(
             ? v.id
             : v.kind === "proof"
               ? v.light
-              : "unit";
+              : v.kind === "tip"
+                ? v.waveDigest
+                : "unit";
       host.painted.push(id);
       host.log.push(`paint ledger pixel for ${id.slice(0, 12)}…`);
       return v;
@@ -303,6 +318,94 @@ async function evalCall(
     const w = host.wallets[str(vals[0])];
     if (!w) throw new Error("Lumen balance: unknown wallet");
     return { kind: "number", value: balanceOf(host.chain, w.address) };
+  }
+
+  /** Sense the living tip — waveDigest + spatialRoot from host chain. */
+  if (name === "tip") {
+    const tip = host.chain.pixels[host.chain.pixels.length - 1];
+    if (!tip) throw new Error("Lumen tip: empty chain");
+    const sense: LumenValue = {
+      kind: "tip",
+      index: tip.index,
+      tipHash: tip.hash,
+      waveDigest: tip.lightProof.waveDigest,
+      spatialRoot: tip.lightProof.spatialRoot,
+    };
+    host.log.push(
+      `tip #${tip.index} wave ${tip.lightProof.waveDigest.slice(0, 12)}… spatial ${tip.lightProof.spatialRoot.slice(0, 12)}…`,
+    );
+    return sense;
+  }
+
+  /**
+   * Kindling ceremony → Presence Seal → self-custody settle on host chain.
+   * Lab uses simulated optical confluence (same as kindling selftest).
+   */
+  if (name === "kindle") {
+    const fromName = str(vals[0]);
+    const toName = str(vals[1]);
+    const amount = num(vals[2]);
+    const memo = str(vals[3] ?? { kind: "string", value: "Lumen kindle" });
+    const from = host.wallets[fromName];
+    const to = host.wallets[toName];
+    if (!from || !to) throw new Error(`Lumen kindle: wallet missing (${fromName}/${toName})`);
+    const intent = {
+      fromLocal: fromName,
+      toLocal: toName,
+      amount,
+      note: memo,
+    };
+    const offer = await kindleOffer(intent, { partyId: `${fromName}-offer` });
+    const accept = await kindleAccept(intent, { partyId: `${toName}-accept` });
+    const conf = await confluentSeal(offer, accept);
+    if (!conf.ok) throw new Error(`Lumen kindle: confluence ${conf.reason}`);
+    const settled = await settleKindling({
+      state: host.chain,
+      from,
+      ownerAddress: from.address,
+      sequencer: host.sequencer,
+      toAddress: to.address,
+      seal: conf.seal,
+    });
+    host.chain = settled.state;
+    const tipTx = settled.state.pixels[settled.state.pixels.length - 1]?.transactions[0];
+    host.log.push(`kindle ${conf.seal.boundLabel} · ${settled.summary.slice(0, 96)}`);
+    return {
+      kind: "settled",
+      txid: tipTx?.txid ?? settled.tipMark.txid,
+      summary: settled.summary,
+    };
+  }
+
+  /**
+   * Worldlight shine-in: foreign $ lock → PIX on owner's Personal Source.
+   * Uses host.bridgeVault (escrow) — never the owner's seed.
+   */
+  if (name === "shine_in") {
+    const ownerName = str(vals[0]);
+    const usd = num(vals[1]);
+    const owner = host.wallets[ownerName];
+    if (!owner) throw new Error(`Lumen shine_in: unknown wallet ${ownerName}`);
+    const vault = host.bridgeVault ?? host.sequencer;
+    const prepared = await ingressUsd(
+      usd,
+      { address: owner.address, localId: ownerName },
+      `lumen-shine-${Date.now()}`,
+    );
+    const illuminated = await illuminateIngress({
+      prepared,
+      state: host.chain,
+      bridgeVault: vault,
+      sequencer: host.sequencer,
+    });
+    host.chain = illuminated.state;
+    const tipTx = illuminated.state.pixels[illuminated.state.pixels.length - 1]?.transactions[0];
+    host.log.push(`shine_in $${usd} → ${illuminated.pixCredited} PIX · ${ownerName}`);
+    return {
+      kind: "settled",
+      txid: tipTx?.txid ?? illuminated.continuity.commitment ?? "shine_in",
+      summary: illuminated.summary,
+    };
   }
 
   /** One labeled hash — the complex hash issue becomes a verb. */
@@ -390,6 +493,8 @@ function valueMaterial(v: LumenValue): string {
       return v.txid;
     case "proof":
       return v.light;
+    case "tip":
+      return v.waveDigest;
     case "picture":
       return v.checksum;
     case "unit":

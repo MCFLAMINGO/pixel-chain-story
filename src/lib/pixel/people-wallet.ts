@@ -6,6 +6,9 @@
  *
  * Lab: persistence is localStorage on this device. Not the shared public tip
  * by itself — balance is read from an RPC tip when provided.
+ *
+ * OTS leaf cursor (`nextLeaf`) is persisted beside the sealed Source so unlock
+ * after a spend does not reuse a burned leaf (PATH Gate H).
  */
 
 import {
@@ -30,6 +33,8 @@ export type PeopleWalletBlob = {
   v: 1;
   source: PersonalSource;
   createdAt: number;
+  /** Next unused OTS leaf — restore on unlock after prior signs. */
+  nextLeaf?: number;
 };
 
 export function toPayFace(source: PersonalSource): PayFace {
@@ -65,12 +70,27 @@ export function clearPeopleWalletBlob(): void {
   localStorage.removeItem(PEOPLE_WALLET_STORAGE_KEY);
 }
 
+/** Persist OTS leaf cursor after a successful sign (pay / kindle settle). */
+export function persistPeopleWalletLeaf(nextLeaf: number): void {
+  const blob = loadPeopleWalletBlob();
+  if (!blob) throw new Error("No people wallet on this device");
+  if (!Number.isInteger(nextLeaf) || nextLeaf < 0) {
+    throw new Error(`Invalid nextLeaf ${nextLeaf}`);
+  }
+  savePeopleWalletBlob({ ...blob, nextLeaf });
+}
+
 /** Forge once and persist sealed Source (vault not shown in pay UI). */
 export async function forgeAndPersistPeopleWallet(
   localId: string,
 ): Promise<{ payFace: PayFace; source: PersonalSource; unlocked: UnlockedSource }> {
   const { source, unlocked } = await forgePersonalSource(localId);
-  savePeopleWalletBlob({ v: 1, source, createdAt: Date.now() });
+  savePeopleWalletBlob({
+    v: 1,
+    source,
+    createdAt: Date.now(),
+    nextLeaf: unlocked.keypair.nextLeaf,
+  });
   return { payFace: toPayFace(source), source, unlocked };
 }
 
@@ -79,7 +99,9 @@ export async function unlockStoredPeopleWallet(
 ): Promise<{ source: PersonalSource; unlocked: UnlockedSource } | null> {
   const blob = loadPeopleWalletBlob();
   if (!blob) return null;
-  const unlocked = await unlockPersonalSource(blob.source, capturedCells);
+  const unlocked = await unlockPersonalSource(blob.source, capturedCells, {
+    nextLeaf: blob.nextLeaf ?? 0,
+  });
   return { source: blob.source, unlocked };
 }
 
@@ -118,6 +140,7 @@ export async function fetchTipBalance(
 /**
  * Pay from unlocked Source onto the shared tip (POST /tx → tip inclusion).
  * Vault never leaves the unlock session; only the signed tx hits the wire.
+ * Advances and persists the OTS leaf cursor after a successful tip mark.
  */
 export async function payOnSharedTip(params: {
   rpc: string;
@@ -140,6 +163,7 @@ export async function payOnSharedTip(params: {
       reference: `PAY-${Date.now().toString(36)}`,
     },
   });
+  persistPeopleWalletLeaf(params.unlocked.keypair.nextLeaf);
   return {
     tipMark,
     summary: tipMarkSummary(tipMark),
@@ -150,7 +174,8 @@ export function peopleWalletThesis(): string {
   return (
     "People wallet: hold a Personal Source without CLI init; pay face shows address only; " +
     "vault stays sealed on device and is never the pay UI. Balance is read from a shared tip " +
-    "RPC when connected; pay posts a tip mark on that picture — not a private notebook."
+    "RPC when connected; pay posts a tip mark on that picture — not a private notebook. " +
+    "OTS nextLeaf persists across unlock so spent leaves stay burned."
   );
 }
 

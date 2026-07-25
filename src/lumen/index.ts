@@ -37,4 +37,26 @@ ray exist(what):
   when light:
     paint proof
   return proof
+
+ray tip_sense():
+  ghost t = tip()
+  when light:
+    paint t
+  return t
+
+ray kindle(from, to, amount, memo):
+  let pay = kindle(from, to, amount, memo)
+  when light:
+    paint pay
+  return pay
+
+ray shine_in(owner, usd):
+  let r = shine_in(owner, usd)
+  when light:
+    paint r
+  return r
+
+ray holdings(who):
+  let n = balance(who)
+  return n
 `;

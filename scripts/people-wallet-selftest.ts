@@ -1,12 +1,15 @@
 /**
  * People wallet selftest — forge/persist/unlock; pay face never exposes vault cells.
+ * OTS nextLeaf persists across unlock (PATH Gate H).
  * bun run test:wallet
  */
+import { signLightFull } from "../src/lib/pixel/crypto";
 import {
   clearPeopleWalletBlob,
   forgeAndPersistPeopleWallet,
   loadPeopleWalletBlob,
   peopleWalletThesis,
+  persistPeopleWalletLeaf,
   toPayFace,
   unlockStoredPeopleWallet,
 } from "../src/lib/pixel/people-wallet";
@@ -30,7 +33,7 @@ async function main() {
   mockLocalStorage();
   clearPeopleWalletBlob();
 
-  if (!peopleWalletThesis().includes("pay face")) throw new Error("thesis");
+  if (!peopleWalletThesis().includes("nextLeaf")) throw new Error("thesis");
   console.log("▸ thesis ✓");
 
   const { payFace, source } = await forgeAndPersistPeopleWallet("erik");
@@ -47,7 +50,23 @@ async function main() {
   if (!unlocked || unlocked.unlocked.keypair.address !== payFace.address) {
     throw new Error("unlock mismatch");
   }
+  if (unlocked.unlocked.keypair.nextLeaf !== 0) throw new Error("fresh nextLeaf");
   console.log("▸ unlock sealed vault ✓");
+
+  // Burn a leaf (as pay would) and persist cursor — re-unlock must restore it.
+  await signLightFull("people-wallet-leaf-cursor", unlocked.unlocked.keypair);
+  const advanced = unlocked.unlocked.keypair.nextLeaf;
+  if (advanced !== 1) throw new Error(`expected nextLeaf 1 got ${advanced}`);
+  persistPeopleWalletLeaf(advanced);
+  if (loadPeopleWalletBlob()?.nextLeaf !== 1) throw new Error("blob nextLeaf");
+
+  const again = await unlockStoredPeopleWallet();
+  if (!again || again.unlocked.keypair.nextLeaf !== 1) {
+    throw new Error(
+      `leaf cursor lost on unlock: got ${again?.unlocked.keypair.nextLeaf ?? "null"}`,
+    );
+  }
+  console.log("▸ nextLeaf persists across unlock ✓", again.unlocked.keypair.nextLeaf);
 
   clearPeopleWalletBlob();
   if (loadPeopleWalletBlob()) throw new Error("clear failed");

@@ -153,7 +153,8 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Raster round-trip CI (`bun run test:optical`)
 - [x] Kindling seals with `channel: "optical-capture"` when physical captures provided
 - [ ] Two-phone field notes (aim at projector → sample)
-- [ ] Personal Source unlock persists leaf cursor / scheme safely after optical unlock
+- [x] Personal Source unlock persists leaf cursor safely after optical unlock (`people-wallet` `nextLeaf` + `restoreLightKeypair`)
+- [ ] Scheme id persisted beside vault for ML-DSA Personal Sources (OTS path green)
 
 **Evidence:** `test:optical` + kindling optical-capture path green  
 **Claim unlock:** _“Optical capture path shipped (pilot); presence-bound Kindling when channel=optical-capture.”_

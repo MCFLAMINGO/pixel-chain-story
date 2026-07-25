@@ -29,25 +29,25 @@ Under the hood Pixel uses many domain-separated SHA-512 strings (`superposition|
 
 **One door:** `lightDigest(kind, …parts)` in [`src/lib/pixel/light-digest.ts`](../src/lib/pixel/light-digest.ts).
 
-| Lumen verb | Host | Author never sees |
-| --- | --- | --- |
-| `digest(label, x)` | `lightDigest` | `sha512Hex("superposition\|…")` |
-| `attest(what)` | `attestExistence` | OTS leaves, merkle windows, scheme IDs |
-| `commit(…)` | still signs with PQ/OTS behind the host | Lamport complements / Dilithium bytes |
-| `project` / `maze` | `asOpticalPayload` | pad/slice hex dances |
+| Lumen verb         | Host                                    | Author never sees                      |
+| ------------------ | --------------------------------------- | -------------------------------------- |
+| `digest(label, x)` | `lightDigest`                           | `sha512Hex("superposition\|…")`        |
+| `attest(what)`     | `attestExistence`                       | OTS leaves, merkle windows, scheme IDs |
+| `commit(…)`        | still signs with PQ/OTS behind the host | Lamport complements / Dilithium bytes  |
+| `project` / `maze` | `asOpticalPayload`                      | pad/slice hex dances                   |
 
 Lumen programmers write **light verbs**. The host holds quantum schemes and leaf cursors.
 
 ## Status
 
-| Piece | State |
-| --- | --- |
-| Parser (`parse.ts`) | Real |
-| Interpreter (`runtime.ts`) | Real — UTXO + optical + **digest/attest** |
-| `lightDigest` | Real — shared with tx commitment path |
-| Example module | `TRANSFER_LUMEN` — `send` / `read_key` / **`exist`** |
-| Lab UI | `/lab` → LumenPanel |
-| CI | `bun run test:pixel` + `bun run test:lumen` |
+| Piece                      | State                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| Parser (`parse.ts`)        | Real                                                                                       |
+| Interpreter (`runtime.ts`) | Real — UTXO + optical + digest/attest + **tip / kindle / shine_in**                        |
+| `lightDigest`              | Real — shared with tx commitment path                                                      |
+| Example module             | `TRANSFER_LUMEN` — `send` / `exist` / **`tip_sense` / `kindle` / `shine_in` / `holdings`** |
+| Lab UI                     | `/lab` → LumenPanel                                                                        |
+| CI                         | `bun run test:pixel` + `bun run test:lumen`                                                |
 
 ## Why this answers “quit”
 
@@ -56,17 +56,27 @@ Lumen programmers write **light verbs**. The host holds quantum schemes and leaf
 - **Quantum future** — host signs with hash-OTS + ML-DSA; Lumen stays scheme-agnostic.
 - **Seurat / agents** — each existence proof or illuminated pixel is a dot; agents fill the canvas by running light elsewhere.
 
+## Product builtins (host-bound)
+
+| Lumen verb                 | Host                                | Real invariant                        |
+| -------------------------- | ----------------------------------- | ------------------------------------- |
+| `tip()`                    | chain tip `lightProof`              | `waveDigest` + `spatialRoot`          |
+| `kindle(from,to,amt,memo)` | `Kindling` offer→accept→seal→settle | Presence Seal + self-custody UTXO     |
+| `shine_in(owner,usd)`      | `ingressUsd` + `illuminateIngress`  | Worldlight $ → PIX on Personal Source |
+| `balance(who)`             | `balanceOf`                         | UTXO holdings                         |
+
 ## Evolve plan
 
-1. [x] Lab editor — `/lab` LumenPanel  
-2. [x] `digest` / `attest` — one hash door  
-3. Rays for Kindling / Worldlight / SISO `shine_in`  
-4. Better diagnostics — parse errors with light vocabulary  
-5. No fake ops — every builtin must touch chain/optical/custody for real  
+1. [x] Lab editor — `/lab` LumenPanel
+2. [x] `digest` / `attest` — one hash door
+3. [x] Rays for Kindling / Worldlight `shine_in` + tip sense
+4. Better diagnostics — parse errors with light vocabulary
+5. No fake ops — every builtin must touch chain/optical/custody for real
 
 ## Run today
 
 ```bash
-bun run test:lumen   # digest + attest + exist ray
+bun run test:lumen   # digest + attest + tip/kindle/shine_in
 bun run test:pixel   # send + read_key still green
+bun run test:wallet  # people-wallet nextLeaf across unlock
 ```

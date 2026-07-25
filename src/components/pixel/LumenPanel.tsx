@@ -23,23 +23,33 @@ export function LumenPanel({
     if (!chain || !alice || !bob) return;
     setBusy(true);
     try {
-      const host = createHost(chain, { alice, bob });
+      // alice holds genesis — bridgeVault for shine_in; also signer for kindle/send.
+      const host = createHost(chain, { alice, bob }, alice, { bridgeVault: alice });
       const args =
-        ray === "send"
+        ray === "send" || ray === "kindle"
           ? {
               from: { kind: "string" as const, value: "alice" },
               to: { kind: "string" as const, value: "bob" },
               amount: { kind: "number" as const, value: 1 },
               memo: { kind: "string" as const, value: "lumen lab" },
             }
-          : ray === "exist"
+          : ray === "shine_in"
             ? {
-                what: {
-                  kind: "string" as const,
-                  value: `creation:${alice.address.slice(0, 20)}`,
-                },
+                owner: { kind: "string" as const, value: "bob" },
+                usd: { kind: "number" as const, value: 3 },
               }
-            : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
+            : ray === "holdings"
+              ? { who: { kind: "string" as const, value: "alice" } }
+              : ray === "tip_sense"
+                ? {}
+                : ray === "exist"
+                  ? {
+                      what: {
+                        kind: "string" as const,
+                        value: `creation:${alice.address.slice(0, 20)}`,
+                      },
+                    }
+                  : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
       const result = await runLumenSource(source, ray, args as never, host);
       await onChain(result.host.chain, `Lumen ray \`${ray}\` settled`);
       setLog([...result.logs, `result: ${JSON.stringify(result.value)}`].join("\n"));
@@ -60,10 +70,11 @@ export function LumenPanel({
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
         L0: where there is light, there is verification.{" "}
-        <code className="text-foreground/80">digest</code> /{" "}
-        <code className="text-foreground/80">attest</code> hide the hash soup;{" "}
-        <code className="text-foreground/80">exist</code> stores creation, not only wealth. ghost →
-        shine → collapse → paint still settles real UTXOs.
+        <code className="text-foreground/80">tip</code> /{" "}
+        <code className="text-foreground/80">kindle</code> /{" "}
+        <code className="text-foreground/80">shine_in</code> bind the living tip, Presence Seal, and
+        Worldlight — not costume verbs. <code className="text-foreground/80">digest</code> /{" "}
+        <code className="text-foreground/80">attest</code> still hide the hash soup.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -75,6 +86,10 @@ export function LumenPanel({
             className="ml-2 border-b border-border bg-transparent py-1 outline-none"
           >
             <option value="send">send</option>
+            <option value="kindle">kindle</option>
+            <option value="shine_in">shine_in</option>
+            <option value="tip_sense">tip_sense</option>
+            <option value="holdings">holdings</option>
             <option value="exist">exist</option>
             <option value="read_key">read_key</option>
             <option value="open_key">open_key</option>
