@@ -52,7 +52,7 @@ It is also **tiny**. To stay “something different,” expand it — do not aba
 2. [x] Product rays: `kindle`, `shine_in`, `holdings`/`balance`, `tip_sense`
 3. [x] Language power class (vs Rust): `match`, `when aperture`, `ensure`/`refuse`, ray composition, field projection, ghost ownership
 4. [x] `LumenRuntimeError` / parse errors in light vocabulary
-5. Persist modules beside chain state
+5. [x] Persist modules beside chain (`lumen-modules.json` / localStorage) + typed rays (`checkLumen`)
 6. Keep every ray mapped to real `One.*` / chain calls — no decorative DSL
 
 See [`LUMEN.md`](./LUMEN.md).

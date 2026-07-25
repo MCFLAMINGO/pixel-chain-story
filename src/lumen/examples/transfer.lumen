@@ -1,12 +1,11 @@
 // Pixel ceremonies in Lumen — light-native structure.
 // Hash complexity lives behind digest/attest. Authors never write sha512 soup.
-// Ghost = both until light. Collapse = one real settlement.
-// Attest = store of creation — existence that survives where light still runs.
+// Typed rays + modules persist beside chain state (lumen-modules.json / localStorage).
 
 module Transfer
 
-ray send(from, to, amount, memo):
-  ghost tx = commit(from, to, amount, memo)
+ray send(from: string, to: string, amount: number, memo: string) -> settled:
+  ghost tx: ghost = commit(from, to, amount, memo)
   veil tx private
   when light:
     shine tx via sequence
@@ -14,21 +13,41 @@ ray send(from, to, amount, memo):
     paint tx
   return tx
 
-ray open_key(secret):
-  let picture = maze(secret)
+ray open_key(secret: string) -> picture:
+  let picture: picture = maze(secret)
   shine picture via screen
   return picture
 
-ray read_key(secret):
-  let picture = project(secret)
-  let key = recover(picture)
+ray read_key(secret: string) -> string:
+  let picture: picture = project(secret)
+  let key: string = recover(picture)
   return key
 
-// L0: where there is light, there is verification.
-// Attest creation — not only balances. EMP elsewhere cannot erase this digest
-// if the same lightDigest still runs in another place.
-ray exist(what):
-  ghost proof = attest(what)
+ray exist(what: string) -> proof:
+  ghost proof: proof = attest(what)
   when light:
     paint proof
   return proof
+
+ray tip_sense() -> tip:
+  ghost t: tip = tip()
+  when light:
+    paint t
+  return t
+
+ray holdings(who: string) -> number:
+  let n: number = balance(who)
+  return n
+
+ray funded_kindle(from: string, to: string, amount: number, memo: string) -> settled:
+  let n: number = balance(from)
+  ensure n >= amount, "insufficient light"
+  when aperture n > 0:
+    let pay: settled = kindle(from, to, amount, memo)
+    match pay:
+      settled:
+        paint pay
+        return pay
+      _:
+        refuse("kindle returned dark")
+  refuse("empty aperture")

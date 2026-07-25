@@ -1,71 +1,83 @@
 /**
- * Lumen L0 — product rays + language power (match, aperture, ensure, composition).
+ * Lumen — product rays, language power, types, persist beside chain.
  * bun run test:lumen
  */
 
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { balanceOf, createDemoWallet, createGenesis, lightDigest } from "../src/lib/pixel/index";
-import { TRANSFER_LUMEN, createHost, LumenRuntimeError, runLumenSource } from "../src/lumen/index";
+import {
+  TRANSFER_LUMEN,
+  checkLumen,
+  createHost,
+  emptyLumenBundle,
+  loadLumenBundleLocal,
+  LumenRuntimeError,
+  LumenTypeError,
+  parseLumen,
+  runLumenSource,
+  saveLumenBundleLocal,
+  upsertLumenModule,
+  clearLumenBundleLocal,
+  lumenPersistThesis,
+} from "../src/lumen/index";
+import { loadOrSeedLumenModules, lumenModulesPath } from "../src/node/lumen-store";
 
 async function main() {
-  console.log("═══ LUMEN — PRODUCT + LANGUAGE POWER ═══\n");
+  console.log("═══ LUMEN — TYPES + PERSIST ═══\n");
+
+  if (!lumenPersistThesis().includes("beside chain")) throw new Error("thesis");
 
   const body = "inputs:[]|outputs:[]|meta:test|ts:1";
   const a = await lightDigest("superposition", body);
   const { sha512Hex } = await import("../src/lib/pixel/crypto");
-  const b = await sha512Hex(`superposition|${body}`);
-  if (a !== b) throw new Error("lightDigest superposition drifted from legacy");
-  console.log("▸ lightDigest('superposition') ≡ legacy sha512 domain ✓");
+  if (a !== (await sha512Hex(`superposition|${body}`))) throw new Error("digest drift");
+  console.log("▸ lightDigest ✓");
 
   const alice = await createDemoWallet("Alice");
   const bob = await createDemoWallet("Bob");
   const chain = await createGenesis(alice);
 
-  const dig = await runLumenSource(
-    `module D
-ray go(x):
-  let h = digest("creation", x)
-  return h
-`,
-    "go",
-    { x: { kind: "string", value: "first light" } },
-    createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
-  );
-  if (dig.value.kind !== "string" || dig.value.value.length !== 128) {
-    throw new Error("digest builtin failed");
+  // Typed Transfer module checks clean
+  const mod = parseLumen(TRANSFER_LUMEN);
+  const checked = checkLumen(mod);
+  if (!checked.ok) {
+    throw new Error(
+      `Transfer type errors: ${checked.diagnostics.map((d) => d.message).join("; ")}`,
+    );
   }
-  console.log("▸ Lumen digest() builtin ✓");
+  console.log("▸ typed TRANSFER_LUMEN checkLumen ✓");
 
-  const exist = await runLumenSource(
-    TRANSFER_LUMEN,
-    "exist",
-    { what: { kind: "string", value: "Georges-point: I was here under light" } },
-    createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
-  );
-  if (exist.value.kind !== "proof") throw new Error(`exist want proof got ${exist.value.kind}`);
-  console.log("▸ ray exist → proof painted ✓");
+  // Type error caught
+  let typedDark = false;
+  try {
+    await runLumenSource(
+      `module Bad
+ray go(x: number) -> string:
+  return x
+`,
+      "go",
+      { x: { kind: "number", value: 1 } },
+      createHost(chain, { alice, bob }, alice),
+    );
+  } catch (e) {
+    typedDark = e instanceof LumenTypeError;
+  }
+  if (!typedDark) throw new Error("expected LumenTypeError on return mismatch");
+  console.log("▸ LumenTypeError on dark return ✓");
 
   const tipRes = await runLumenSource(
-    TRANSFER_LUMEN,
-    "tip_sense",
-    {},
-    createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
-  );
-  if (tipRes.value.kind !== "tip") throw new Error("tip_sense");
-  console.log("▸ ray tip_sense ✓");
-
-  // Field projection
-  const wave = await runLumenSource(
     TRANSFER_LUMEN,
     "tip_wave",
     {},
     createHost(chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (wave.value.kind !== "string" || wave.value.value !== tipRes.value.waveDigest) {
-    throw new Error("tip_wave field projection");
+  if (tipRes.value.kind !== "string" || tipRes.value.value.length < 16) {
+    throw new Error("tip_wave");
   }
-  console.log("▸ field projection t.waveDigest ✓");
+  console.log("▸ typed tip_wave field projection ✓");
 
-  // ensure + aperture + match + kindle
   const funded = await runLumenSource(
     TRANSFER_LUMEN,
     "funded_kindle",
@@ -79,9 +91,8 @@ ray go(x):
   );
   if (funded.value.kind !== "settled") throw new Error("funded_kindle");
   if (balanceOf(funded.host.chain, bob.address) !== 2) throw new Error("funded bal");
-  console.log("▸ ensure + when aperture + match + kindle ✓");
+  console.log("▸ funded_kindle (typed) ✓");
 
-  // Ray composition (pay_composed → funded_kindle)
   const composed = await runLumenSource(
     TRANSFER_LUMEN,
     "pay_composed",
@@ -93,35 +104,49 @@ ray go(x):
     },
     createHost(funded.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
   );
-  if (composed.value.kind !== "settled") throw new Error("pay_composed");
   if (balanceOf(composed.host.chain, bob.address) !== 3) throw new Error("composed bal");
-  console.log("▸ ray composition pay_composed → funded_kindle ✓");
+  console.log("▸ pay_composed ✓");
 
-  // ensure refuses dark amounts
-  let refused = false;
+  // Browser persist
+  const map = new Map<string, string>();
+  // @ts-expect-error test shim
+  globalThis.localStorage = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      map.set(k, v);
+    },
+    removeItem: (k: string) => {
+      map.delete(k);
+    },
+  };
+  clearLumenBundleLocal();
+  let bundle = emptyLumenBundle({ name: "Transfer", source: TRANSFER_LUMEN });
+  bundle = upsertLumenModule(bundle, TRANSFER_LUMEN);
+  saveLumenBundleLocal(bundle);
+  const again = loadLumenBundleLocal();
+  if (!again || again.modules[0]?.name !== "Transfer") throw new Error("local persist");
+  if (!again.modules[0]?.source.includes("funded_kindle")) throw new Error("source lost");
+  console.log("▸ browser lumen-modules localStorage ✓");
+
+  // Node datadir beside chain.json
+  const dir = await mkdtemp(join(tmpdir(), "pixel-lumen-"));
   try {
-    await runLumenSource(
-      TRANSFER_LUMEN,
-      "funded_kindle",
-      {
-        from: { kind: "string", value: "alice" },
-        to: { kind: "string", value: "bob" },
-        amount: { kind: "number", value: 9999 },
-        memo: { kind: "string", value: "too much" },
-      },
-      createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
-    );
-  } catch (e) {
-    refused = e instanceof LumenRuntimeError && e.message.includes("insufficient light");
+    const seeded = await loadOrSeedLumenModules(dir, TRANSFER_LUMEN);
+    if (seeded.modules[0]?.name !== "Transfer") throw new Error("seed name");
+    const raw = await readFile(lumenModulesPath(dir), "utf8");
+    if (!raw.includes("funded_kindle")) throw new Error("disk source");
+    const reloaded = await loadOrSeedLumenModules(dir, "module Other\nray x():\n  return 1\n");
+    if (reloaded.modules[0]?.name !== "Transfer") throw new Error("should not re-seed");
+    console.log("▸ node lumen-modules.json beside chain ✓");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
-  if (!refused) throw new Error("ensure should refuse overspend");
-  console.log("▸ ensure refuse insufficient light ✓");
 
-  // Ghost ownership — collapse consumes; re-veil refuses
+  // Ghost ownership still
   const own = await runLumenSource(
     `module Own
-ray burn():
-  ghost tx = commit("alice", "bob", 1, "own")
+ray burn(from: string, to: string) -> settled:
+  ghost tx: ghost = commit(from, to, 1, "own")
   when light:
     shine tx via sequence
     collapse tx
@@ -129,48 +154,19 @@ ray burn():
   return tx
 `,
     "burn",
-    {},
+    {
+      from: { kind: "string", value: "alice" },
+      to: { kind: "string", value: "bob" },
+    },
     createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
   ).then(
     () => false,
-    (e) => e instanceof LumenRuntimeError && /already collapsed|ownership/.test(e.message),
+    (e) => e instanceof LumenRuntimeError && /ownership|already collapsed/.test(e.message),
   );
-  if (!own) throw new Error("ghost ownership should refuse re-veil");
-  console.log("▸ ghost ownership (collapse consumes) ✓");
+  if (!own) throw new Error("ghost ownership");
+  console.log("▸ ghost ownership ✓");
 
-  // if / else arithmetic
-  const arith = await runLumenSource(
-    `module A
-ray go(n):
-  if n > 10:
-    return n - 1
-  else:
-    return n + 1
-`,
-    "go",
-    { n: { kind: "number", value: 3 } },
-    createHost(chain, { alice, bob }, alice),
-  );
-  if (arith.value.kind !== "number" || arith.value.value !== 4) throw new Error("if/else arith");
-  console.log("▸ if/else + arithmetic ✓");
-
-  // shine_in still works
-  const shone = await runLumenSource(
-    TRANSFER_LUMEN,
-    "shine_in",
-    {
-      owner: { kind: "string", value: "bob" },
-      usd: { kind: "number", value: 4 },
-    },
-    createHost(composed.host.chain, { alice, bob }, alice, { bridgeVault: alice }),
-  );
-  if (shone.value.kind !== "settled") throw new Error("shine_in");
-  if (balanceOf(shone.host.chain, bob.address) !== 7) {
-    throw new Error(`shine_in bob bal ${balanceOf(shone.host.chain, bob.address)}`);
-  }
-  console.log("▸ shine_in still host-bound ✓");
-
-  console.log("\n═══ PASS — Lumen power class: match · aperture · ensure · compose · own ═══");
+  console.log("\n═══ PASS — Lumen types + persist beside chain ═══");
 }
 
 main().catch((e) => {

@@ -7,6 +7,7 @@
  */
 
 import type { BinOp, Expr, LumenModule, MatchArm, Ray, Stmt } from "./ast";
+import { isLightKind, type LightKind, type TypedParam } from "./types";
 
 export class LumenParseError extends Error {
   constructor(
@@ -50,15 +51,39 @@ export function parseLumen(source: string): LumenModule {
 
   function parseRay(): Ray {
     const header = next();
-    const m = header.text.trim().match(/^ray\s+(\w+)\(([^)]*)\):\s*$/);
-    if (!m) throw new LumenParseError("bad ray header", header.n);
+    const m = header.text.trim().match(/^ray\s+(\w+)\(([^)]*)\)(?:\s*->\s*(\w+))?:\s*$/);
+    if (!m)
+      throw new LumenParseError("bad ray header (want `ray name(...):` or `-> kind:`)", header.n);
     const name = m[1];
-    const params = m[2]
+    const params = parseParams(m[2], header.n);
+    let returnType: LightKind | undefined;
+    if (m[3]) {
+      if (!isLightKind(m[3])) {
+        throw new LumenParseError(`unknown return type '${m[3]}'`, header.n);
+      }
+      returnType = m[3];
+    }
+    const body = parseBlock(baseIndent(header.text) + 1);
+    return { name, params, returnType, body };
+  }
+
+  function parseParams(raw: string, line: number): TypedParam[] {
+    return raw
       .split(",")
       .map((p) => p.trim())
-      .filter(Boolean);
-    const body = parseBlock(baseIndent(header.text) + 1);
-    return { name, params, body };
+      .filter(Boolean)
+      .map((p) => {
+        const mm = p.match(/^(\w+)(?:\s*:\s*(\w+))?$/);
+        if (!mm) throw new LumenParseError(`bad param '${p}'`, line);
+        const typeName = mm[2];
+        if (typeName && !isLightKind(typeName)) {
+          throw new LumenParseError(`unknown type '${typeName}' on ${mm[1]}`, line);
+        }
+        return {
+          name: mm[1],
+          type: typeName as LightKind | undefined,
+        };
+      });
   }
 
   function parseBlock(minIndent: number): Stmt[] {
@@ -82,14 +107,30 @@ export function parseLumen(source: string): LumenModule {
     const t = line.text.trim();
 
     if (t.startsWith("ghost ")) {
-      const m = t.match(/^ghost\s+(\w+)\s*=\s*(.+)$/);
+      const m = t.match(/^ghost\s+(\w+)(?:\s*:\s*(\w+))?\s*=\s*(.+)$/);
       if (!m) throw new LumenParseError("ghost binding", line.n);
-      return { type: "ghost", name: m[1], expr: parseExpr(m[2], line.n) };
+      if (m[2] && !isLightKind(m[2])) {
+        throw new LumenParseError(`unknown type '${m[2]}'`, line.n);
+      }
+      return {
+        type: "ghost",
+        name: m[1],
+        typeAnn: m[2] as LightKind | undefined,
+        expr: parseExpr(m[3], line.n),
+      };
     }
     if (t.startsWith("let ")) {
-      const m = t.match(/^let\s+(\w+)\s*=\s*(.+)$/);
+      const m = t.match(/^let\s+(\w+)(?:\s*:\s*(\w+))?\s*=\s*(.+)$/);
       if (!m) throw new LumenParseError("let binding", line.n);
-      return { type: "let", name: m[1], expr: parseExpr(m[2], line.n) };
+      if (m[2] && !isLightKind(m[2])) {
+        throw new LumenParseError(`unknown type '${m[2]}'`, line.n);
+      }
+      return {
+        type: "let",
+        name: m[1],
+        typeAnn: m[2] as LightKind | undefined,
+        expr: parseExpr(m[3], line.n),
+      };
     }
     if (t.startsWith("shine ")) {
       const m = t.match(/^shine\s+(\w+)(?:\s+via\s+(\w+))?$/);

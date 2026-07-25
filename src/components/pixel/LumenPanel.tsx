@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { LightKeypair, PixelChainState } from "@/lib/pixel";
-import { TRANSFER_LUMEN, createHost, runLumenSource } from "@/lumen";
+import { createHost, runLumenSource } from "@/lumen";
+import { useLumenModules } from "@/hooks/use-lumen-modules";
 
 /** Edit & run Lumen rays against live chain state — invention surface, not a toy. */
 export function LumenPanel({
@@ -14,7 +15,7 @@ export function LumenPanel({
   bob: (LightKeypair & { label: string }) | null;
   onChain: (next: PixelChainState, note?: string) => void | Promise<void>;
 }) {
-  const [source, setSource] = useState(TRANSFER_LUMEN);
+  const modules = useLumenModules();
   const [ray, setRay] = useState("send");
   const [log, setLog] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +24,7 @@ export function LumenPanel({
     if (!chain || !alice || !bob) return;
     setBusy(true);
     try {
-      // alice holds genesis — bridgeVault for shine_in; also signer for kindle/send.
+      modules.persistNow();
       const host = createHost(chain, { alice, bob }, alice, { bridgeVault: alice });
       const payArgs = {
         from: { kind: "string" as const, value: "alice" },
@@ -51,7 +52,7 @@ export function LumenPanel({
                       },
                     }
                   : { secret: { kind: "string" as const, value: alice.seed.slice(0, 64) } };
-      const result = await runLumenSource(source, ray, args as never, host);
+      const result = await runLumenSource(modules.source, ray, args as never, host);
       await onChain(result.host.chain, `Lumen ray \`${ray}\` settled`);
       setLog([...result.logs, `result: ${JSON.stringify(result.value)}`].join("\n"));
     } catch (e) {
@@ -70,14 +71,10 @@ export function LumenPanel({
         Guided by light it never names
       </h2>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        Same power class as Rust for light: ownership of ghosts,{" "}
-        <code className="text-foreground/80">match</code>,{" "}
-        <code className="text-foreground/80">ensure</code>/
-        <code className="text-foreground/80">refuse</code>,{" "}
-        <code className="text-foreground/80">when aperture</code>, ray composition. Host verbs{" "}
-        <code className="text-foreground/80">tip</code> /{" "}
-        <code className="text-foreground/80">kindle</code> /{" "}
-        <code className="text-foreground/80">shine_in</code> stay real.
+        Typed rays + modules persisted beside chain state.{" "}
+        <code className="text-foreground/80">ensure</code> /{" "}
+        <code className="text-foreground/80">match</code> /{" "}
+        <code className="text-foreground/80">when aperture</code> stay host-bound — not costume.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -109,14 +106,35 @@ export function LumenPanel({
         >
           Run ray
         </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => modules.persistNow()}
+          className="font-pixel rounded-md border border-border px-4 py-2 text-xs font-semibold disabled:opacity-45"
+        >
+          Persist module
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => modules.reset()}
+          className="font-pixel rounded-md border border-border px-4 py-2 text-xs font-semibold disabled:opacity-45"
+        >
+          Reset
+        </button>
       </div>
 
       <textarea
-        value={source}
-        onChange={(e) => setSource(e.target.value)}
+        value={modules.source}
+        onChange={(e) => modules.setSource(e.target.value)}
         spellCheck={false}
         className="mt-4 h-56 w-full max-w-3xl resize-y rounded-md border border-border bg-background/50 p-3 font-mono text-xs leading-relaxed outline-none focus:border-primary"
       />
+      {modules.typeErrors.length > 0 && (
+        <pre className="mt-2 max-w-3xl whitespace-pre-wrap text-xs text-destructive">
+          {modules.typeErrors.join("\n")}
+        </pre>
+      )}
       {log && (
         <pre className="mt-4 max-w-3xl overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
           {log}

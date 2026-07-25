@@ -36,6 +36,7 @@ import {
   type Transaction,
 } from "@/lib/pixel";
 import type { BinOp, Expr, LumenModule, LumenValue, Ray, Stmt } from "./ast";
+import { checkLumen } from "./check";
 import { parseLumen } from "./parse";
 
 const MAX_RAY_DEPTH = 32;
@@ -102,8 +103,12 @@ export async function runLumenSource(
   rayName: string,
   args: Record<string, LumenValue>,
   host: LumenHost,
+  opts?: { check?: boolean },
 ): Promise<LumenResult> {
   const mod = parseLumen(source);
+  if (opts?.check !== false) {
+    checkLumen(mod, { strict: true });
+  }
   return runRay(mod, rayName, args, host);
 }
 
@@ -584,7 +589,7 @@ async function evalCall(
     }
     const bound: Record<string, LumenValue> = {};
     other.params.forEach((p, i) => {
-      bound[p] = vals[i]!;
+      bound[p.name] = vals[i]!;
     });
     const nested = await runRay(mod, name, bound, host, depth + 1);
     return nested.value;

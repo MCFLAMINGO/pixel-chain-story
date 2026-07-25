@@ -27,6 +27,10 @@
  * Programs read like ceremonies of light, not memory layouts.
  */
 
+import type { LightKind, TypedParam } from "./types";
+
+export type { LightKind, TypedParam } from "./types";
+
 export type LumenValue =
   | { kind: "number"; value: number }
   | { kind: "string"; value: string }
@@ -71,8 +75,8 @@ export type MatchArm = {
 };
 
 export type Stmt =
-  | { type: "let"; name: string; expr: Expr }
-  | { type: "ghost"; name: string; expr: Expr }
+  | { type: "let"; name: string; expr: Expr; typeAnn?: LightKind }
+  | { type: "ghost"; name: string; expr: Expr; typeAnn?: LightKind }
   | { type: "shine"; target: Expr; via?: string }
   | { type: "collapse"; name: string }
   | { type: "veil"; name: string; level: "public" | "private" | "selective" }
@@ -87,7 +91,9 @@ export type Stmt =
 
 export interface Ray {
   name: string;
-  params: string[];
+  params: TypedParam[];
+  /** Annotated return kind when `ray foo(...) -> settled:` */
+  returnType?: LightKind;
   body: Stmt[];
 }
 

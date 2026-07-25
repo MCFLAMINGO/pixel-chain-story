@@ -40,14 +40,15 @@ Lumen programmers write **light verbs**. The host holds quantum schemes and leaf
 
 ## Status
 
-| Piece                      | State                                                                                          |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| Parser (`parse.ts`)        | Real                                                                                           |
-| Interpreter (`runtime.ts`) | Real — UTXO + optical + product rays + **match / aperture / ensure / composition / ownership** |
-| `lightDigest`              | Real — shared with tx commitment path                                                          |
-| Example module             | `TRANSFER_LUMEN` — includes **`funded_kindle` / `pay_composed` / `tip_wave`**                  |
-| Lab UI                     | `/lab` → LumenPanel                                                                            |
-| CI                         | `bun run test:pixel` + `bun run test:lumen`                                                    |
+| Piece                               | State                                                                  |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| Parser (`parse.ts`)                 | Real — typed ray headers + `let x: kind`                               |
+| Interpreter (`runtime.ts`)          | Real — language power + **strict `checkLumen` on run**                 |
+| Types (`types.ts` / `check.ts`)     | Progressive light kinds — `LumenTypeError` on dark mismatches          |
+| Persist (`persist.ts` / node store) | Beside chain — localStorage + `lumen-modules.json`                     |
+| Example module                      | Typed `TRANSFER_LUMEN` — `funded_kindle` / `pay_composed` / `tip_wave` |
+| Lab UI                              | `/lab` → LumenPanel (persist / reset)                                  |
+| CI                                  | `bun run test:pixel` + `bun run test:lumen`                            |
 
 ## Why this answers “quit”
 
@@ -81,6 +82,26 @@ Rust is excellent for systems memory. Lumen aims for the **same class of power f
 
 Not a Rust clone. No borrow checker cosplay. The physics is superposition → shine → collapse → paint.
 
+## Types (progressive)
+
+```
+ray holdings(who: string) -> number:
+  let n: number = balance(who)
+  return n
+```
+
+Light kinds: `number` `string` `bool` `address` `ghost` `picture` `settled` `tip` `proof` `unit` `any`.  
+`checkLumen` / `runLumenSource` (strict by default) refuse dark mismatches via `LumenTypeError`.
+
+## Persist beside chain
+
+| Surface      | Location                                    |
+| ------------ | ------------------------------------------- |
+| Browser lab  | `localStorage` key `pixel.lumen.modules.v1` |
+| Node datadir | `lumen-modules.json` next to `chain.json`   |
+
+Source text is canonical; re-parse + type-check on load. Seeded with `TRANSFER_LUMEN` on first node start / empty lab.
+
 ## Evolve plan
 
 1. [x] Lab editor — `/lab` LumenPanel
@@ -88,7 +109,7 @@ Not a Rust clone. No borrow checker cosplay. The physics is superposition → sh
 3. [x] Rays for Kindling / Worldlight `shine_in` + tip sense
 4. [x] Language power — match, aperture, ensure/refuse, composition, ownership
 5. [x] Diagnostics — `LumenParseError` / `LumenRuntimeError` with light vocabulary
-6. Persist modules beside chain state
+6. [x] Persist modules beside chain state + typed ray surface
 7. No fake ops — every builtin must touch chain/optical/custody for real
 
 ## Run today
