@@ -24,6 +24,12 @@ illuminateIngress (bridge escrow → Personal Source)
 LockFeeder.consume (no double shine-in)
 ```
 
+### Lock → lead (named invent)
+
+`LockFeeder.activateLead` / `activateLeadFromLock` runs feed → illuminate → consume and returns the tip as a **lattice lead** (`leadIndex`, `waveDigest`, `spatialRoot`). The shine-in tx `reference` binds `lock=<lockDigest[:16]>` so peers can merkle-verify the foreign lock against the tip. Not a separate consensus opcode — lead = illuminated tip.
+
+Evidence: `bun run test:lock-lead`. See [`SPATIAL.md`](./SPATIAL.md).
+
 ## Solidity
 
 ```solidity

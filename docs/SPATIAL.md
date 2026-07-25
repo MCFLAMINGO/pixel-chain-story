@@ -136,10 +136,10 @@ Honest map of the external “Python voxel → TS port → RPC → USDC” check
 | Replace matplotlib with Three.js web viz            | **Open (UI sink)**                                                     | Billboard / LedgerField already show tip colors; Three.js optional after S3 — never source of truth. |
 | Drop into test harness alongside UTXO               | **Done**                                                               | Genesis / `sequenceBlock` / `acceptBlock` / `verifyChain` + `test:spatial-proof`. |
 | RPC: illuminate, activate_lead, get_snapshot        | **Partial**                                                            | Illuminate = existing tip path (`POST /tx` + sequencer). Snapshot/proof = `GET /spatial/snapshot`, `GET /spatial/proof/:i`, `pix_getSpatialSnapshot`. Separate `activate_lead` verb not needed — lead = illuminated tip. |
-| Wire USDC locks → lead pixel activations            | **Open (bridge path)**                                                 | LockFeeder + `illuminateIngress` exist; not yet mapped to lattice lead activation as a named invent. |
+| Wire USDC locks → lead pixel activations            | **Done (lab invent)**                                                  | `LockFeeder.activateLead` / `test:lock-lead` — lockDigest in shine-in reference; tip binds wave + spatial. Not mainnet USDC claim. |
 | Rust version for production node                    | **Deferred (S5)**                                                      | Prefer tip-bound TS evidence first; WASM/Rust when benches demand. |
 
-**Prefer next:** S4 spatial index (hash grid/octree) + tip-recomputable damping — or LockFeeder → lead activation invent — over a disconnected Three.js demo.
+**Prefer next:** S4 spatial index / damping / partition (if still open on main) — or Three.js UI sink — over claiming octree mainnet.
 
 ---
 

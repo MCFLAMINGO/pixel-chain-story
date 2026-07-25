@@ -36,6 +36,7 @@ Primitive → advanced is allowed for uptake. **Settling on the primitive rung i
 | **Lead wave (S2)**  | Multi-hop lattice propagation + collision fold; `waveDigest` in PoLS — neighbors react on the tip, not in a toy sim ([`SPATIAL.md`](./SPATIAL.md)).            |
 | **Spatial picture (S3)** | Sparse occupancy Merkle; `spatialRoot` in PoLS + prove cell lit — verifiable picture fragment, not matplotlib ([`SPATIAL.md`](./SPATIAL.md)).            |
 | **Wave fan-out (S4)** | Async/event-driven notify after tip illuminate/accept — subscribers see hits; not a second consensus truth (`test:wave-fanout`).                        |
+| **Lock→lead**       | Verified USDC/USD lock shines in as a tip lattice lead — `lockDigest` in tx reference; wave + spatial bind (`test:lock-lead`). Not a new opcode.     |
 | **World canvas**    | One public picture of humanity — wallets shine in; tip marks; not “everyone inits a private chain.” Destination frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md). |
 
 Full audit: [`INVENTION.md`](./INVENTION.md).

@@ -410,4 +410,11 @@ export const LockFeeder = {
   verifyWire: verifyBankWireReceipt,
   feed: feedLockToWorldlight,
   consume: consumeLockReceipt,
+  /** Named invent: USDC/USD lock → tip lattice lead (see lock-lead.ts). */
+  activateLead: async (
+    params: Parameters<typeof import("./lock-lead").activateLeadFromLock>[0],
+  ) => {
+    const { activateLeadFromLock } = await import("./lock-lead");
+    return activateLeadFromLock(params);
+  },
 } as const;
