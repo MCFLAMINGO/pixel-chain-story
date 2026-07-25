@@ -402,7 +402,7 @@ function tokenize(raw: string, line: number): Tok[] {
       continue;
     }
     if ("+-*/><(),.".includes(ch)) {
-      out.push({ kind: ch as Tok["kind"] });
+      out.push({ kind: ch as "(" | ")" | "," | "." | "+" | "-" | "*" | "/" | ">" | "<" });
       i++;
       continue;
     }
