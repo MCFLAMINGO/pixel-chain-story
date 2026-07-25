@@ -70,14 +70,19 @@ export function clearPeopleWalletBlob(): void {
   localStorage.removeItem(PEOPLE_WALLET_STORAGE_KEY);
 }
 
-/** Persist OTS leaf cursor after a successful sign (pay / kindle settle). */
-export function persistPeopleWalletLeaf(nextLeaf: number): void {
+/**
+ * Persist OTS leaf cursor after a successful sign (pay / kindle settle).
+ * No-op when no people wallet is stored — lab attach / ephemeral unlocks
+ * still pay on tip without a device blob.
+ */
+export function persistPeopleWalletLeaf(nextLeaf: number): boolean {
   const blob = loadPeopleWalletBlob();
-  if (!blob) throw new Error("No people wallet on this device");
+  if (!blob) return false;
   if (!Number.isInteger(nextLeaf) || nextLeaf < 0) {
     throw new Error(`Invalid nextLeaf ${nextLeaf}`);
   }
   savePeopleWalletBlob({ ...blob, nextLeaf });
+  return true;
 }
 
 /** Forge once and persist sealed Source (vault not shown in pay UI). */
