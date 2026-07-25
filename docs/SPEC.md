@@ -82,6 +82,12 @@ After a tip is sequenced, accepted, or replaced, the node emits an async `WaveFa
 
 **Invent note:** event-driven propagation for UI/ops — tip-recomputable only. Evidence: `bun run test:wave-fanout`. Path: [`SPATIAL.md`](./SPATIAL.md) S4.
 
+### Spatial sink (Three.js UI)
+
+`SpatialSinkPanel` / `/spatial` maps tip `spatialRoot` cells and optional wave hits into a Three.js viewport. **Display only** — the browser never authors digests; `acceptBlock` still recomputes. Adapter: `spatial-sink.ts`.
+
+**Invent note:** replaces matplotlib demos without a second ledger. Evidence: `bun run test:spatial-sink`. Path: [`SPATIAL.md`](./SPATIAL.md) S5.
+
 ### Spatial picture (sparse occupancy Merkle)
 
 Illuminated tips form a sparse occupancy set in lattice coords. Leaves are sorted `(x,y,z,index)` with `SHA-512(spatial-cell|coord|index|color|lit)`. Merkle parent `SHA-512(left|right)` (odd last leaf duplicated). Empty picture → `SHA-512(empty-spatial-root)`.
