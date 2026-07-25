@@ -104,6 +104,25 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         return json(await node.illuminatedCellProof(idx));
       }
 
+      /** Last wave fan-out event (S4 notify plane — not consensus truth). */
+      if (req.method === "GET" && url.pathname === "/wave/tip") {
+        const last = node.waveBus.last();
+        if (!last) {
+          const tip = node.chain.pixels[node.chain.pixels.length - 1];
+          if (!tip) return json({ ok: false, error: "no tip" }, { status: 404 });
+          return json({
+            tipIndex: tip.index,
+            tipHash: tip.hash,
+            waveDigest: tip.lightProof.waveDigest,
+            hits: tip.wave ?? [],
+            source: "tip",
+            at: tip.timestamp,
+            note: "no fan-out yet — tip-bound wave field",
+          });
+        }
+        return json(last);
+      }
+
       if (req.method === "GET" && url.pathname === "/pixels") {
         return json(node.chain.pixels);
       }
@@ -142,7 +161,7 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
       }
 
       return text(
-        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /spatial/snapshot | Continuity: /continuity/invite/:token | POST /continuity/order",
+        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /spatial/snapshot | GET /wave/tip | Continuity: /continuity/invite/:token | POST /continuity/order",
         { status: 200 },
       );
     },

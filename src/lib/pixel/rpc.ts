@@ -120,6 +120,17 @@ export async function handlePixelRpc(
         if (!Number.isInteger(index) || index < 0) throw rpcError(-32602, "bad cell index");
         return ok(id, await proveTipIlluminatedCell(ctx.chain, index));
       }
+      case "pix_getWaveTip": {
+        const tip = ctx.chain.pixels[ctx.chain.pixels.length - 1];
+        if (!tip) throw rpcError(-32602, "no tip");
+        return ok(id, {
+          tipIndex: tip.index,
+          tipHash: tip.hash,
+          waveDigest: tip.lightProof.waveDigest,
+          hits: tip.wave ?? [],
+          note: "tip-bound wave field — bus fan-out is node-local notify",
+        });
+      }
       case "pix_getHeaders": {
         const from = Number(params[0] ?? 0);
         const pkg = await buildHeadersSync(ctx.chain);

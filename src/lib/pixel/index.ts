@@ -19,6 +19,7 @@ export * from "./pol";
 export * from "./field-witness";
 export * from "./lattice";
 export * from "./wave";
+export * from "./wave-bus";
 export * from "./spatial-picture";
 export * from "./light-color";
 export * from "./expression";
