@@ -29,8 +29,15 @@ export function bytesToHex(bytes: Uint8Array): Hex {
     .join("");
 }
 
+/** Decode hex → bytes. Rejects non-hex; odd length pads a leading `0` (legacy). */
 export function hexToBytes(hex: Hex): Uint8Array {
-  const clean = hex.length % 2 === 0 ? hex : `0${hex}`;
+  if (typeof hex !== "string") throw new Error("hexToBytes: expected string");
+  const normalized = hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
+  if (normalized.length === 0) return new Uint8Array(0);
+  if (!/^[0-9a-fA-F]+$/.test(normalized)) {
+    throw new Error(`hexToBytes: non-hex input (${normalized.slice(0, 24)}…)`);
+  }
+  const clean = normalized.length % 2 === 0 ? normalized : `0${normalized}`;
   const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++) {
     out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);

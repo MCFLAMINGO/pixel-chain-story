@@ -6,7 +6,9 @@
 import {
   OTS_LEAF_COUNT,
   addressFromPublicKey,
+  bytesToHex,
   generateLightKeypair,
+  hexToBytes,
   isPixelAddress,
   signLightFull,
   verifyLight,
@@ -62,6 +64,17 @@ async function main() {
   if (!threw) throw new Error("expected OTS_EXHAUSTED after window");
   console.log(`▸ OTS window (${OTS_LEAF_COUNT}) enforced ✓`);
   console.log("▸ (ledger reuse guard: bun run test:ots-reuse)");
+
+  if (bytesToHex(hexToBytes("aB")) !== "ab") throw new Error("hex round-trip case");
+  if (bytesToHex(hexToBytes("0x0a")) !== "0a") throw new Error("hex 0x prefix");
+  let badHex = false;
+  try {
+    hexToBytes("zz");
+  } catch {
+    badHex = true;
+  }
+  if (!badHex) throw new Error("hexToBytes must reject non-hex");
+  console.log("▸ hexToBytes validates charset ✓");
 
   console.log("\n═══ PASS — crypto landmines closed ═══");
 }

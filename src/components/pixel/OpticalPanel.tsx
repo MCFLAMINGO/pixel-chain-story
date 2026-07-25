@@ -27,7 +27,12 @@ export function OpticalPanel({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [session, setSession] = useState<CameraSession | null>(null);
   const [camError, setCamError] = useState<string | null>(null);
-  const canCam = typeof window !== "undefined" && cameraCaptureAvailable();
+  // SSR-safe: never branch on window during render (hydration mismatch on /lab).
+  const [canCam, setCanCam] = useState(false);
+
+  useEffect(() => {
+    setCanCam(cameraCaptureAvailable());
+  }, []);
 
   useEffect(() => {
     return () => {
