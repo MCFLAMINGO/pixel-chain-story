@@ -210,6 +210,16 @@ export class PixelLedgerNode {
     return proveBalance(this.chain, address);
   }
 
+  async spatialSnapshot() {
+    const { buildSpatialPicture, pictureSnapshot } = await import("../lib/pixel/spatial-picture");
+    return pictureSnapshot(await buildSpatialPicture(this.chain.pixels));
+  }
+
+  async illuminatedCellProof(index: number) {
+    const { proveTipIlluminatedCell } = await import("../lib/pixel/light-client");
+    return proveTipIlluminatedCell(this.chain, index);
+  }
+
   async persist(): Promise<void> {
     await saveChain(this.datadir, this.chain);
     const identity = await loadIdentity(this.datadir);

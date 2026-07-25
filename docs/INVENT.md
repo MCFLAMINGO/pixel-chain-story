@@ -34,6 +34,7 @@ Primitive → advanced is allowed for uptake. **Settling on the primitive rung i
 | **FieldWitness**    | Sphere combination lock for tip custody — `fieldDigest` in PoLS; wrong neighbor effects fail (`test:field`). Not a rename of `prevHash`.                       |
 | **Lattice (S1)**    | Spatial coords + Chebyshev-3 peers + opacity-weighted blend bound into FieldWitness — tip physics, not a game voxel rename ([`SPATIAL.md`](./SPATIAL.md)).     |
 | **Lead wave (S2)**  | Multi-hop lattice propagation + collision fold; `waveDigest` in PoLS — neighbors react on the tip, not in a toy sim ([`SPATIAL.md`](./SPATIAL.md)).            |
+| **Spatial picture (S3)** | Sparse occupancy Merkle; `spatialRoot` in PoLS + prove cell lit — verifiable picture fragment, not matplotlib ([`SPATIAL.md`](./SPATIAL.md)).            |
 | **World canvas**    | One public picture of humanity — wallets shine in; tip marks; not “everyone inits a private chain.” Destination frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md). |
 
 Full audit: [`INVENTION.md`](./INVENTION.md).

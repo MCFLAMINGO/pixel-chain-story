@@ -90,6 +90,20 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         return json(await node.headersSyncSnapshot());
       }
 
+      /** Sparse illuminated picture snapshot (SPATIAL S3). */
+      if (req.method === "GET" && url.pathname === "/spatial/snapshot") {
+        return json(await node.spatialSnapshot());
+      }
+
+      /** Merkle proof that a cell is lit in the tip picture. */
+      if (req.method === "GET" && url.pathname.startsWith("/spatial/proof/")) {
+        const idx = Number(url.pathname.slice("/spatial/proof/".length));
+        if (!Number.isInteger(idx) || idx < 0) {
+          return json({ ok: false, error: "bad cell index" }, { status: 400 });
+        }
+        return json(await node.illuminatedCellProof(idx));
+      }
+
       if (req.method === "GET" && url.pathname === "/pixels") {
         return json(node.chain.pixels);
       }
@@ -128,7 +142,7 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
       }
 
       return text(
-        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | Continuity: /continuity/invite/:token | POST /continuity/order",
+        "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /spatial/snapshot | Continuity: /continuity/invite/:token | POST /continuity/order",
         { status: 200 },
       );
     },

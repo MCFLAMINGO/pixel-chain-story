@@ -44,6 +44,7 @@ const att = {
     skipCount: 0,
     fieldDigest: "ff".repeat(64),
     waveDigest: "ee".repeat(64),
+    spatialRoot: "dd".repeat(64),
   },
   messageHash,
   message: {
