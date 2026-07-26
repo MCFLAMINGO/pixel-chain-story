@@ -85,6 +85,8 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
               "PUT|GET /continuity/ops",
             ],
           },
+          bridgeLab:
+            process.env.PIXEL_BRIDGE_LAB === "1" || process.env.PIXEL_BRIDGE_LAB === "true",
         });
       }
 
@@ -143,6 +145,49 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         }
         const address = decodeURIComponent(rest);
         return json({ address, balance: node.balance(address) });
+      }
+
+      /** Phone-wallet lab bridge — USDC/ETH/wire → PIX on pay face (PIXEL_BRIDGE_LAB=1). */
+      if (req.method === "POST" && url.pathname === "/bridge/shine-in") {
+        const enabled =
+          process.env.PIXEL_BRIDGE_LAB === "1" || process.env.PIXEL_BRIDGE_LAB === "true";
+        if (!enabled) {
+          return json(
+            { ok: false, error: "PIXEL_BRIDGE_LAB not enabled — tip refuses open shine-in" },
+            { status: 404 },
+          );
+        }
+        const body = await readBodyWithLimit(req, MAX_RPC_BODY_BYTES);
+        if (!body.ok) {
+          return json({ ok: false, error: body.error }, { status: 413 });
+        }
+        let parsed: {
+          asset?: string;
+          humanUsd?: number;
+          ownerAddress?: string;
+          ownerLocalId?: string;
+        };
+        try {
+          parsed = JSON.parse(body.text) as typeof parsed;
+        } catch {
+          return json({ ok: false, error: "bad json" }, { status: 400 });
+        }
+        const asset = parsed.asset;
+        if (asset !== "USDC" && asset !== "ETH" && asset !== "USD") {
+          return json({ ok: false, error: "asset must be USDC | ETH | USD" }, { status: 400 });
+        }
+        try {
+          const out = await node.labBridgeShineIn({
+            asset,
+            humanUsd: Number(parsed.humanUsd),
+            ownerAddress: String(parsed.ownerAddress ?? ""),
+            ownerLocalId: String(parsed.ownerLocalId ?? "phone").slice(0, 64),
+          });
+          return json({ ok: true, plane: "shared_tip", ...out });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "bridge failed";
+          return json({ ok: false, error: msg }, { status: 400 });
+        }
       }
 
       /** Submit a signed tx into mempool + gossip (Gate B live path). */

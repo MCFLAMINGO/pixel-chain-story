@@ -12,9 +12,21 @@ import {
 import type { TipMarkReceipt } from "@/lib/pixel/tip-mark";
 import type { UnlockedSource } from "@/lib/pixel/custody";
 import { defaultPixelRpc } from "@/lib/pixel-rpc";
+import { shineInForPhoneWallet, type WalletBridgeAsset } from "@/lib/pixel/wallet-bridge";
+
+export type BridgeReceipt = {
+  plane: "shared_tip" | "lab_local";
+  pixCredited: number;
+  tipIndex: number;
+  balance: number;
+  summary: string;
+  canvasId: string | null;
+  asset: WalletBridgeAsset;
+  humanUsd: number;
+};
 
 /**
- * Browser people wallet — sealed Personal Source + pay face + tip balance + tip pay.
+ * Browser people wallet — sealed Personal Source + pay face + tip balance + tip pay + bridge.
  */
 export function usePeopleWallet(rpcOverride?: string) {
   const rpc = rpcOverride ?? defaultPixelRpc();
@@ -27,12 +39,15 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [unlocked, setUnlocked] = useState(false);
   const [session, setSession] = useState<UnlockedSource | null>(null);
   const [lastPay, setLastPay] = useState<TipMarkReceipt | null>(null);
+  const [lastBridge, setLastBridge] = useState<BridgeReceipt | null>(null);
+  const [tipBridgeLab, setTipBridgeLab] = useState<boolean | null>(null);
 
   const refreshBalance = useCallback(
     async (address: string) => {
       if (!rpc) {
         setBalance(null);
         setTipIndex(undefined);
+        setTipBridgeLab(null);
         return;
       }
       const tip = await fetchTipBalance(rpc, address);
@@ -42,6 +57,15 @@ export function usePeopleWallet(rpcOverride?: string) {
       }
       setBalance(tip.amount);
       setTipIndex(tip.tipIndex);
+      try {
+        const h = await fetch(`${rpc.replace(/\/$/, "")}/health`);
+        if (h.ok) {
+          const j = (await h.json()) as { bridgeLab?: boolean };
+          setTipBridgeLab(Boolean(j.bridgeLab));
+        }
+      } catch {
+        setTipBridgeLab(null);
+      }
     },
     [rpc],
   );
@@ -127,6 +151,46 @@ export function usePeopleWallet(rpcOverride?: string) {
     [rpc, session, refreshBalance],
   );
 
+  const bridgeIn = useCallback(
+    async (asset: WalletBridgeAsset, humanUsd: number) => {
+      if (!payFace) throw new Error("Forge a wallet first");
+      setBusy(true);
+      setError(null);
+      setLastBridge(null);
+      try {
+        const res = await shineInForPhoneWallet({
+          rpc,
+          asset,
+          humanUsd,
+          ownerAddress: payFace.address,
+          ownerLocalId: payFace.localId,
+        });
+        const receipt: BridgeReceipt = {
+          plane: res.plane,
+          pixCredited: res.pixCredited,
+          tipIndex: res.tipIndex,
+          balance: res.balance,
+          summary: res.summary,
+          canvasId: res.canvasId,
+          asset,
+          humanUsd,
+        };
+        setLastBridge(receipt);
+        if (res.plane === "shared_tip") {
+          await refreshBalance(payFace.address);
+        }
+        return receipt;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Bridge failed";
+        setError(msg);
+        throw e;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [payFace, rpc, refreshBalance],
+  );
+
   const clear = useCallback(() => {
     clearPeopleWalletBlob();
     setPayFace(null);
@@ -135,6 +199,7 @@ export function usePeopleWallet(rpcOverride?: string) {
     setUnlocked(false);
     setSession(null);
     setLastPay(null);
+    setLastBridge(null);
     setError(null);
   }, []);
 
@@ -147,10 +212,13 @@ export function usePeopleWallet(rpcOverride?: string) {
     tipIndex,
     unlocked,
     lastPay,
+    lastBridge,
+    tipBridgeLab,
     rpc: rpc ?? null,
     forge,
     unlock,
     pay,
+    bridgeIn,
     clear,
     refresh: payFace ? () => refreshBalance(payFace.address) : async () => {},
   };

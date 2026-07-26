@@ -116,8 +116,12 @@ export async function prepareIngress(req: IngressRequest): Promise<PreparedIngre
     if (!req.valueLock || req.valueLock.amount <= 0) {
       throw new Error("$ ingress needs a foreign value lock (USD/USDC/wire)");
     }
-    if (req.valueLock.asset !== "USD" && req.valueLock.asset !== "USDC") {
-      throw new Error("Demo value ingress expects USD or USDC lock");
+    if (
+      req.valueLock.asset !== "USD" &&
+      req.valueLock.asset !== "USDC" &&
+      req.valueLock.asset !== "ETH"
+    ) {
+      throw new Error("Demo value ingress expects USD, USDC, or ETH (USD-quoted) lock");
     }
     const lockDigest = await digestForeignLock(req.valueLock);
     digestSeed = lockDigest;

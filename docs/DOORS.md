@@ -47,7 +47,7 @@ Copy: **Build on · for · into Pixel.**
 
 ## People first (ease)
 
-Regular users need a **wallet** and a **felt connection to the main public picture** — not a local notebook. CLI `init` is for builders proving light; it is not mass onboarding. Full frame: [`WORLD-CANVAS.md`](./WORLD-CANVAS.md).
+Regular users need a **phone wallet** and a **felt connection to the main public picture** — not a local notebook. Open **`/wallet`** (Add to Home Screen): hold · send · bridge USDC/crypto. CLI `init` is not for people. Full frame: [`PHONE-WALLET.md`](./PHONE-WALLET.md) · [`WORLD-CANVAS.md`](./WORLD-CANVAS.md).
 
 ## People doors (use)
 

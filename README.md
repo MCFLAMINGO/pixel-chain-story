@@ -12,21 +12,20 @@ Full playbook: [`docs/QUICKSTART.md`](docs/QUICKSTART.md)
 
 ```bash
 bun install
-bun run pixel -- init --datadir ./data/a
-bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
-bun run dev                    # /doors · / = live field · /lab · /shine
-# /lab = Kindling / Worldlight for builders
+bun run dev                    # /wallet = phone hold · /doors · / = live field
+# People: open /wallet (Add to Home Screen). Tip: VITE_PIXEL_RPC=…
 bun run test:all
 ```
 
-## Node (local)
+**Phone path:** [`docs/PHONE-WALLET.md`](docs/PHONE-WALLET.md) — hold · send · bridge USDC/crypto on the one tip.  
+**Not for people:** `pixel init` (forges a private Earth). Friends **join** the tip; phones never run a node.
+
+## Node (operator / friend laptop)
 
 ```bash
-bun run pixel -- init --datadir ./data/a
-bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
-# other terminal
-bun run pixel -- join --peer http://127.0.0.1:8545 --datadir ./data/b
-bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://127.0.0.1:9001/gossip
+# Join the public tip (or a local tip you already have) — do not init a new Earth
+bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend
+bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 ```
 
 ## Docs engineers should read
