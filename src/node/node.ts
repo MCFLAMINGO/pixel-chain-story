@@ -339,17 +339,20 @@ export class PixelLedgerNode {
   }
 
   async submitTx(tx: Transaction): Promise<void> {
-    return this.withChainLock(async () => {
-      if (this.chain.pending.some((p) => p.txid === tx.txid)) return;
-      this.chain = {
-        ...this.chain,
-        pending: [...this.chain.pending, tx],
-        pendingSince:
-          this.chain.pending.length === 0 ? Date.now() : (this.chain.pendingSince ?? Date.now()),
-      };
-      this.gossip.broadcast({ type: "tx", tx });
-      this.queuePersist();
-    });
+    return this.withChainLock(() => this.submitTxLocked(tx));
+  }
+
+  /** Caller must hold `withChainLock` (or be the sole mutator). */
+  private async submitTxLocked(tx: Transaction): Promise<void> {
+    if (this.chain.pending.some((p) => p.txid === tx.txid)) return;
+    this.chain = {
+      ...this.chain,
+      pending: [...this.chain.pending, tx],
+      pendingSince:
+        this.chain.pending.length === 0 ? Date.now() : (this.chain.pendingSince ?? Date.now()),
+    };
+    this.gossip.broadcast({ type: "tx", tx });
+    this.queuePersist();
   }
 
   async send(
@@ -518,7 +521,8 @@ export class PixelLedgerNode {
           break;
         }
         case "tx":
-          await this.submitTx(msg.tx);
+          // Already under withChainLock — do not call submitTx (re-entrant deadlock).
+          await this.submitTxLocked(msg.tx);
           break;
         case "pixel": {
           const tip = this.chain.pixels[this.chain.pixels.length - 1];
