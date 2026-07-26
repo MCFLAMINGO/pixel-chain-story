@@ -7,6 +7,7 @@ import {
   OTS_LEAF_COUNT,
   addressFromPublicKey,
   bytesToHex,
+  canonicalizeHex,
   generateLightKeypair,
   hexToBytes,
   isPixelAddress,
@@ -74,7 +75,17 @@ async function main() {
     badHex = true;
   }
   if (!badHex) throw new Error("hexToBytes must reject non-hex");
-  console.log("▸ hexToBytes validates charset ✓");
+  if (canonicalizeHex("0xAbCd") !== "abcd") throw new Error("canonicalizeHex case");
+  let oddCanon = false;
+  try {
+    canonicalizeHex("abc");
+  } catch {
+    oddCanon = true;
+  }
+  if (!oddCanon) throw new Error("canonicalizeHex must reject odd length");
+  const addrUpper = await addressFromPublicKey(alice.publicKey.toUpperCase());
+  if (addrUpper !== alice.address) throw new Error("addressFromPublicKey must canonicalize case");
+  console.log("▸ hexToBytes + canonicalizeHex ✓");
 
   console.log("\n═══ PASS — crypto landmines closed ═══");
 }

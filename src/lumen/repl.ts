@@ -57,32 +57,44 @@ export function runLumen(program: string): string[] {
   const lines = program.split(/\r?\n/);
   const env: Env = {};
   const output: string[] = [];
-  for (const raw of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]!;
     const line = raw.replace(/#.*/g, "").replace(/;.*/g, "").trim();
     if (!line) continue;
-    const parts = tokenizeLine(line);
-    if (parts[0] === "let") {
-      const name = parts[1];
-      const eq = parts[2];
-      if (!name || eq !== "=") throw new Error(`Invalid let syntax: ${line}`);
-      env[name] = evalExpr(parts.slice(3), env);
-      continue;
+    try {
+      const parts = tokenizeLine(line);
+      if (parts[0] === "let") {
+        const name = parts[1];
+        const eq = parts[2];
+        if (!name || eq !== "=") throw new Error(`Invalid let syntax: ${line}`);
+        env[name] = evalExpr(parts.slice(3), env);
+        continue;
+      }
+      if (parts[0] === "print") {
+        output.push(String(evalExpr(parts.slice(1), env)));
+        continue;
+      }
+      evalExpr(parts, env);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`line ${i + 1}: ${msg}\n  ${line}`);
     }
-    if (parts[0] === "print") {
-      output.push(String(evalExpr(parts.slice(1), env)));
-      continue;
-    }
-    evalExpr(parts, env);
   }
   return output;
 }
 
+/** Bun / Node ESM entry — `import.meta.main` is the portable check (no argv path sniffing). */
 if (import.meta.main) {
   const file = process.argv[2];
   if (!file) {
     console.log("Usage: bun src/lumen/repl.ts <file.lumen>");
     process.exit(1);
   }
-  const out = runLumen(readFileSync(file, "utf8"));
-  for (const o of out) console.log(o);
+  try {
+    const out = runLumen(readFileSync(file, "utf8"));
+    for (const o of out) console.log(o);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+    process.exit(1);
+  }
 }

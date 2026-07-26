@@ -7,13 +7,30 @@
  */
 
 import { computeStateRoot } from "../src/lib/pixel/light-client";
+import { addressFromPublicKey, isPixelAddress } from "../src/lib/pixel/crypto";
 import type { PixelChainState, Utxo } from "../src/lib/pixel/chain";
 
-function makeStateWithN(n: number): PixelChainState {
+/**
+ * Build a lab state with N UTXOs.
+ * Addresses are canonical `pix1` + 38 hex via `addressFromPublicKey` (not short
+ * synthetic stubs) so they stay valid if later fed to `assertPixelAddress`.
+ */
+async function makeStateWithN(n: number): Promise<PixelChainState> {
   const utxos = new Map<string, Utxo>();
+  const addrCache = new Map<number, string>();
   for (let i = 0; i < n; i++) {
-    const addr = `pix1${(i % 20).toString(16).padStart(38, "0")}`;
-    const txid = `tx${i}`;
+    const bucket = i % 20;
+    let addr = addrCache.get(bucket);
+    if (!addr) {
+      // Deterministic fake "pubkey" hex → real-shaped pix1 address
+      const fakePk = bucket.toString(16).padStart(64, "0");
+      addr = await addressFromPublicKey(fakePk);
+      if (!isPixelAddress(addr)) {
+        throw new Error(`bench synthetic address not canonical: ${addr}`);
+      }
+      addrCache.set(bucket, addr);
+    }
+    const txid = `tx${i.toString(16).padStart(8, "0")}`;
     utxos.set(`${txid}:0`, {
       txid,
       vout: 0,
@@ -46,7 +63,7 @@ async function medianMs(fn: () => Promise<void>, samples: number): Promise<numbe
 async function bench() {
   console.log("═══ LIGHT-CLIENT computeStateRoot BENCH ═══\n");
   for (const n of [0, 10, 100, 500, 1000]) {
-    const state = makeStateWithN(n);
+    const state = await makeStateWithN(n);
     let root = "";
     const samples = n >= 500 ? 5 : 11;
     const med = await medianMs(async () => {

@@ -91,8 +91,11 @@ export class PixelLedgerNode {
   private lastTipIndex = 0;
   private lastTipChangeAt = Date.now();
   private stallLoggedAt = 0;
-  /** Serialize peer apply so dual-link races cannot double-accept. */
-  private peerApply: Promise<void> = Promise.resolve();
+  /**
+   * Serialize critical chain mutations (sequence / accept / submit / send / peer apply)
+   * so timer + gossip + RPC cannot race sequence/accept.
+   */
+  private chainLock: Promise<void> = Promise.resolve();
   /** Gate F peer scores */
   peerBook: PeerBookState = createPeerBook();
   private helloSig = "";
@@ -277,6 +280,21 @@ export class PixelLedgerNode {
     }, 50);
   }
 
+  /** Mutex queue for tip / pending / registry mutations. */
+  private async withChainLock<T>(fn: () => Promise<T>): Promise<T> {
+    const prev = this.chainLock;
+    let release!: () => void;
+    this.chainLock = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+
   private noteTipProgress() {
     const tip = this.chain.pixels.length - 1;
     if (tip !== this.lastTipIndex) {
@@ -321,6 +339,11 @@ export class PixelLedgerNode {
   }
 
   async submitTx(tx: Transaction): Promise<void> {
+    return this.withChainLock(() => this.submitTxLocked(tx));
+  }
+
+  /** Caller must hold `withChainLock` (or be the sole mutator). */
+  private async submitTxLocked(tx: Transaction): Promise<void> {
     if (this.chain.pending.some((p) => p.txid === tx.txid)) return;
     this.chain = {
       ...this.chain,
@@ -337,19 +360,25 @@ export class PixelLedgerNode {
     outputs: TxOutput[],
     metadata: ReadableMeta,
   ): Promise<Transaction> {
-    const { state, tx } = await proposeTransfer(this.chain, from, outputs, metadata);
-    this.chain = state;
-    // OTS leaf advanced during sign — persist wallet cursor when named wallets are used.
-    if (from.address === this.keypair.address) {
-      this.keypair.nextLeaf = from.nextLeaf;
-    }
-    this.gossip.broadcast({ type: "tx", tx });
-    this.queuePersist();
-    await this.trySequence();
-    return tx;
+    return this.withChainLock(async () => {
+      const { state, tx } = await proposeTransfer(this.chain, from, outputs, metadata);
+      this.chain = state;
+      // OTS leaf advanced during sign — persist wallet cursor when named wallets are used.
+      if (from.address === this.keypair.address) {
+        this.keypair.nextLeaf = from.nextLeaf;
+      }
+      this.gossip.broadcast({ type: "tx", tx });
+      this.queuePersist();
+      await this.trySequenceLocked();
+      return tx;
+    });
   }
 
   async trySequence(): Promise<boolean> {
+    return this.withChainLock(() => this.trySequenceLocked());
+  }
+
+  private async trySequenceLocked(): Promise<boolean> {
     if (this.chain.pending.length === 0) return false;
     const skip = skipCountForAddress(this.chain, this.keypair.address);
     if (skip === null) return false;
@@ -361,7 +390,7 @@ export class PixelLedgerNode {
     }
     try {
       this.chain = await sequenceBlock(this.chain, this.keypair, { skipCount: skip });
-      const pixel = this.chain.pixels[this.chain.pixels.length - 1];
+      const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
       this.fanoutWave(pixel, "sequence");
@@ -492,7 +521,8 @@ export class PixelLedgerNode {
           break;
         }
         case "tx":
-          await this.submitTx(msg.tx);
+          // Already under withChainLock — do not call submitTx (re-entrant deadlock).
+          await this.submitTxLocked(msg.tx);
           break;
         case "pixel": {
           const tip = this.chain.pixels[this.chain.pixels.length - 1];
@@ -544,8 +574,7 @@ export class PixelLedgerNode {
           break;
       }
     };
-    this.peerApply = this.peerApply.then(run, run);
-    await this.peerApply;
+    return this.withChainLock(run);
   }
 
   balance(address: string): number {

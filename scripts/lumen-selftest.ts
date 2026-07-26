@@ -175,6 +175,16 @@ ray burn(from: string, to: string) -> settled:
   if (out[1] !== "50") throw new Error(`REPL expected 50, got ${out[1]}`);
   console.log("▸ minimal REPL example.lumen ✓");
 
+  let lineErr = false;
+  try {
+    runLumen("let x = 1\nprint nope\n");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    lineErr = msg.includes("line 2:") && msg.includes("Unknown identifier nope");
+  }
+  if (!lineErr) throw new Error("REPL should include line number in errors");
+  console.log("▸ REPL line-numbered errors ✓");
+
   console.log("\n═══ PASS — Lumen types + persist beside chain ═══");
 }
 

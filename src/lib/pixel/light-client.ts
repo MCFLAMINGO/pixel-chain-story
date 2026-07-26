@@ -8,7 +8,7 @@
  * historical per-pixel state commitments are a later hardening step.
  */
 
-import { sha512Hex, type Hex } from "./crypto";
+import { sha512SyncHex, type Hex } from "./crypto";
 import { verifyLightProof, type LightProof } from "./pol";
 import type { LedgerPixel, PixelChainState } from "./chain";
 import { balanceOf } from "./chain";
@@ -57,8 +57,8 @@ export interface BalanceProof {
   stateRoot: Hex;
 }
 
-function balanceLeaf(address: string, amount: number): Promise<Hex> {
-  return sha512Hex(`bal|${address}|${amount}`);
+function balanceLeafSync(address: string, amount: number): Hex {
+  return sha512SyncHex(`bal|${address}|${amount}`);
 }
 
 /** Aggregate balances by address, sorted lexicographically for stable merkle. */
@@ -72,28 +72,26 @@ export function balanceLeaves(state: PixelChainState): Array<{ address: string; 
     .sort((a, b) => (a.address < b.address ? -1 : a.address > b.address ? 1 : 0));
 }
 
-async function merkleParent(left: Hex, right: Hex): Promise<Hex> {
-  return sha512Hex(`${left}|${right}`);
+function merkleParentSync(left: Hex, right: Hex): Hex {
+  return sha512SyncHex(`${left}|${right}`);
 }
 
 /** State root over sorted address balances (empty set → fixed sentinel). */
 export async function computeStateRoot(state: PixelChainState): Promise<Hex> {
   const leaves = balanceLeaves(state);
-  if (leaves.length === 0) return sha512Hex("empty-state-root");
-  let layer: Hex[] = [];
-  for (const row of leaves) {
-    layer.push(await balanceLeaf(row.address, row.amount));
-  }
+  if (leaves.length === 0) return sha512SyncHex("empty-state-root");
+  // Sync @noble hashes — same digests as former await sha512Hex, no serial awaits.
+  let layer: Hex[] = leaves.map((row) => balanceLeafSync(row.address, row.amount));
   while (layer.length > 1) {
     const next: Hex[] = [];
     for (let i = 0; i < layer.length; i += 2) {
-      const left = layer[i];
+      const left = layer[i]!;
       const right = layer[i + 1] ?? left;
-      next.push(await merkleParent(left, right));
+      next.push(merkleParentSync(left, right));
     }
     layer = next;
   }
-  return layer[0];
+  return layer[0]!;
 }
 
 export async function proveBalance(
@@ -115,31 +113,28 @@ export async function proveBalance(
       stateRoot,
     };
   }
-  let layer: Hex[] = [];
-  for (const row of leaves) {
-    layer.push(await balanceLeaf(row.address, row.amount));
-  }
+  let layer: Hex[] = leaves.map((row) => balanceLeafSync(row.address, row.amount));
   const siblings: Hex[] = [];
   let idx = leafIndex;
   while (layer.length > 1) {
     const siblingIdx = idx % 2 === 0 ? idx + 1 : idx - 1;
-    const sibling = layer[siblingIdx] ?? layer[idx];
+    const sibling = layer[siblingIdx] ?? layer[idx]!;
     siblings.push(sibling);
     const next: Hex[] = [];
     for (let i = 0; i < layer.length; i += 2) {
-      const left = layer[i];
+      const left = layer[i]!;
       const right = layer[i + 1] ?? left;
-      next.push(await merkleParent(left, right));
+      next.push(merkleParentSync(left, right));
     }
     layer = next;
     idx = Math.floor(idx / 2);
   }
   return {
     address,
-    amount: leaves[leafIndex].amount,
+    amount: leaves[leafIndex]!.amount,
     leafIndex,
     siblings,
-    stateRoot: layer[0],
+    stateRoot: layer[0]!,
   };
 }
 
@@ -151,10 +146,10 @@ export async function verifyBalanceProof(proof: BalanceProof): Promise<boolean> 
     return proof.siblings.length === 0 && proof.stateRoot.length >= 64;
   }
   if (proof.leafIndex < 0) return false;
-  let hash = await balanceLeaf(proof.address, proof.amount);
+  let hash = balanceLeafSync(proof.address, proof.amount);
   let idx = proof.leafIndex;
   for (const sibling of proof.siblings) {
-    hash = idx % 2 === 0 ? await merkleParent(hash, sibling) : await merkleParent(sibling, hash);
+    hash = idx % 2 === 0 ? merkleParentSync(hash, sibling) : merkleParentSync(sibling, hash);
     idx = Math.floor(idx / 2);
   }
   return hash === proof.stateRoot;
