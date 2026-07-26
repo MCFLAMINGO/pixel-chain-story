@@ -1,0 +1,17 @@
+# Railway config for the canonical tip service (not the Vite site).
+# Link / deploy with: railway up -d --service pixel-tip  (or set Dockerfile in dashboard)
+#
+# Required after first deploy:
+#   1. Volume mounted at /data/pixel (persistent genesis)
+#   2. Generate domain → https://….up.railway.app
+#   3. Lovable / site build: VITE_PIXEL_RPC=https://….up.railway.app
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.tip"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
