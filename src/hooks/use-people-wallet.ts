@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  claimTipFaucet,
   clearPeopleWalletBlob,
   fetchTipBalance,
   forgeAndPersistPeopleWallet,
@@ -13,6 +14,7 @@ import type { TipMarkReceipt } from "@/lib/pixel/tip-mark";
 import type { UnlockedSource } from "@/lib/pixel/custody";
 import { defaultPixelRpc } from "@/lib/pixel-rpc";
 import { shineInForPhoneWallet, type WalletBridgeAsset } from "@/lib/pixel/wallet-bridge";
+import { CROWNED_GENESIS_PREFIX, isCrownedGenesisHash } from "@/lib/pixel/crowned-genesis";
 
 export type BridgeReceipt = {
   plane: "shared_tip" | "lab_local";
@@ -41,6 +43,9 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [lastPay, setLastPay] = useState<TipMarkReceipt | null>(null);
   const [lastBridge, setLastBridge] = useState<BridgeReceipt | null>(null);
   const [tipBridgeLab, setTipBridgeLab] = useState<boolean | null>(null);
+  const [tipFaucet, setTipFaucet] = useState<boolean | null>(null);
+  const [crownedTip, setCrownedTip] = useState<boolean | null>(null);
+  const [faucetNote, setFaucetNote] = useState<string | null>(null);
 
   const refreshBalance = useCallback(
     async (address: string) => {
@@ -48,6 +53,8 @@ export function usePeopleWallet(rpcOverride?: string) {
         setBalance(null);
         setTipIndex(undefined);
         setTipBridgeLab(null);
+        setTipFaucet(null);
+        setCrownedTip(null);
         return;
       }
       const tip = await fetchTipBalance(rpc, address);
@@ -60,11 +67,19 @@ export function usePeopleWallet(rpcOverride?: string) {
       try {
         const h = await fetch(`${rpc.replace(/\/$/, "")}/health`);
         if (h.ok) {
-          const j = (await h.json()) as { bridgeLab?: boolean };
+          const j = (await h.json()) as {
+            bridgeLab?: boolean;
+            faucet?: boolean;
+            genesisHash?: string;
+          };
           setTipBridgeLab(Boolean(j.bridgeLab));
+          setTipFaucet(Boolean(j.faucet ?? j.bridgeLab));
+          setCrownedTip(isCrownedGenesisHash(j.genesisHash));
         }
       } catch {
         setTipBridgeLab(null);
+        setTipFaucet(null);
+        setCrownedTip(null);
       }
     },
     [rpc],
@@ -151,6 +166,26 @@ export function usePeopleWallet(rpcOverride?: string) {
     [rpc, session, refreshBalance],
   );
 
+  const faucet = useCallback(async () => {
+    if (!rpc) throw new Error("No tip RPC");
+    if (!payFace) throw new Error("Forge a wallet first");
+    setBusy(true);
+    setError(null);
+    setFaucetNote(null);
+    try {
+      const out = await claimTipFaucet({ rpc, address: payFace.address });
+      setFaucetNote(out.summary);
+      await refreshBalance(payFace.address);
+      return out;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Faucet failed";
+      setError(msg);
+      throw e;
+    } finally {
+      setBusy(false);
+    }
+  }, [rpc, payFace, refreshBalance]);
+
   const bridgeIn = useCallback(
     async (asset: WalletBridgeAsset, humanUsd: number) => {
       if (!payFace) throw new Error("Forge a wallet first");
@@ -200,6 +235,7 @@ export function usePeopleWallet(rpcOverride?: string) {
     setSession(null);
     setLastPay(null);
     setLastBridge(null);
+    setFaucetNote(null);
     setError(null);
   }, []);
 
@@ -214,10 +250,15 @@ export function usePeopleWallet(rpcOverride?: string) {
     lastPay,
     lastBridge,
     tipBridgeLab,
+    tipFaucet,
+    crownedTip,
+    crownedPrefix: CROWNED_GENESIS_PREFIX,
+    faucetNote,
     rpc: rpc ?? null,
     forge,
     unlock,
     pay,
+    faucet,
     bridgeIn,
     clear,
     refresh: payFace ? () => refreshBalance(payFace.address) : async () => {},

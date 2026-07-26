@@ -1,10 +1,18 @@
-/** Default RPC for the public live field — set at build time for a canonical mosaic. */
+import { PUBLIC_TIP_RPC_DEFAULT } from "./pixel/crowned-genesis";
+
+/**
+ * Default RPC for the public live field + /wallet.
+ * Env wins; otherwise the crowned public tip (friends can open /wallet with no build vars).
+ * Local tip: VITE_PIXEL_RPC=http://127.0.0.1:8545
+ */
 export function defaultPixelRpc(): string | undefined {
   const fromEnv =
     typeof import.meta !== "undefined"
       ? (import.meta.env?.VITE_PIXEL_RPC as string | undefined)
       : undefined;
-  return fromEnv?.trim() || undefined;
+  const trimmed = fromEnv?.trim();
+  if (trimmed) return trimmed;
+  return PUBLIC_TIP_RPC_DEFAULT;
 }
 
 /**

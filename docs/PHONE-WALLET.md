@@ -33,13 +33,16 @@ Cap: `$25` per shine-in (`WALLET_BRIDGE_MAX_USD`).
 ## Ops
 
 ```bash
-# Site (Lovable / Vite)
+# Site (Lovable / Vite) — also defaults in code if unset
 VITE_PIXEL_RPC=https://pixel-tip-production.up.railway.app
 VITE_REQUIRE_PUBLIC_TIP=1
 
-# Tip host (optional open bridge for friends)
+# Tip host (Railway) — bridge + faucet for friends
 PIXEL_BRIDGE_LAB=1
+PIXEL_FAUCET=1
 ```
+
+Invite paste: [`demos/friend-invite.md`](./demos/friend-invite.md)
 
 ## Evidence
 

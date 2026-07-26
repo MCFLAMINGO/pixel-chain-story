@@ -142,6 +142,45 @@ export async function fetchTipBalance(
   }
 }
 
+/** Claim tip faucet PIX for a new pay face (PIXEL_FAUCET / PIXEL_BRIDGE_LAB on tip). */
+export async function claimTipFaucet(params: {
+  rpc: string;
+  address: string;
+  amount?: number;
+}): Promise<{
+  funded: number;
+  balance: number;
+  tipIndex: number;
+  skipped: boolean;
+  summary: string;
+}> {
+  const base = params.rpc.replace(/\/$/, "");
+  const res = await fetch(`${base}/faucet`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ address: params.address, amount: params.amount ?? 10 }),
+  });
+  const data = (await res.json()) as {
+    ok?: boolean;
+    error?: string;
+    funded?: number;
+    balance?: number;
+    tipIndex?: number;
+    skipped?: boolean;
+    summary?: string;
+  };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? `faucet HTTP ${res.status}`);
+  }
+  return {
+    funded: Number(data.funded ?? 0),
+    balance: Number(data.balance ?? 0),
+    tipIndex: Number(data.tipIndex ?? 0),
+    skipped: Boolean(data.skipped),
+    summary: String(data.summary ?? "funded"),
+  };
+}
+
 /**
  * Pay from unlocked Source onto the shared tip (POST /tx → tip inclusion).
  * Vault never leaves the unlock session; only the signed tx hits the wire.

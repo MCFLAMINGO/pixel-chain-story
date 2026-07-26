@@ -89,11 +89,16 @@ function WalletPage() {
         </header>
 
         {installHint ? (
-          <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-2 text-xs text-white/70">
-            Add to Home Screen for a real phone hold — Safari Share → Add to Home Screen, or Chrome
-            Install app.
+          <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-2 text-xs leading-relaxed text-white/70">
+            <span className="font-medium text-emerald-200/90">Install like a real wallet:</span>{" "}
+            iPhone Safari → Share → Add to Home Screen. Android Chrome → Install app. Then Fund tip
+            → Bridge / Send.
           </p>
-        ) : null}
+        ) : (
+          <p className="mt-4 text-xs text-emerald-300/70">
+            Installed · Personal Source on this phone
+          </p>
+        )}
 
         {!w.ready ? (
           <p className="mt-16 text-sm text-white/50">Opening…</p>
@@ -136,7 +141,9 @@ function WalletPage() {
               {w.rpc ? (
                 <p className="mt-2 text-xs text-white/45">
                   On tip{typeof w.tipIndex === "number" ? ` #${w.tipIndex}` : ""}
+                  {w.crownedTip ? ` · Earth ${w.crownedPrefix}…` : " · check genesis"}
                   {w.tipBridgeLab ? " · bridge open" : ""}
+                  {w.tipFaucet ? " · faucet open" : ""}
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-amber-200/80">
@@ -157,6 +164,14 @@ function WalletPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={w.busy || !w.rpc || w.tipFaucet === false}
+                  onClick={() => void w.faucet().catch(() => undefined)}
+                  className="wallet-chip-active"
+                >
+                  Fund tip
+                </button>
+                <button
+                  type="button"
                   disabled={w.busy || !w.rpc}
                   onClick={() => void w.refresh()}
                   className="wallet-chip"
@@ -164,6 +179,9 @@ function WalletPage() {
                   Refresh
                 </button>
               </div>
+              {w.faucetNote ? (
+                <p className="mt-3 text-xs text-emerald-300/90">{w.faucetNote}</p>
+              ) : null}
             </section>
 
             <div className="mt-8 flex-1">

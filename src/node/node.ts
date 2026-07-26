@@ -141,6 +141,17 @@ export class PixelLedgerNode {
     if (existing) {
       this.chain = registerSequencer(existing, keypair);
     } else {
+      const allowLab =
+        process.env.PIXEL_ALLOW_LAB_GENESIS === "1" ||
+        process.env.PIXEL_ALLOW_LAB_GENESIS === "true" ||
+        process.env.PIXEL_TIP_HOST === "1" ||
+        process.env.PIXEL_TIP_HOST === "true";
+      if (!allowLab) {
+        throw new Error(
+          `No ledger in ${this.datadir} — join the crowned tip (do not forge Earth). ` +
+            `bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ${this.datadir} --require-crowned`,
+        );
+      }
       this.chain = await createGenesis(keypair);
     }
     this.lastTipIndex = this.chain.pixels.length - 1;
@@ -438,6 +449,71 @@ export class PixelLedgerNode {
         balance: balanceOf(this.chain, params.ownerAddress),
         summary: res.summary,
         canvasId: snap.canvasId,
+      };
+    });
+  }
+
+  /**
+   * Lab tip faucet — fund a new pay face so friends can send/bridge demos.
+   * PIXEL_FAUCET=1 or PIXEL_BRIDGE_LAB=1. Skips if already funded ≥ amount.
+   */
+  async faucetPayFace(params: { address: string; amount?: number }): Promise<{
+    funded: number;
+    balance: number;
+    tipIndex: number;
+    skipped: boolean;
+    summary: string;
+  }> {
+    const enabled =
+      process.env.PIXEL_FAUCET === "1" ||
+      process.env.PIXEL_FAUCET === "true" ||
+      process.env.PIXEL_BRIDGE_LAB === "1" ||
+      process.env.PIXEL_BRIDGE_LAB === "true";
+    if (!enabled) {
+      throw new Error("PIXEL_FAUCET / PIXEL_BRIDGE_LAB not enabled on this tip");
+    }
+    const amount = Math.min(Math.max(1, Math.floor(params.amount ?? 10)), 50);
+    const { assertPixelAddress } = await import("../lib/pixel/crypto");
+    assertPixelAddress(params.address, "faucet address");
+    return this.withChainLock(async () => {
+      const have = balanceOf(this.chain, params.address);
+      if (have >= amount) {
+        return {
+          funded: 0,
+          balance: have,
+          tipIndex: this.chain.pixels.length - 1,
+          skipped: true,
+          summary: `already funded (${have} PIX)`,
+        };
+      }
+      const need = amount - have;
+      const vaultBal = balanceOf(this.chain, this.keypair.address);
+      if (vaultBal < need) {
+        throw new Error(`faucet vault needs ${need} PIX (has ${vaultBal})`);
+      }
+      const spoken = await proposeTransfer(
+        this.chain,
+        this.keypair,
+        [{ address: params.address, amount: need }],
+        {
+          description: `faucet ${need} PIX → pay face`,
+          recipientLabel: "faucet",
+          reference: `FAUCET-${params.address.slice(0, 18)}`,
+        },
+      );
+      this.chain = await sequenceBlock(spoken.state, this.keypair);
+      const tip = this.chain.pixels[this.chain.pixels.length - 1]!;
+      this.gossip?.broadcast({ type: "pixel", pixel: tip });
+      this.noteTipProgress();
+      this.fanoutWave(tip, "sequence");
+      this.queuePersist();
+      const bal = balanceOf(this.chain, params.address);
+      return {
+        funded: need,
+        balance: bal,
+        tipIndex: tip.index,
+        skipped: false,
+        summary: `fauceted ${need} PIX → ${params.address.slice(0, 20)}… (tip #${tip.index})`,
       };
     });
   }
