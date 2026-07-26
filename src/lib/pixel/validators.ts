@@ -124,7 +124,11 @@ export function assertJsonSize(raw: string, maxBytes: number, label = "JSON"): v
 }
 
 /**
- * Size-cap + JSON.parse + zod. Throws ValidationError on failure.
+ * Size-cap + JSON.parse + zod **validate-only**.
+ *
+ * Returns the original `JSON.parse` value (not zod's rebuilt object) so
+ * key order in signed tx bodies (`canonicalTxBody`) is preserved. Zod object
+ * parse would reorder keys (e.g. outputs `amount`/`address`) and break sigs.
  */
 export function parseJsonWithSchema<T>(
   raw: string,
@@ -142,7 +146,7 @@ export function parseJsonWithSchema<T>(
   if (!parsed.success) {
     throw new ValidationError(`${opts.label ?? "JSON"}: schema rejected`, parsed.error.flatten());
   }
-  return parsed.data;
+  return value as T;
 }
 
 /** Soft parse — returns null instead of throw (for verify paths). */

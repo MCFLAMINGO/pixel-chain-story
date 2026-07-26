@@ -4,8 +4,10 @@
  */
 
 import {
+  MAX_RPC_BODY_BYTES,
   MAX_SIGNATURE_JSON_BYTES,
   assertJsonSize,
+  parseJsonWithSchema,
   parseMldsaSignatureJson,
   parseOtsSignatureJson,
   parseSignatureEnvelope,
@@ -21,6 +23,7 @@ import {
 } from "../src/lib/pixel/crypto";
 import { generatePixelKeypair, signPixel, verifyPixel } from "../src/lib/pixel/scheme";
 import { createDemoWallet, createGenesis, proposeTransfer } from "../src/lib/pixel/index";
+import { verifyTransactionSignatures } from "../src/lib/pixel/transaction";
 import { buildMldsaGateReceipt, labMldsaUlaChain } from "../src/lib/pixel/ula-mldsa";
 
 async function main() {
@@ -76,7 +79,19 @@ async function main() {
   });
   const txOk = transactionSchema.safeParse(tx);
   if (!txOk.success) throw new Error(`tx schema: ${JSON.stringify(txOk.error.flatten())}`);
-  console.log("▸ live Transaction matches schema ✓");
+  // validate-only parse must preserve key order (signed body)
+  const wire = JSON.stringify(tx);
+  const round = parseJsonWithSchema(wire, transactionSchema, {
+    maxBytes: MAX_RPC_BODY_BYTES,
+    label: "tx",
+  });
+  if (JSON.stringify(round) !== wire) {
+    throw new Error("parseJsonWithSchema must not rebuild/reorder signed tx JSON");
+  }
+  if (!(await verifyTransactionSignatures(round as typeof tx))) {
+    throw new Error("tx must still verify after schema gate");
+  }
+  console.log("▸ live Transaction matches schema + wire-preserve ✓");
 
   const { attestation } = await labMldsaUlaChain();
   const gate = await buildMldsaGateReceipt(attestation);
