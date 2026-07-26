@@ -34,11 +34,11 @@ bun run tip:host
 # RPC http://127.0.0.1:8545  ·  datadir ./data/canonical
 ```
 
-Or classic CLI:
+Tip first boot is `tip:host` (not people-facing `init`). Optional phone bridge faucet:
 
 ```bash
-bun run pixel -- init --datadir ./data/canonical
-bun run pixel -- node --datadir ./data/canonical --rpc 8545 --gossip 9001
+PIXEL_BRIDGE_LAB=1 bun run tip:host
+# POST /bridge/shine-in — USDC/ETH/wire → PIX on a pay face (lab, capped)
 ```
 
 ### B. Docker (any VPS)

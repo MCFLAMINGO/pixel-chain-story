@@ -374,6 +374,74 @@ export class PixelLedgerNode {
     });
   }
 
+  /**
+   * Lab tip faucet-bridge: USDC/ETH/wire lock → shine-in → PIX on a pay face.
+   * Enabled only when PIXEL_BRIDGE_LAB=1 (not a mainnet bridge claim).
+   */
+  async labBridgeShineIn(params: {
+    asset: "USDC" | "ETH" | "USD";
+    humanUsd: number;
+    ownerAddress: string;
+    ownerLocalId: string;
+  }): Promise<{
+    pixCredited: number;
+    tipIndex: number;
+    balance: number;
+    summary: string;
+    canvasId: string | null;
+  }> {
+    const enabled = process.env.PIXEL_BRIDGE_LAB === "1" || process.env.PIXEL_BRIDGE_LAB === "true";
+    if (!enabled) {
+      throw new Error("PIXEL_BRIDGE_LAB not enabled on this tip");
+    }
+    return this.withChainLock(async () => {
+      const { prepareWalletBridgeIngress, WALLET_BRIDGE_MAX_USD } =
+        await import("../lib/pixel/wallet-bridge");
+      const { LockFeeder } = await import("../lib/pixel/lock-feeder");
+      const { illuminateIngress } = await import("../lib/pixel/worldlight");
+      if (!(params.humanUsd > 0) || params.humanUsd > WALLET_BRIDGE_MAX_USD) {
+        throw new Error(`humanUsd must be 0 < x ≤ ${WALLET_BRIDGE_MAX_USD}`);
+      }
+      const rail = LockFeeder.createRail();
+      const feeder = LockFeeder.createState();
+      const { prepared, receipt } = await prepareWalletBridgeIngress({
+        asset: params.asset,
+        humanUsd: params.humanUsd,
+        ownerAddress: params.ownerAddress,
+        ownerLocalId: params.ownerLocalId,
+        rail,
+        feeder,
+      });
+      const vaultBal = balanceOf(this.chain, this.keypair.address);
+      if (vaultBal < prepared.pixCredit) {
+        throw new Error(
+          `bridge vault needs ${prepared.pixCredit} PIX (has ${vaultBal}) — tip escrow empty`,
+        );
+      }
+      const res = await illuminateIngress({
+        prepared,
+        state: this.chain,
+        bridgeVault: this.keypair,
+        sequencer: this.keypair,
+      });
+      if (receipt) LockFeeder.consume(feeder, receipt.lockDigest);
+      this.chain = res.state;
+      const tip = this.chain.pixels[this.chain.pixels.length - 1]!;
+      this.gossip?.broadcast({ type: "pixel", pixel: tip });
+      this.noteTipProgress();
+      this.fanoutWave(tip, "sequence");
+      this.queuePersist();
+      const snap = this.syncSnapshot();
+      return {
+        pixCredited: res.pixCredited,
+        tipIndex: tip.index,
+        balance: balanceOf(this.chain, params.ownerAddress),
+        summary: res.summary,
+        canvasId: snap.canvasId,
+      };
+    });
+  }
+
   async trySequence(): Promise<boolean> {
     return this.withChainLock(() => this.trySequenceLocked());
   }

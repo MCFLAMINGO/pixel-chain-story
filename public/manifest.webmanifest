@@ -1,0 +1,21 @@
+{
+  "name": "PIXEL Wallet",
+  "short_name": "PIXEL",
+  "description": "Your Personal Source on the one public tip — hold, pay, bridge in USDC and crypto.",
+  "start_url": "/wallet",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0c1410",
+  "theme_color": "#0c1410",
+  "lang": "en",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/pixel-wallet.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
