@@ -1,0 +1,10 @@
+# Railway config for Pixel Discord invite bot (not the tip, not the Vite site).
+# Deploy: railway up -d --service pixel-discord
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.discord"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

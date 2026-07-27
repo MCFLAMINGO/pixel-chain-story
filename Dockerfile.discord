@@ -1,0 +1,12 @@
+# Pixel Discord invite bot — Gateway process (no volume)
+# railway up -d --service pixel-discord  (or link Dockerfile.discord in dashboard)
+
+FROM oven/bun:1.2-alpine
+WORKDIR /app
+COPY package.json bun.lock tsconfig.json ./
+RUN bun install --frozen-lockfile
+COPY src ./src
+COPY scripts/discord-bot.ts scripts/discord-register.ts ./scripts/
+
+ENV PIXEL_TIP_RPC=https://pixel-tip-production.up.railway.app
+CMD ["bun", "scripts/discord-bot.ts"]
