@@ -36,6 +36,9 @@ async function main() {
 
   await mkdir(datadir, { recursive: true });
 
+  // Tip host may forge ceremony genesis once — people never CLI-init.
+  process.env.PIXEL_TIP_HOST = process.env.PIXEL_TIP_HOST || "1";
+
   const existing = await loadChain(datadir);
   if (!existing) {
     const { keypair } = await loadOrCreateIdentity(datadir, "genesis");

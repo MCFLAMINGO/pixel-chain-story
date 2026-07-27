@@ -1,62 +1,72 @@
 # Bridge status (Gate E)
 
-**Claim unlock (lab):** Universal Light Attestation verify is real on the EVM twin — `ULAVerifier.IS_STUB == false`. CosmWasm twin verifies the same frozen fixture. Relayer path proven on local anvil.
+**Claim unlock (lab):** Universal Light Attestation verify is real on the EVM twin — `ULAVerifier.IS_STUB == false`. CosmWasm twin verifies the same frozen fixture. Relayer path proven on local anvil. **Phone wallet** can Bridge USDC/ETH/wire → tip when `PIXEL_BRIDGE_LAB=1`.
 
 **Custody law:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX. Enforced in `illuminateIngress` + `bun run test:bridge-custody`.
 
-**Forbidden claim:** production bridge / mainnet value movement.
+**Forbidden claim:** production mainnet USDC movement / “Visa on Pixel.”
 
 ---
 
-## Evidence
+## Friend tip path (live)
+
+```
+Phone /wallet → Fund tip (POST /faucet)
+             → Bridge USDC (POST /bridge/shine-in)
+             → PIX on pay face on crowned tip
+```
+
+| Check | Expect |
+| --- | --- |
+| Tip | `https://pixel-tip-production.up.railway.app` |
+| Genesis | starts with `f1d193f62d54e982` |
+| Env | `PIXEL_BRIDGE_LAB=1` · `PIXEL_FAUCET=1` |
+| Evidence | `bun run test:wallet-bridge` · `curl …/health` shows `bridgeLab` + `faucet` |
+
+---
+
+## Evidence (protocol)
 
 | Artifact | Status |
 | --- | --- |
-| Frozen fixture | [`fixtures/ula-evm-v1.json`](../fixtures/ula-evm-v1.json) — `PIX-HASH-OTS-128-KECCAK` |
-| Foundry | `forge test` — `ULAVerifier.t.sol` + `ULAOffchainMldsaGate.t.sol` |
+| Frozen fixture | [`fixtures/ula-evm-v1.json`](../fixtures/ula-evm-v1.json) |
+| Foundry | `forge test` |
 | TS parity | `bun run test:ula` |
-| ML-DSA ULA path | `bun run test:ula-mldsa` — native verify + twin projection + gate commit |
-| CosmWasm twin | `contracts/cosmwasm/ula-verifier` — `cargo test` |
-| Relayer (local) | `bun run test:ula-relayer` — anvil `Locked` → `LockFeeder.feed` → shineIn |
-| Custody inversion | `bun run test:bridge-custody` — ULA verify alone → Δbalance=0; vault release only via illuminateIngress |
-
-### Scheme honesty
-
-- **EVM / CosmWasm twin:** keccak256 Lamport, `MSG_BITS=32`, 32-leaf Merkle window.
-- **Pixel-native ULA:** SHA-512 OTS / **ML-DSA** via `verifyLightProof` (`bridge.ts` + `ula-mldsa.ts`).
-- **ML-DSA on-chain:** `ULAOffchainMldsaGate` = off-chain verify + commit (trusted submitter). **Not** full Dilithium in EVM. See [`ULA-MLDSA.md`](./ULA-MLDSA.md).
-- Twin exists so foreign VMs never ship a stub `lightProofValid`.
+| ML-DSA ULA | `bun run test:ula-mldsa` |
+| Relayer (local anvil) | `bun run test:ula-relayer` — `Locked` → feed → shineIn |
+| Custody inversion | `bun run test:bridge-custody` |
+| Phone bridge | `bun run test:wallet-bridge` |
 
 ### Public testnet tx links
 
 | Network | Lock / verify tx | Notes |
 | --- | --- | --- |
-| Ethereum Sepolia (or equiv.) | *pending* | Local anvil proof shipped; public broadcast not yet |
+| Ethereum Sepolia (or equiv.) | *pending* | Anvil + tip lab faucet/bridge shipped; paste explorer URLs here when a public lock+verify pair exists |
 
-When a public lock + verify pair exists, paste explorer URLs here. Until then do not claim “testnet bridge live.”
+Until Sepolia links land: **do not claim “testnet bridge live.”** Do claim: tip lab shine-in + faucet for friend invites on the crowned Earth.
 
 ---
 
-## Relayer flow
+## Relayer flow (destination)
 
 ```
 PixelUsdcLock.lock  →  event Locked
         ↓
 LockFeeder.fromLockedEvent + ethereumLogVerified
         ↓
-LockFeeder.feed → illuminateIngress (shineIn) → PIX on pix1…
+LockFeeder.feed → illuminateIngress → PIX on pix1…
 ```
 
-Shine-out (Pixel → foreign): build `createEvmUlaPackage` → foreign `ULAVerifier.accept` / CosmWasm `Accept`.
+Shine-out (Pixel → foreign): `createEvmUlaPackage` → foreign `ULAVerifier.accept`.
 
 ---
 
 ## Commands
 
 ```bash
-bun run scripts/gen-ula-evm-fixture.ts   # regenerate fixture (do not casually rewrite)
 bun run test:ula
 bun run test:ula-relayer
+bun run test:wallet-bridge
+bun run test:bridge-custody
 forge test
-(cd contracts/cosmwasm/ula-verifier && cargo test)
 ```

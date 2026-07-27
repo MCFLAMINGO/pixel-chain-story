@@ -1,83 +1,55 @@
 # Do this right now
 
-Honest status: **local prototype**. You are not joining a global mainnet yet — you light a ledger on your machine (and optionally a second peer).
+**People:** phone wallet on the crowned tip.  
+**Friends:** join that tip on a laptop — never `pixel init`.
 
-## A. Fastest — UI playground
+## A. Phone wallet (invite this)
 
-```bash
-bun install
-bun run dev
-```
+1. Open the site → **`/wallet`**
+2. Add to Home Screen
+3. Create wallet → **Fund tip** → Bridge USDC or Send PIX
+4. Confirm tip genesis starts with **`f1d193f62d54e982`**
 
-Open the site:
+Discord paste: [`docs/demos/friend-invite.md`](./demos/friend-invite.md)
 
-| Section | What you do |
-| --- | --- |
-| **Worldlight** | Lock $5 USDC (local rail) or bank wire → PIX on a Personal Source |
-| **Kindling** | Offer → accept → meet in light → unlock & settle |
-| **Access** | SMS/USSD **invites only** (cannot spend) |
-| **`/`** | **The site** — cinema billboard from genesis; `?rpc=http://127.0.0.1:8545` for live node |
-| **`/lab`** | Builder surfaces (Kindling, Worldlight, …) |
-
-## B. You are the sequencer (CLI)
-
-Genesis **50 PIX** go to the **node key**, not a random new wallet.
+## B. Friend node (laptop / VPS)
 
 ```bash
 bun install
-
-# 1) Create ledger + you become genesis sequencer
-bun run pixel -- init --datadir ./data/a
-
-# 2) Use that sequencer identity as a wallet (holds the 50 PIX)
-bun run pixel -- wallet from-node sequencer --datadir ./data/a
-
-# 3) Make a friend wallet
-bun run pixel -- wallet create bob --datadir ./data/a
-# copy bob's pix1… address from the output
-
-# 4) Send + illuminate (paint the next pixel, earn another light reward)
-bun run pixel -- send --from sequencer --to pix1…bob --amount 10 --datadir ./data/a
-
-# 5) Check
-bun run pixel -- balance --wallet bob --datadir ./data/a
-bun run pixel -- balance --wallet sequencer --datadir ./data/a
+bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend --require-crowned
+bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 ```
 
-### Keep a node running (RPC + gossip)
+## C. Local tip (operators)
 
 ```bash
-bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
+bun run tip:host
+# optional: PIXEL_BRIDGE_LAB=1 PIXEL_FAUCET=1 already default in Dockerfile.tip
 ```
 
-Second terminal — join as another sequencer peer (still local/demo networking):
+Site local against your tip:
 
 ```bash
-bun run pixel -- join --peer http://127.0.0.1:8545 --datadir ./data/b
-bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://127.0.0.1:9001/gossip
+VITE_PIXEL_RPC=http://127.0.0.1:8545 bun run dev
 ```
 
-## C. Prove the protocol without a UI
+## D. Prove the protocol
 
 ```bash
 bun run test:all
 ```
 
-Includes settlement, Kindling, Worldlight, lock feeder, bootstrap.
+## Forbidden for friends
 
-## What “run a sequencer” means today
+```bash
+bun run pixel -- init   # refused — forges a private Earth
+```
 
-1. `init` creates a **Personal Source–style node key** and paints genesis (50 PIX to you).  
-2. When you `send` (or the running `node` auto-sequences), if it is your turn you **illuminate** — new pixel, light reward.  
-3. There is **no public sequencer marketplace** yet — your machine *is* the set.
-
-## Not available as one click yet
-
-- Public shared network / other people’s sequencers on the internet  
-- Live mainnet USDC (local rail + Solidity contract exist; deploy/relayer is next)  
-- SMS gateway to a phone in Bangladesh (invite parser exists; aggregator not plugged in)
+Lab CI only: `PIXEL_ALLOW_LAB_GENESIS=1 bun scripts/lab-forge-datadir.ts`
 
 ## Next docs
 
-- [`BOOTSTRAP.md`](./BOOTSTRAP.md) — why you don’t need $21M  
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — help harden `node/join` and feeders  
+- [`PHONE-WALLET.md`](./PHONE-WALLET.md) — hold · send · bridge  
+- [`demos/friend-invite.md`](./demos/friend-invite.md) — Discord paste  
+- [`CANONICAL-TIP.md`](./CANONICAL-TIP.md) — tip ops  
+- [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) — Gate E honesty  

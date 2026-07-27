@@ -102,7 +102,8 @@ async function main() {
   });
   console.log("▸ tip waveDigest still tip-recomputable ✓");
 
-  // Node: illuminate fans out matching tip hits
+  // Node: illuminate fans out matching tip hits (lab forge — not a people door)
+  process.env.PIXEL_ALLOW_LAB_GENESIS = "1";
   await rm(BASE, { recursive: true, force: true });
   await mkdir(BASE, { recursive: true });
   const node = new PixelLedgerNode({

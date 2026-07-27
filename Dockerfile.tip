@@ -18,6 +18,10 @@ COPY scripts/run-canonical-tip.ts ./scripts/run-canonical-tip.ts
 ENV PIXEL_DATADIR=/data/pixel
 ENV PORT=8545
 ENV PIXEL_GOSSIP_PORT=9001
+# Friend tip: phone Bridge + faucet for new pay faces (lab, not mainnet claim)
+ENV PIXEL_BRIDGE_LAB=1
+ENV PIXEL_FAUCET=1
+ENV PIXEL_TIP_HOST=1
 
 # Persist via Railway Volume mounted at /data/pixel (Docker VOLUME unsupported on Railway).
 EXPOSE 8545

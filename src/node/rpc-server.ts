@@ -87,6 +87,11 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
           },
           bridgeLab:
             process.env.PIXEL_BRIDGE_LAB === "1" || process.env.PIXEL_BRIDGE_LAB === "true",
+          faucet:
+            process.env.PIXEL_FAUCET === "1" ||
+            process.env.PIXEL_FAUCET === "true" ||
+            process.env.PIXEL_BRIDGE_LAB === "1" ||
+            process.env.PIXEL_BRIDGE_LAB === "true",
         });
       }
 
@@ -145,6 +150,38 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         }
         const address = decodeURIComponent(rest);
         return json({ address, balance: node.balance(address) });
+      }
+
+      /** Fund a new pay face (PIXEL_FAUCET=1 or PIXEL_BRIDGE_LAB=1). */
+      if (req.method === "POST" && url.pathname === "/faucet") {
+        const enabled =
+          process.env.PIXEL_FAUCET === "1" ||
+          process.env.PIXEL_FAUCET === "true" ||
+          process.env.PIXEL_BRIDGE_LAB === "1" ||
+          process.env.PIXEL_BRIDGE_LAB === "true";
+        if (!enabled) {
+          return json({ ok: false, error: "faucet not enabled on this tip" }, { status: 404 });
+        }
+        const body = await readBodyWithLimit(req, MAX_RPC_BODY_BYTES);
+        if (!body.ok) {
+          return json({ ok: false, error: body.error }, { status: 413 });
+        }
+        let parsed: { address?: string; amount?: number };
+        try {
+          parsed = JSON.parse(body.text) as typeof parsed;
+        } catch {
+          return json({ ok: false, error: "bad json" }, { status: 400 });
+        }
+        try {
+          const out = await node.faucetPayFace({
+            address: String(parsed.address ?? ""),
+            amount: parsed.amount != null ? Number(parsed.amount) : undefined,
+          });
+          return json({ ok: true, ...out });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "faucet failed";
+          return json({ ok: false, error: msg }, { status: 400 });
+        }
       }
 
       /** Phone-wallet lab bridge — USDC/ETH/wire → PIX on pay face (PIXEL_BRIDGE_LAB=1). */

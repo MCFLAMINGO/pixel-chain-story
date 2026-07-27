@@ -1,19 +1,22 @@
 #!/usr/bin/env bun
 /**
- * Pixel Ledger CLI
+ * Pixel Ledger CLI — join the tip; do not invent a private Earth.
  *
- *   bun src/node/cli.ts init --datadir ./data/a
- *   bun src/node/cli.ts node --datadir ./data/a --rpc 8545 --gossip 9001
- *   bun src/node/cli.ts wallet create alice --datadir ./data/a
- *   bun src/node/cli.ts send --from alice --to <addr> --amount 100 --datadir ./data/a
- *   bun src/node/cli.ts balance <addr> --datadir ./data/a
- *   bun src/node/cli.ts join --peer http://127.0.0.1:8545 --datadir ./data/b
+ *   bun src/node/cli.ts join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend
+ *   bun src/node/cli.ts node --datadir ./data/friend --rpc 8546 --gossip 9002
+ *   bun src/node/cli.ts wallet create alice --datadir ./data/friend
+ *
+ * People: open /wallet on the site (phone). Never init.
  */
 
 import { mkdir } from "node:fs/promises";
 import {
   PIXEL_LEDGER_NAME,
+  PUBLIC_TIP_RPC_DEFAULT,
+  CROWNED_GENESIS_PREFIX,
+  assertCrownedPublicTip,
   generatePixelKeypair,
+  isCrownedGenesisHash,
   stateFromPixels,
   type SequencerId,
 } from "../lib/pixel/index";
@@ -31,30 +34,41 @@ function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }
 
+function refuseInitMessage(): string {
+  return `${PIXEL_LEDGER_NAME}: "init" does not invent a new Earth.
+
+People: open /wallet on the site (Add to Home Screen).
+Friends (laptop/VPS): join the crowned tip, then run node:
+
+  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ./data/friend
+  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
+
+Confirm genesis starts with ${CROWNED_GENESIS_PREFIX}
+
+Tip ceremony / CI lab only: tip:host or PIXEL_ALLOW_LAB_GENESIS=1 bun scripts/lab-forge-datadir.ts
+See docs/demos/friend-invite.md`;
+}
+
 async function main() {
   const cmd = process.argv[2] ?? "help";
   const datadir = arg("datadir", "./pixel-data")!;
 
   if (cmd === "help" || flag("help")) {
     console.log(`${PIXEL_LEDGER_NAME} CLI
-  init [--datadir DIR]
+  join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip] [--require-crowned]
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
-       # Continuity: set CONTINUITY_WEBHOOK_SECRET for POST /continuity/order + ops write
-  join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip]
   wallet create NAME [--datadir DIR]
-  wallet from-node [NAME] [--datadir DIR]   # use sequencer identity as a named wallet (holds genesis PIX)
+  wallet from-node [NAME] [--datadir DIR]
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
   balance ADDR|--wallet NAME [--datadir DIR]
   interactions
 
-Gate B — two nodes (local):
-  # terminal A
-  bun run pixel -- init --datadir ./data/a
-  bun run pixel -- node --datadir ./data/a --rpc 8545 --gossip 9001
-  # terminal B
-  bun run pixel -- join --peer http://127.0.0.1:8545 --datadir ./data/b
-  bun run pixel -- node --datadir ./data/b --rpc 8546 --gossip 9002 --seed ws://127.0.0.1:9001/gossip
-  # see docs/demos/two-node.md
+People (phone): /wallet — not this CLI.
+Friends — join crowned tip:
+  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ./data/friend --require-crowned
+  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
+  # confirm genesis ${CROWNED_GENESIS_PREFIX}…
+  # see docs/demos/friend-invite.md
 `);
     return;
   }
@@ -68,32 +82,17 @@ Gate B — two nodes (local):
   }
 
   if (cmd === "init") {
-    await ensureDatadir(datadir);
-    const { keypair } = await loadOrCreateIdentity(datadir, "genesis");
-    const node = new PixelLedgerNode({
-      datadir,
-      rpcPort: 0,
-      gossipPort: 0,
-    });
-    // start() without gossip ports for init-only — use createGenesis via start with no listen
-    const { createGenesis } = await import("../lib/pixel/index");
-    const chain = await createGenesis(keypair);
-    await saveChain(datadir, chain);
-    console.log(`${PIXEL_LEDGER_NAME} initialized`);
-    console.log(`  datadir: ${datadir}`);
-    console.log(`  sequencer: ${keypair.address}`);
-    console.log(`  genesis pixel: ${chain.pixels[0].hash.slice(0, 24)}…`);
-    return;
+    console.error(refuseInitMessage());
+    process.exit(1);
   }
 
   if (cmd === "join") {
-    const peer = arg("peer");
-    if (!peer) throw new Error("--peer http://host:port required");
+    const peer = arg("peer") ?? (flag("public-tip") ? PUBLIC_TIP_RPC_DEFAULT : undefined);
+    if (!peer) throw new Error(`--peer http://host:port required (or --public-tip)`);
     const base = peer.replace(/\/$/, "");
     await ensureDatadir(datadir);
     const { keypair } = await loadOrCreateIdentity(datadir, "joiner");
 
-    // Prefer /sync (Gate B); fall back to /pixels + /health
     let sync: {
       pixels: import("../lib/pixel/index").LedgerPixel[];
       sequencers?: SequencerId[];
@@ -101,6 +100,7 @@ Gate B — two nodes (local):
       gossipUrl?: string | null;
       address?: string;
       publicKey?: string;
+      genesisHash?: string;
     };
     const syncRes = await fetch(`${base}/sync`);
     if (syncRes.ok) {
@@ -111,15 +111,29 @@ Gate B — two nodes (local):
         address: string;
         publicKey?: string;
         gossipUrl?: string;
+        genesisHash?: string;
+        networkId?: number;
       };
       sync = {
         pixels,
         gossipUrl: health.gossipUrl,
         address: health.address,
         publicKey: health.publicKey,
+        genesisHash: health.genesisHash,
+        networkId: health.networkId,
       };
     }
-    if (!sync.pixels?.length) throw new Error("peer returned no pixels — is the node running?");
+    if (!sync.pixels?.length) throw new Error("peer returned no pixels — is the tip running?");
+
+    const genesisHash = sync.genesisHash ?? sync.pixels[0]!.hash;
+    const networkId = sync.networkId ?? 0x5049;
+    if (flag("require-crowned") || base.includes("pixel-tip-production")) {
+      assertCrownedPublicTip({ genesisHash, networkId });
+    } else if (!isCrownedGenesisHash(genesisHash)) {
+      console.warn(
+        `  warn: genesis ${genesisHash.slice(0, 16)}… is not crowned ${CROWNED_GENESIS_PREFIX}… (lab tip?)`,
+      );
+    }
 
     const seqSet = new Map<string, SequencerId>();
     for (const s of sync.sequencers ?? []) {
@@ -156,6 +170,7 @@ Gate B — two nodes (local):
     console.log(`Joined ${PIXEL_LEDGER_NAME} from ${base}`);
     console.log(`  pixels: ${chain.pixels.length}`);
     console.log(`  sequencers: ${chain.sequencers.length}`);
+    console.log(`  genesis: ${genesisHash.slice(0, 24)}…`);
     console.log(`  local: ${keypair.address}`);
     console.log(`  next: bun run pixel -- node --datadir ${datadir} --rpc 8546 --gossip 9002 \\`);
     console.log(
@@ -165,13 +180,21 @@ Gate B — two nodes (local):
   }
 
   if (cmd === "node") {
-    // PORT / PIXEL_RPC_PORT for hosted tip (Railway, Docker); --rpc wins when passed.
     const rpcPort = Number(arg("rpc", process.env.PORT || process.env.PIXEL_RPC_PORT || "8545"));
     const gossipPort = Number(arg("gossip", process.env.PIXEL_GOSSIP_PORT || "9001"));
     const seed = arg("seed");
     const advertise = arg("advertise");
     await mkdir(datadir, { recursive: true });
-    const { loadPeers } = await import("./store");
+    const { loadPeers, loadChain } = await import("./store");
+    const existing = await loadChain(datadir);
+    if (!existing) {
+      console.error(
+        `No ledger in ${datadir}. Join the tip first (do not init):\n` +
+          `  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ${datadir} --require-crowned\n` +
+          `Tip host / CI lab: tip:host or PIXEL_ALLOW_LAB_GENESIS=1 bun scripts/lab-forge-datadir.ts`,
+      );
+      process.exit(1);
+    }
     const saved = await loadPeers(datadir);
     const seeds = seed ? [seed, ...saved.filter((s) => s !== seed)] : saved;
     const node = new PixelLedgerNode({
@@ -209,16 +232,15 @@ Gate B — two nodes (local):
   if (cmd === "wallet" && process.argv[3] === "from-node") {
     const name = process.argv[4] ?? "sequencer";
     await ensureDatadir(datadir);
-    const { keypair } = await loadOrCreateIdentity(datadir, "genesis");
+    const { keypair } = await loadOrCreateIdentity(datadir, "node");
     await saveWallet(datadir, name, keypair);
     const { loadChain } = await import("./store");
     const { balanceOf } = await import("../lib/pixel/index");
     const chain = await loadChain(datadir);
     const bal = chain ? balanceOf(chain, keypair.address) : 0;
-    console.log(`Sequencer identity saved as wallet "${name}"`);
+    console.log(`Node identity saved as wallet "${name}"`);
     console.log(`  address: ${keypair.address}`);
-    console.log(`  balance: ${bal} PIX (genesis light reward if you ran init)`);
-    console.log(`  You are the illuminator for this datadir — send/illuminate with --from ${name}`);
+    console.log(`  balance: ${bal} PIX`);
     return;
   }
 
@@ -240,12 +262,11 @@ Gate B — two nodes (local):
       gossipPort: Number(arg("gossip", "0")),
       autoSequenceMs: 0,
     });
-    // Load chain without starting gossip if gossip 0
     const { loadChain, loadOrCreateIdentity } = await import("./store");
     const { keypair } = await loadOrCreateIdentity(datadir);
     node.keypair = keypair;
     const chain = await loadChain(datadir);
-    if (!chain) throw new Error("No ledger — run init/node first");
+    if (!chain) throw new Error("No ledger — join the tip first");
     node.chain = chain;
     node.gossip = {
       broadcast() {},

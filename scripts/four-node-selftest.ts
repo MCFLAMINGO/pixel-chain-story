@@ -102,7 +102,19 @@ async function main() {
   await rm(BASE, { recursive: true, force: true });
   for (let i = 0; i < N; i++) await mkdir(dir(i), { recursive: true });
 
-  await sh(["init", "--datadir", dir(0)]);
+  {
+    const p = spawn({
+      cmd: ["bun", "scripts/lab-forge-datadir.ts", "--datadir", dir(0)],
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, PIXEL_ALLOW_LAB_GENESIS: "1" },
+    });
+    const out = await new Response(p.stdout).text();
+    const err = await new Response(p.stderr).text();
+    await p.exited;
+    if (p.exitCode !== 0) throw new Error(`lab-forge\n${out}\n${err}`);
+  }
   await sh(["wallet", "from-node", "sequencer", "--datadir", dir(0)]);
   const bobOut = await sh(["wallet", "create", "bob", "--datadir", dir(0)]);
   const bobAddr = bobOut.match(/address:\s*(pix1[a-f0-9]+)/)?.[1];
