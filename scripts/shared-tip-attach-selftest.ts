@@ -27,6 +27,8 @@ async function main() {
   await rm(BASE, { recursive: true, force: true });
   await mkdir(BASE, { recursive: true });
 
+  // Lab tip for attach tests — people join crowned tip; never pixel init.
+  process.env.PIXEL_ALLOW_LAB_GENESIS = "1";
   const node = new PixelLedgerNode({
     datadir: join(BASE, "node"),
     rpcPort: RPC,
