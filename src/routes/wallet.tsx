@@ -56,18 +56,26 @@ const WALLET_CONCEPT = {
   ],
   bullets: [
     { label: "Phone", text: "proves it’s you (holds your key under a PIN)." },
-    { label: "PIN", text: "locks the vault — wrong PIN keeps it sealed." },
+    {
+      label: "PIN",
+      text: "locks the vault — wrong PIN keeps it sealed (AES-GCM).",
+    },
+    {
+      label: "Face ID",
+      text: "optional on browsers with WebAuthn PRF — real unwrap, not a fake gate.",
+    },
     { label: "Tip", text: "is where your balance actually lives." },
     { label: "Bridge", text: "deposit dollars / USDC → it shows up as PIX." },
     { label: "Send", text: "Venmo to a friend on the same bank." },
     { label: "Fund tip", text: "a free starter top-up so you can try it." },
+    { label: "Backup", text: "export PIN-sealed JSON — still needs your PIN to open." },
     {
       label: "Quantum-leaning",
       text: "payments use one-time hash signatures (OTS) — not classical ECDSA.",
     },
   ],
   closer:
-    "You don’t run a bank on your phone. You unlock with your PIN, see your balance, and pay. Still lab-scale — not FDIC.",
+    "You don’t run a bank on your phone. Unlock (PIN or Face ID), see balance, pay. Auto-locks after idle. Still lab-scale — not FDIC.",
 };
 
 function WalletPage() {
@@ -245,6 +253,16 @@ function WalletPage() {
                     >
                       Unlock
                     </button>
+                    {w.deviceUnlockOn ? (
+                      <button
+                        type="button"
+                        disabled={w.busy || w.needsPinUpgrade}
+                        onClick={() => void w.unlockDevice()}
+                        className="wallet-chip"
+                      >
+                        Face ID
+                      </button>
+                    ) : null}
                   </>
                 )}
                 <button
@@ -306,10 +324,56 @@ function WalletPage() {
                   <p>{walletBridgeThesis()}</p>
                   <p>
                     This phone holds your Personal Source under a{" "}
-                    <strong className="text-white/85">PIN</strong>. Pay and bridge mark the{" "}
-                    <strong className="font-medium text-white/85">one public tip</strong> — you
-                    never invent a private Earth.
+                    <strong className="text-white/85">PIN</strong> (IndexedDB). Pay marks the{" "}
+                    <strong className="font-medium text-white/85">one public tip</strong>. Session
+                    auto-locks after a few idle minutes.
                   </p>
+                  {w.unlocked ? (
+                    <div className="flex flex-wrap gap-2">
+                      {w.webAuthnAvailable && !w.deviceUnlockOn ? (
+                        <button
+                          type="button"
+                          disabled={w.busy}
+                          onClick={() => void w.enableBiometric().catch(() => undefined)}
+                          className="wallet-chip-active"
+                        >
+                          Enable Face ID / Touch ID
+                        </button>
+                      ) : null}
+                      {w.deviceUnlockOn ? (
+                        <span className="wallet-chip text-emerald-200/80">Device unlock on</span>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={w.busy}
+                        onClick={() => {
+                          try {
+                            w.exportBackup();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="wallet-chip"
+                      >
+                        Export backup
+                      </button>
+                    </div>
+                  ) : null}
+                  <label className="block">
+                    <span className="wallet-label">Import backup (PIN)</span>
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="mt-2 block w-full text-xs text-white/50"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        const pinAsk = window.prompt("PIN for this backup");
+                        if (!pinAsk) return;
+                        void f.text().then((t) => w.importBackup(t, pinAsk).catch(() => undefined));
+                      }}
+                    />
+                  </label>
                   <button
                     type="button"
                     disabled={w.busy}

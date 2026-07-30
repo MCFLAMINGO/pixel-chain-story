@@ -2,15 +2,14 @@
  * People wallet — browser hold of a Personal Source without CLI init.
  *
  * Pay face (public): address + label. Vault seed is PIN-wrapped (AES-GCM)
- * and never rests plaintext in localStorage. Never render vault as pay UI.
- *
- * Lab Kindling still uses optical vault paths elsewhere; /wallet requires PIN.
- * OTS nextLeaf persists so spent leaves stay burned (PATH Gate H).
+ * and never rests plaintext on disk. IndexedDB primary + localStorage mirror.
+ * Optional WebAuthn PRF device unlock. Never render vault as pay UI.
  */
 
 import { forgePersonalSource, type PersonalSource, type UnlockedSource } from "./custody";
 import { hexToBytes, restoreLightKeypair, type Hex } from "./crypto";
 import type { OpticalPattern } from "./optical";
+import { idbClear, idbReadRaw, idbWriteRaw } from "./people-wallet-idb";
 import {
   assertPin,
   pinWrapThesis,
@@ -18,9 +17,15 @@ import {
   wrapSeedWithPin,
   type PinWrappedSeed,
 } from "./people-wallet-seal";
+import {
+  enableWebAuthnSeal,
+  unlockSeedWithWebAuthn,
+  type WebAuthnSeal,
+} from "./people-wallet-webauthn";
 import { attachTransferViaRpc, tipMarkSummary, type TipMarkReceipt } from "./tip-mark";
 
 export const PEOPLE_WALLET_STORAGE_KEY = "pixel.people.wallet.v1";
+export const PEOPLE_WALLET_IDLE_LOCK_MS = 3 * 60 * 1000;
 
 /** What strangers / pay UI may see — never includes vault cells. */
 export type PayFace = {
@@ -38,6 +43,8 @@ export type PeopleWalletBlobV2 = {
   wrapped: PinWrappedSeed;
   createdAt: number;
   nextLeaf?: number;
+  /** Optional WebAuthn PRF second unlock path */
+  webauthn?: WebAuthnSeal;
 };
 
 /** Legacy plaintext vault blob — refuse unlock; clear + re-forge with PIN. */
@@ -49,6 +56,23 @@ export type PeopleWalletBlobV1 = {
 };
 
 export type PeopleWalletBlob = PeopleWalletBlobV2 | PeopleWalletBlobV1;
+
+function parseBlob(raw: string): PeopleWalletBlob | null {
+  try {
+    const parsed = JSON.parse(raw) as PeopleWalletBlob;
+    if (parsed?.v === 2) {
+      if (!parsed.address || !parsed.wrapped?.ciphertext) return null;
+      return parsed;
+    }
+    if (parsed?.v === 1) {
+      if (!parsed.source?.address) return null;
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function toPayFace(source: {
   address: string;
@@ -66,36 +90,80 @@ export function isPinSealedBlob(blob: PeopleWalletBlob | null): blob is PeopleWa
   return !!blob && blob.v === 2 && !!blob.wrapped;
 }
 
+/** Sync load — localStorage mirror (tests + fallback). */
 export function loadPeopleWalletBlob(): PeopleWalletBlob | null {
   if (typeof localStorage === "undefined") return null;
   try {
     const raw = localStorage.getItem(PEOPLE_WALLET_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as PeopleWalletBlob;
-    if (parsed?.v === 2) {
-      if (!parsed.address || !parsed.wrapped?.ciphertext) return null;
-      return parsed;
-    }
-    if (parsed?.v === 1) {
-      if (!parsed.source?.address) return null;
-      return parsed;
-    }
-    return null;
+    return parseBlob(raw);
   } catch {
     return null;
   }
+}
+
+/** Prefer IndexedDB; migrate from localStorage when needed. */
+export async function loadPeopleWalletBlobAsync(): Promise<PeopleWalletBlob | null> {
+  const fromIdb = await idbReadRaw();
+  if (fromIdb) {
+    const blob = parseBlob(fromIdb);
+    if (blob) {
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem(PEOPLE_WALLET_STORAGE_KEY, fromIdb);
+        }
+      } catch {
+        /* ignore */
+      }
+      return blob;
+    }
+  }
+  const fromLs = loadPeopleWalletBlob();
+  if (fromLs) {
+    try {
+      await idbWriteRaw(JSON.stringify(fromLs));
+    } catch {
+      /* idb optional */
+    }
+  }
+  return fromLs;
 }
 
 export function savePeopleWalletBlob(blob: PeopleWalletBlob): void {
   if (typeof localStorage === "undefined") {
     throw new Error("People wallet needs a browser (localStorage)");
   }
-  localStorage.setItem(PEOPLE_WALLET_STORAGE_KEY, JSON.stringify(blob));
+  const json = JSON.stringify(blob);
+  localStorage.setItem(PEOPLE_WALLET_STORAGE_KEY, json);
+  void idbWriteRaw(json).catch(() => undefined);
+}
+
+export async function savePeopleWalletBlobAsync(blob: PeopleWalletBlob): Promise<void> {
+  const json = JSON.stringify(blob);
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(PEOPLE_WALLET_STORAGE_KEY, json);
+  }
+  try {
+    await idbWriteRaw(json);
+  } catch {
+    if (typeof localStorage === "undefined") {
+      throw new Error("People wallet needs IndexedDB or localStorage");
+    }
+  }
 }
 
 export function clearPeopleWalletBlob(): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(PEOPLE_WALLET_STORAGE_KEY);
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem(PEOPLE_WALLET_STORAGE_KEY);
+  }
+  void idbClear();
+}
+
+export async function clearPeopleWalletBlobAsync(): Promise<void> {
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem(PEOPLE_WALLET_STORAGE_KEY);
+  }
+  await idbClear();
 }
 
 export function payFaceFromBlob(blob: PeopleWalletBlob): PayFace {
@@ -122,7 +190,7 @@ export function persistPeopleWalletLeaf(nextLeaf: number): boolean {
 export async function forgeAndPersistPeopleWallet(
   localId: string,
   pin: string,
-): Promise<{ payFace: PayFace; unlocked: UnlockedSource }> {
+): Promise<{ payFace: PayFace; unlocked: UnlockedSource; seed: Uint8Array }> {
   const p = assertPin(pin);
   const { unlocked } = await forgePersonalSource(localId.trim() || "you");
   const seedHex = unlocked.keypair.seed;
@@ -138,7 +206,7 @@ export async function forgeAndPersistPeopleWallet(
     createdAt: Date.now(),
     nextLeaf: unlocked.keypair.nextLeaf,
   };
-  savePeopleWalletBlob(blob);
+  await savePeopleWalletBlobAsync(blob);
   return {
     payFace: {
       address: blob.address,
@@ -146,6 +214,7 @@ export async function forgeAndPersistPeopleWallet(
       localId: blob.localId,
     },
     unlocked,
+    seed,
   };
 }
 
@@ -154,8 +223,8 @@ export async function forgeAndPersistPeopleWallet(
  */
 export async function unlockStoredPeopleWallet(
   pin: string,
-): Promise<{ payFace: PayFace; unlocked: UnlockedSource } | null> {
-  const blob = loadPeopleWalletBlob();
+): Promise<{ payFace: PayFace; unlocked: UnlockedSource; seed: Uint8Array } | null> {
+  const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
   if (!blob) return null;
   if (blob.v !== 2) {
     throw new Error("Old wallet (no PIN). Clear device hold, then create again with a PIN.");
@@ -173,6 +242,68 @@ export async function unlockStoredPeopleWallet(
       localId: blob.localId,
     },
     unlocked: { keypair, localId: blob.localId },
+    seed,
+  };
+}
+
+/** Enable Face ID / Touch ID PRF unlock after a PIN session. */
+export async function enableDeviceUnlock(params: {
+  seed: Uint8Array;
+  address: string;
+  localId: string;
+}): Promise<void> {
+  const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
+  if (!blob || blob.v !== 2) throw new Error("PIN-sealed wallet required");
+  const seal = await enableWebAuthnSeal(params);
+  await savePeopleWalletBlobAsync({ ...blob, webauthn: seal });
+}
+
+export async function unlockStoredPeopleWalletWithDevice(): Promise<{
+  payFace: PayFace;
+  unlocked: UnlockedSource;
+  seed: Uint8Array;
+} | null> {
+  const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
+  if (!blob || blob.v !== 2 || !blob.webauthn) {
+    throw new Error("Device unlock not enabled — unlock with PIN, then enable Face ID / Touch ID");
+  }
+  const seed = await unlockSeedWithWebAuthn(blob.webauthn);
+  const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? 0);
+  if (keypair.address !== blob.address) {
+    throw new Error("Device unlock Source mismatch");
+  }
+  return {
+    payFace: {
+      address: blob.address,
+      publicKey: blob.publicKey,
+      localId: blob.localId,
+    },
+    unlocked: { keypair, localId: blob.localId },
+    seed,
+  };
+}
+
+/** Encrypted backup = the v2 blob JSON (already PIN-wrapped). */
+export function exportPeopleWalletBackup(): string {
+  const blob = loadPeopleWalletBlob();
+  if (!blob || blob.v !== 2) throw new Error("Nothing to export — need a PIN-sealed wallet");
+  return JSON.stringify({ pixelBackup: 1, savedAt: Date.now(), wallet: blob }, null, 2);
+}
+
+export async function importPeopleWalletBackup(json: string, pin: string): Promise<PayFace> {
+  const parsed = JSON.parse(json) as { pixelBackup?: number; wallet?: PeopleWalletBlobV2 };
+  const wallet = parsed.wallet ?? (parsed as unknown as PeopleWalletBlobV2);
+  if (!wallet || wallet.v !== 2 || !wallet.wrapped) {
+    throw new Error("Not a Pixel PIN-sealed backup");
+  }
+  const seed = await unwrapSeedWithPin(wallet.wrapped, pin);
+  const keypair = await restoreLightKeypair(seed, wallet.nextLeaf ?? 0);
+  if (keypair.address !== wallet.address) throw new Error("Backup PIN/address mismatch");
+  await savePeopleWalletBlobAsync(wallet);
+  return {
+    address: wallet.address,
+    publicKey: wallet.publicKey,
+    localId: wallet.localId,
   };
 }
 
