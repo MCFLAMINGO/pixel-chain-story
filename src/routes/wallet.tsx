@@ -55,13 +55,19 @@ const WALLET_CONCEPT = {
     "PIX is the money in that bank account.",
   ],
   bullets: [
-    { label: "Phone", text: "proves it’s you (holds your key)." },
+    { label: "Phone", text: "proves it’s you (holds your key under a PIN)." },
+    { label: "PIN", text: "locks the vault — wrong PIN keeps it sealed." },
     { label: "Tip", text: "is where your balance actually lives." },
     { label: "Bridge", text: "deposit dollars / USDC → it shows up as PIX." },
     { label: "Send", text: "Venmo to a friend on the same bank." },
     { label: "Fund tip", text: "a free starter top-up so you can try it." },
+    {
+      label: "Quantum-leaning",
+      text: "payments use one-time hash signatures (OTS) — not classical ECDSA.",
+    },
   ],
-  closer: "You don’t run a bank on your phone. You just open the app, see your balance, and pay.",
+  closer:
+    "You don’t run a bank on your phone. You unlock with your PIN, see your balance, and pay. Still lab-scale — not FDIC.",
 };
 
 function WalletPage() {
@@ -69,6 +75,9 @@ function WalletPage() {
   const w = usePeopleWallet(rpcQuery);
   const [tab, setTab] = useState<Tab>(tabQuery ?? "hold");
   const [name, setName] = useState("you");
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [unlockPin, setUnlockPin] = useState("");
   const [toAddr, setToAddr] = useState("");
   const [amount, setAmount] = useState("1");
   const [note, setNote] = useState("");
@@ -127,7 +136,8 @@ function WalletPage() {
           <section className="mt-10 flex flex-1 flex-col justify-center space-y-6">
             <p className="text-base leading-relaxed text-white/70">{peopleWalletThesis()}</p>
             <p className="text-sm text-white/50">
-              Forge once on this phone. You see your pay face only — the vault stays sealed.
+              Forge once on this phone. Choose a PIN — your key is sealed with it. Pay face only;
+              vault never shown.
             </p>
             <label className="block">
               <span className="font-pixel text-[10px] tracking-[0.18em] text-white/40 uppercase">
@@ -140,14 +150,45 @@ function WalletPage() {
                 autoComplete="nickname"
               />
             </label>
+            <label className="block">
+              <span className="font-pixel text-[10px] tracking-[0.18em] text-white/40 uppercase">
+                PIN (6+ characters)
+              </span>
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                className="wallet-input mt-2"
+                placeholder="••••••"
+              />
+            </label>
+            <label className="block">
+              <span className="font-pixel text-[10px] tracking-[0.18em] text-white/40 uppercase">
+                Confirm PIN
+              </span>
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                value={pinConfirm}
+                onChange={(e) => setPinConfirm(e.target.value)}
+                className="wallet-input mt-2"
+                placeholder="••••••"
+              />
+            </label>
             <button
               type="button"
-              disabled={w.busy}
-              onClick={() => void w.forge(name)}
+              disabled={w.busy || pin.length < 6 || pin !== pinConfirm}
+              onClick={() => void w.forge(name, pin)}
               className="wallet-cta"
             >
               {w.busy ? "Forging…" : "Create wallet"}
             </button>
+            {pin.length > 0 && pin !== pinConfirm ? (
+              <p className="text-xs text-amber-200/80">PINs must match</p>
+            ) : null}
           </section>
         ) : (
           <>
@@ -175,14 +216,37 @@ function WalletPage() {
                 {w.payFace.address}
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={w.busy}
-                  onClick={() => void w.unlock()}
-                  className="wallet-chip"
-                >
-                  {w.unlocked ? "Unlocked" : "Unlock"}
-                </button>
+                {w.unlocked ? (
+                  <button
+                    type="button"
+                    disabled={w.busy}
+                    onClick={() => w.lock()}
+                    className="wallet-chip-active"
+                  >
+                    Lock
+                  </button>
+                ) : (
+                  <>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="current-password"
+                      value={unlockPin}
+                      onChange={(e) => setUnlockPin(e.target.value)}
+                      placeholder="PIN"
+                      className="wallet-input max-w-[7.5rem] py-2 text-sm"
+                      aria-label="PIN to unlock"
+                    />
+                    <button
+                      type="button"
+                      disabled={w.busy || unlockPin.length < 6 || w.needsPinUpgrade}
+                      onClick={() => void w.unlock(unlockPin).then(() => setUnlockPin(""))}
+                      className="wallet-chip"
+                    >
+                      Unlock
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   disabled={w.busy || !w.rpc || w.tipFaucet === false}
@@ -200,6 +264,13 @@ function WalletPage() {
                   Refresh
                 </button>
               </div>
+              {w.needsPinUpgrade ? (
+                <p className="mt-3 text-xs text-amber-200/90">
+                  Old wallet (no PIN). Clear device hold, then create again with a PIN.
+                </p>
+              ) : w.pinSealed && !w.unlocked ? (
+                <p className="mt-3 text-xs text-white/45">PIN-sealed · enter PIN to send</p>
+              ) : null}
               {w.faucetNote ? (
                 <p className="mt-3 text-xs text-emerald-300/90">{w.faucetNote}</p>
               ) : null}
@@ -234,7 +305,8 @@ function WalletPage() {
                 <div className="space-y-4 text-sm text-white/65">
                   <p>{walletBridgeThesis()}</p>
                   <p>
-                    This phone holds your Personal Source. Pay and bridge mark the{" "}
+                    This phone holds your Personal Source under a{" "}
+                    <strong className="text-white/85">PIN</strong>. Pay and bridge mark the{" "}
                     <strong className="font-medium text-white/85">one public tip</strong> — you
                     never invent a private Earth.
                   </p>
@@ -261,7 +333,7 @@ function WalletPage() {
                     }}
                   >
                     <p className="text-sm text-white/55">
-                      Pay PIX on the shared tip. Unlock first. Vault never appears.
+                      Pay PIX on the shared tip. Unlock with PIN first. Vault never appears.
                     </p>
                     <label className="block">
                       <span className="wallet-label">To</span>
@@ -293,7 +365,7 @@ function WalletPage() {
                       />
                     </label>
                     <button type="submit" disabled={w.busy || !w.unlocked} className="wallet-cta">
-                      {!w.unlocked ? "Unlock to send" : w.busy ? "Sending…" : "Send PIX"}
+                      {!w.unlocked ? "Unlock with PIN to send" : w.busy ? "Sending…" : "Send PIX"}
                     </button>
                     {w.lastPay ? (
                       <div className="space-y-1 text-sm" role="status">

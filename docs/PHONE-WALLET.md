@@ -7,12 +7,15 @@ It joins the **one public tip** over RPC. It never runs `pixel init`.
 
 | Move | Meaning |
 | --- | --- |
-| **Hold** | Sealed Source on device; pay face + tip balance |
+| **Hold** | PIN-sealed Source on device; pay face + tip balance |
+| **Unlock** | Enter PIN → AES-GCM unwrap seed → ready to sign |
 | **Send** | Sign + `POST /tx` on the tip |
 | **Bridge** | USDC / ETH (USD quote) / bank wire → shine in → PIX on your face |
 | **Install** | PWA — Add to Home Screen (`/manifest.webmanifest`) |
 
 Open: **`/wallet`** (optional `?rpc=https://…`).
+
+**Hardening (phase 1):** vault seed is never plaintext in `localStorage` — PIN + PBKDF2 + AES-GCM. No free lab optical unlock on `/wallet`. Spends remain hash-OTS (quantum-leaning). Still not Keychain/hardware — lab-scale.
 
 ## Bridge honesty
 

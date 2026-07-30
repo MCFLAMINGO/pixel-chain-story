@@ -1,23 +1,23 @@
 /**
  * People wallet — browser hold of a Personal Source without CLI init.
  *
- * Pay face (public): address + label. Vault stays sealed in device storage and
- * must never be rendered as the pay UI (CUSTODY.md / WORLD-CANVAS.md).
+ * Pay face (public): address + label. Vault seed is PIN-wrapped (AES-GCM)
+ * and never rests plaintext in localStorage. Never render vault as pay UI.
  *
- * Lab: persistence is localStorage on this device. Not the shared public tip
- * by itself — balance is read from an RPC tip when provided.
- *
- * OTS leaf cursor (`nextLeaf`) is persisted beside the sealed Source so unlock
- * after a spend does not reuse a burned leaf (PATH Gate H).
+ * Lab Kindling still uses optical vault paths elsewhere; /wallet requires PIN.
+ * OTS nextLeaf persists so spent leaves stay burned (PATH Gate H).
  */
 
-import {
-  forgePersonalSource,
-  unlockPersonalSource,
-  type PersonalSource,
-  type UnlockedSource,
-} from "./custody";
+import { forgePersonalSource, type PersonalSource, type UnlockedSource } from "./custody";
+import { hexToBytes, restoreLightKeypair, type Hex } from "./crypto";
 import type { OpticalPattern } from "./optical";
+import {
+  assertPin,
+  pinWrapThesis,
+  unwrapSeedWithPin,
+  wrapSeedWithPin,
+  type PinWrappedSeed,
+} from "./people-wallet-seal";
 import { attachTransferViaRpc, tipMarkSummary, type TipMarkReceipt } from "./tip-mark";
 
 export const PEOPLE_WALLET_STORAGE_KEY = "pixel.people.wallet.v1";
@@ -29,20 +29,41 @@ export type PayFace = {
   localId: string;
 };
 
-export type PeopleWalletBlob = {
-  v: 1;
-  source: PersonalSource;
+/** PIN-sealed device hold (v2). */
+export type PeopleWalletBlobV2 = {
+  v: 2;
+  address: string;
+  publicKey: Hex;
+  localId: string;
+  wrapped: PinWrappedSeed;
   createdAt: number;
-  /** Next unused OTS leaf — restore on unlock after prior signs. */
   nextLeaf?: number;
 };
 
-export function toPayFace(source: PersonalSource): PayFace {
+/** Legacy plaintext vault blob — refuse unlock; clear + re-forge with PIN. */
+export type PeopleWalletBlobV1 = {
+  v: 1;
+  source: PersonalSource;
+  createdAt: number;
+  nextLeaf?: number;
+};
+
+export type PeopleWalletBlob = PeopleWalletBlobV2 | PeopleWalletBlobV1;
+
+export function toPayFace(source: {
+  address: string;
+  publicKey: string;
+  localId: string;
+}): PayFace {
   return {
     address: source.address,
     publicKey: source.publicKey,
     localId: source.localId,
   };
+}
+
+export function isPinSealedBlob(blob: PeopleWalletBlob | null): blob is PeopleWalletBlobV2 {
+  return !!blob && blob.v === 2 && !!blob.wrapped;
 }
 
 export function loadPeopleWalletBlob(): PeopleWalletBlob | null {
@@ -51,8 +72,15 @@ export function loadPeopleWalletBlob(): PeopleWalletBlob | null {
     const raw = localStorage.getItem(PEOPLE_WALLET_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PeopleWalletBlob;
-    if (parsed?.v !== 1 || !parsed.source?.address || !parsed.source?.vault) return null;
-    return parsed;
+    if (parsed?.v === 2) {
+      if (!parsed.address || !parsed.wrapped?.ciphertext) return null;
+      return parsed;
+    }
+    if (parsed?.v === 1) {
+      if (!parsed.source?.address) return null;
+      return parsed;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -70,11 +98,14 @@ export function clearPeopleWalletBlob(): void {
   localStorage.removeItem(PEOPLE_WALLET_STORAGE_KEY);
 }
 
-/**
- * Persist OTS leaf cursor after a successful sign (pay / kindle settle).
- * No-op when no people wallet is stored — lab attach / ephemeral unlocks
- * still pay on tip without a device blob.
- */
+export function payFaceFromBlob(blob: PeopleWalletBlob): PayFace {
+  if (blob.v === 2) {
+    return { address: blob.address, publicKey: blob.publicKey, localId: blob.localId };
+  }
+  return toPayFace(blob.source);
+}
+
+/** Persist OTS leaf cursor after a successful sign. */
 export function persistPeopleWalletLeaf(nextLeaf: number): boolean {
   const blob = loadPeopleWalletBlob();
   if (!blob) return false;
@@ -85,29 +116,64 @@ export function persistPeopleWalletLeaf(nextLeaf: number): boolean {
   return true;
 }
 
-/** Forge once and persist sealed Source (vault not shown in pay UI). */
+/**
+ * Forge once, PIN-wrap seed, persist ciphertext only (no plaintext vault on disk).
+ */
 export async function forgeAndPersistPeopleWallet(
   localId: string,
-): Promise<{ payFace: PayFace; source: PersonalSource; unlocked: UnlockedSource }> {
-  const { source, unlocked } = await forgePersonalSource(localId);
-  savePeopleWalletBlob({
-    v: 1,
-    source,
+  pin: string,
+): Promise<{ payFace: PayFace; unlocked: UnlockedSource }> {
+  const p = assertPin(pin);
+  const { unlocked } = await forgePersonalSource(localId.trim() || "you");
+  const seedHex = unlocked.keypair.seed;
+  if (!seedHex) throw new Error("forge missing seed");
+  const seed = hexToBytes(seedHex);
+  const wrapped = await wrapSeedWithPin(seed, p);
+  const blob: PeopleWalletBlobV2 = {
+    v: 2,
+    address: unlocked.keypair.address,
+    publicKey: unlocked.keypair.publicKey,
+    localId: unlocked.localId,
+    wrapped,
     createdAt: Date.now(),
     nextLeaf: unlocked.keypair.nextLeaf,
-  });
-  return { payFace: toPayFace(source), source, unlocked };
+  };
+  savePeopleWalletBlob(blob);
+  return {
+    payFace: {
+      address: blob.address,
+      publicKey: blob.publicKey,
+      localId: blob.localId,
+    },
+    unlocked,
+  };
 }
 
+/**
+ * Unlock with PIN only — no simulated optical capture on /wallet.
+ */
 export async function unlockStoredPeopleWallet(
-  capturedCells?: number[],
-): Promise<{ source: PersonalSource; unlocked: UnlockedSource } | null> {
+  pin: string,
+): Promise<{ payFace: PayFace; unlocked: UnlockedSource } | null> {
   const blob = loadPeopleWalletBlob();
   if (!blob) return null;
-  const unlocked = await unlockPersonalSource(blob.source, capturedCells, {
-    nextLeaf: blob.nextLeaf ?? 0,
-  });
-  return { source: blob.source, unlocked };
+  if (blob.v !== 2) {
+    throw new Error("Old wallet (no PIN). Clear device hold, then create again with a PIN.");
+  }
+  const p = assertPin(pin);
+  const seed = await unwrapSeedWithPin(blob.wrapped, p);
+  const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? 0);
+  if (keypair.address !== blob.address) {
+    throw new Error("Unwrapped Source does not match pay face");
+  }
+  return {
+    payFace: {
+      address: blob.address,
+      publicKey: blob.publicKey,
+      localId: blob.localId,
+    },
+    unlocked: { keypair, localId: blob.localId },
+  };
 }
 
 /** Fetch PIX balance from a tip RPC (node REST). */
@@ -183,8 +249,6 @@ export async function claimTipFaucet(params: {
 
 /**
  * Pay from unlocked Source onto the shared tip (POST /tx → tip inclusion).
- * Vault never leaves the unlock session; only the signed tx hits the wire.
- * Advances and persists the OTS leaf cursor after a successful tip mark.
  */
 export async function payOnSharedTip(params: {
   rpc: string;
@@ -217,9 +281,10 @@ export async function payOnSharedTip(params: {
 export function peopleWalletThesis(): string {
   return (
     "People wallet: hold a Personal Source without CLI init; pay face shows address only; " +
-    "vault stays sealed on device and is never the pay UI. Balance is read from a shared tip " +
+    "vault is PIN-wrapped on device (AES-GCM) and is never the pay UI. Balance is read from a shared tip " +
     "RPC when connected; pay posts a tip mark on that picture — not a private notebook. " +
-    "OTS nextLeaf persists across unlock so spent leaves stay burned."
+    "OTS nextLeaf persists across unlock so spent leaves stay burned. " +
+    pinWrapThesis()
   );
 }
 
