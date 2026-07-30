@@ -77,7 +77,7 @@ export function BillboardScreen({
       : "lab light";
 
   return (
-    <main className="fixed inset-0 overflow-hidden bg-[oklch(0.08_0.02_145)] text-foreground">
+    <main className="billboard-phone fixed inset-0 overflow-hidden bg-[oklch(0.08_0.02_145)] text-foreground">
       <div className="absolute inset-0">
         {igniting ? (
           <div
@@ -86,7 +86,7 @@ export function BillboardScreen({
             aria-live="polite"
           >
             <div
-              className="h-[min(72vw,72vh)] w-[min(72vw,72vh)] animate-pulse rounded-sm"
+              className="h-[min(72vw,55svh)] w-[min(72vw,55svh)] animate-pulse rounded-sm sm:h-[min(72vw,72vh)] sm:w-[min(72vw,72vh)]"
               style={{
                 background:
                   "radial-gradient(circle at 50% 50%, oklch(0.72 0.14 95 / 0.85), oklch(0.35 0.08 145 / 0.4) 45%, transparent 70%)",
@@ -114,20 +114,22 @@ export function BillboardScreen({
         aria-hidden
       />
 
-      <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 px-8 pt-8 md:px-14 md:pt-12">
-        <div>
-          <p className="font-pixel text-xs font-semibold tracking-[0.45em] uppercase text-[oklch(0.92_0.18_95)] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+      <header className="absolute inset-x-0 top-0 flex flex-col gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-8 sm:pt-8 md:px-14 md:pt-12">
+        <div className="min-w-0">
+          <p className="font-pixel text-[10px] font-semibold tracking-[0.35em] text-[oklch(0.92_0.18_95)] uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-xs sm:tracking-[0.45em]">
             Live field
           </p>
-          <h1 className="font-pixel mt-2 text-[clamp(3rem,12vw,8rem)] leading-none font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
+          <h1 className="font-pixel mt-1 text-[clamp(2.5rem,14vw,8rem)] leading-none font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] sm:mt-2">
             PIXEL
           </h1>
         </div>
-        <div className="font-pixel text-right text-sm md:text-base">
-          <div className="inline-block rounded-md bg-black/70 px-3 py-2 backdrop-blur-sm ring-1 ring-white/10">
-            <p className="tracking-[0.2em] uppercase text-[oklch(0.9_0.02_95)]">{feedLabel}</p>
-            <p className="mt-2 text-3xl font-bold text-white md:text-5xl">{countLabel}</p>
-            <p className="mt-1 text-[oklch(0.88_0.02_95)]">
+        <div className="font-pixel flex flex-col gap-3 sm:items-end sm:text-right sm:text-sm md:text-base">
+          <div className="inline-block w-fit rounded-md bg-black/70 px-3 py-2 backdrop-blur-sm ring-1 ring-white/10">
+            <p className="tracking-[0.2em] text-[oklch(0.9_0.02_95)] uppercase">{feedLabel}</p>
+            <p className="mt-1 text-2xl font-bold text-white sm:mt-2 sm:text-3xl md:text-5xl">
+              {countLabel}
+            </p>
+            <p className="mt-1 text-xs text-[oklch(0.88_0.02_95)] sm:text-sm">
               {igniting ? "forging first light…" : `${litCount} lit`}
               {!igniting && pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
             </p>
@@ -138,39 +140,34 @@ export function BillboardScreen({
             ) : null}
           </div>
           {showLabLink && (
-            <div className="pointer-events-auto mt-4 flex flex-col items-end gap-2">
-              <Link
-                to="/wallet"
-                search={rpc ? { rpc } : {}}
-                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
-              >
-                Wallet
-              </Link>
-              <Link
-                to="/doors"
-                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
-              >
-                Doors
-              </Link>
-              <Link
-                to="/shine"
-                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
-              >
-                Shine in
-              </Link>
-              <Link
-                to="/lab"
-                className="rounded bg-black/70 px-2 py-1 text-xs font-semibold tracking-widest text-[oklch(0.95_0.15_95)] underline decoration-[oklch(0.9_0.15_95)]/70 underline-offset-4 ring-1 ring-white/10 backdrop-blur-sm hover:text-white"
-              >
-                Lab
-              </Link>
-            </div>
+            <nav
+              className="pointer-events-auto flex flex-wrap gap-2 sm:max-w-[14rem] sm:flex-col sm:items-end"
+              aria-label="Site"
+            >
+              {(
+                [
+                  ["/wallet", "Wallet", rpc ? { rpc } : {}],
+                  ["/doors", "Doors", {}],
+                  ["/shine", "Shine in", {}],
+                  ["/lab", "Lab", {}],
+                ] as const
+              ).map(([to, label, search]) => (
+                <Link
+                  key={to}
+                  to={to}
+                  search={search as never}
+                  className="phone-nav-link bg-black/70 text-[oklch(0.95_0.15_95)] ring-1 ring-white/10 backdrop-blur-sm"
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
           )}
         </div>
       </header>
 
-      <footer className="absolute inset-x-0 bottom-0 px-8 pb-8 md:px-14 md:pb-12">
-        <p className="font-pixel max-w-xl rounded-md bg-black/70 px-4 py-3 text-sm text-white ring-1 ring-white/10 backdrop-blur-sm md:text-lg">
+      <footer className="absolute inset-x-0 bottom-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-8 md:px-14 md:pb-12">
+        <p className="font-pixel max-w-xl rounded-md bg-black/70 px-3 py-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur-sm sm:px-4 sm:py-3 sm:text-sm md:text-lg">
           {igniting
             ? "Lab light is being forged — local look-dev, not the public tip of humanity."
             : rpc && live
