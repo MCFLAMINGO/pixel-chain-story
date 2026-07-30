@@ -315,7 +315,7 @@ function WalletPage() {
               ) : null}
             </section>
 
-            <div className="mt-8 flex-1">
+            <div className="mt-8 pb-4">
               {tab === "concept" ? (
                 <div className="space-y-5 text-sm leading-relaxed text-white/70">
                   <h2 className="font-display text-2xl font-bold tracking-tight text-white">

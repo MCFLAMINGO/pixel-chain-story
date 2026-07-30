@@ -273,10 +273,75 @@
     overflow: hidden !important;
   }
 
+  /* Wallet owns its own scrollport — body must not steal/clip it. */
   html.wallet-route,
   body.wallet-route {
     background: #0c1410;
+    height: 100%;
+    overflow: hidden;
     overscroll-behavior: none;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+}
+
+/* ─── Site-wide phone-first helpers ─── */
+.phone-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+.phone-pad {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+.phone-tap {
+  touch-action: manipulation;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 0.9rem;
+}
+.phone-nav-link {
+  font-family: var(--font-pixel, ui-sans-serif);
+  touch-action: manipulation;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 0.5rem;
+  background: oklch(0 0 0 / 0.55);
+  color: oklch(0.95 0.12 95);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  ring: 1px solid oklch(1 0 0 / 0.12);
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 0.1);
+}
+.phone-nav-link:hover {
+  color: white;
+}
+.continuity-desk .continuity-input,
+.shine-in-page input,
+.shine-in-page textarea {
+  font-size: 16px !important; /* iOS: no zoom on focus */
+}
+@media (max-width: 640px) {
+  .phone-stack-sm {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .phone-stack-sm > * {
+    width: 100%;
   }
 }
 
@@ -389,14 +454,19 @@
 
 /* ─── Phone wallet (/wallet) — hold · send · bridge · concept ─── */
 .wallet-phone {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   isolation: isolate;
-  min-height: 100dvh;
-  min-height: 100svh;
   width: 100%;
+  height: 100%;
+  height: 100dvh;
+  height: 100svh;
   overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  touch-action: pan-y;
   background:
     radial-gradient(ellipse 120% 80% at 50% -20%, oklch(0.45 0.12 155 / 0.35), transparent 55%),
     radial-gradient(ellipse 80% 50% at 100% 80%, oklch(0.35 0.08 200 / 0.22), transparent 50%),
@@ -420,11 +490,11 @@
   display: flex;
   width: 100%;
   max-width: 28rem;
-  min-height: 100dvh;
-  min-height: 100svh;
+  min-height: 100%;
+  height: auto;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 1.25rem 1.1rem calc(5.75rem + env(safe-area-inset-bottom)) 1.1rem;
+  padding: 1.25rem 1.1rem calc(6.25rem + env(safe-area-inset-bottom)) 1.1rem;
 }
 @media (max-width: 420px) {
   .wallet-phone-shell {
