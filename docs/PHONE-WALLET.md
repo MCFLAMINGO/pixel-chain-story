@@ -15,7 +15,10 @@ It joins the **one public tip** over RPC. It never runs `pixel init`.
 
 Open: **`/wallet`** (optional `?rpc=https://…`).
 
-**Hardening (phase 1):** vault seed is never plaintext in `localStorage` — PIN + PBKDF2 + AES-GCM. No free lab optical unlock on `/wallet`. Spends remain hash-OTS (quantum-leaning). Still not Keychain/hardware — lab-scale.
+**Hardening:**
+- Phase 1: PIN + PBKDF2 + AES-GCM (no plaintext seed on disk); no free lab unlock
+- Phase 2: IndexedDB primary hold · idle auto-lock (~3 min) · PIN-sealed backup export/import · optional WebAuthn **PRF** Face ID / Touch ID (real unwrap — refused if PRF unavailable)
+- Spends: hash-OTS (quantum-leaning). Still not hardware Keychain / FDIC.
 
 ## Bridge honesty
 

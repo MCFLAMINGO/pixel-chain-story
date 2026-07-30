@@ -17,6 +17,17 @@ export type PinWrappedSeed = {
   iterations: number;
 };
 
+/** Raw-key wrap (WebAuthn PRF) — salt unused, iterations 0. */
+export type RawWrappedSeed = {
+  v: 1;
+  alg: typeof PIN_WRAP_ALG;
+  salt: Hex;
+  iv: Hex;
+  ciphertext: Hex;
+  iterations: 0;
+  rawKey: true;
+};
+
 export function assertPin(pin: string): string {
   const p = pin.normalize("NFKC").trim();
   if (p.length < PIN_MIN_LENGTH) {
@@ -40,6 +51,14 @@ async function deriveAesKey(pin: string, salt: Uint8Array, iterations: number): 
     false,
     ["encrypt", "decrypt"],
   );
+}
+
+async function importAesRaw(keyBytes: Uint8Array): Promise<CryptoKey> {
+  if (keyBytes.length !== 32) throw new Error("AES key must be 32 bytes");
+  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM", length: 256 }, false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 /** Encrypt 32-byte seed under PIN. */
@@ -80,9 +99,46 @@ export async function unwrapSeedWithPin(wrapped: PinWrappedSeed, pin: string): P
   }
 }
 
+/** Wrap seed with a 32-byte raw key (e.g. WebAuthn PRF output). */
+export async function wrapSeedWithRawKey(
+  seed: Uint8Array,
+  keyBytes: Uint8Array,
+): Promise<RawWrappedSeed> {
+  if (seed.length !== 32) throw new Error("seed must be 32 bytes");
+  const iv = randomBytes(12);
+  const key = await importAesRaw(keyBytes);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, seed));
+  return {
+    v: 1,
+    alg: PIN_WRAP_ALG,
+    salt: "00".repeat(16),
+    iv: bytesToHex(iv),
+    ciphertext: bytesToHex(ct),
+    iterations: 0,
+    rawKey: true,
+  };
+}
+
+export async function unwrapSeedWithRawKey(
+  wrapped: RawWrappedSeed | PinWrappedSeed,
+  keyBytes: Uint8Array,
+): Promise<Uint8Array> {
+  const iv = hexToBytes(wrapped.iv);
+  const ct = hexToBytes(wrapped.ciphertext);
+  const key = await importAesRaw(keyBytes);
+  try {
+    const pt = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct));
+    if (pt.length !== 32) throw new Error("bad seed length");
+    return pt;
+  } catch {
+    throw new Error("Device unlock failed — vault stays sealed");
+  }
+}
+
 export function pinWrapThesis(): string {
   return (
-    "Phone vault is PIN-wrapped (AES-GCM + PBKDF2). No free lab unlock on /wallet. " +
-    "Spends still use hash-OTS (quantum-leaning one-time leaves)."
+    "Phone vault is PIN-wrapped (AES-GCM + PBKDF2), held in IndexedDB. " +
+    "Optional WebAuthn PRF unlock when the browser supports it. " +
+    "No free lab unlock on /wallet. Spends use hash-OTS (quantum-leaning)."
   );
 }

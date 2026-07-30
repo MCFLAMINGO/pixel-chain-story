@@ -2,10 +2,12 @@
  * People wallet selftest — PIN wrap, pay face clean, OTS nextLeaf across unlock.
  * bun run test:wallet
  */
-import { signLightFull } from "../src/lib/pixel/crypto";
+import { signLightFull, bytesToHex, randomBytes } from "../src/lib/pixel/crypto";
 import {
   clearPeopleWalletBlob,
+  exportPeopleWalletBackup,
   forgeAndPersistPeopleWallet,
+  importPeopleWalletBackup,
   isPinSealedBlob,
   loadPeopleWalletBlob,
   peopleWalletThesis,
@@ -13,8 +15,12 @@ import {
   toPayFace,
   unlockStoredPeopleWallet,
 } from "../src/lib/pixel/people-wallet";
-import { wrapSeedWithPin, unwrapSeedWithPin } from "../src/lib/pixel/people-wallet-seal";
-import { randomBytes } from "../src/lib/pixel/crypto";
+import {
+  wrapSeedWithPin,
+  unwrapSeedWithPin,
+  wrapSeedWithRawKey,
+  unwrapSeedWithRawKey,
+} from "../src/lib/pixel/people-wallet-seal";
 
 function mockLocalStorage() {
   const map = new Map<string, string>();
@@ -95,6 +101,25 @@ async function main() {
   clearPeopleWalletBlob();
   if (loadPeopleWalletBlob()) throw new Error("clear failed");
   console.log("▸ clear device hold ✓");
+
+  // Backup round-trip
+  const againForge = await forgeAndPersistPeopleWallet("erik", "backup1");
+  const backup = exportPeopleWalletBackup();
+  if (!backup.includes("pixelBackup")) throw new Error("backup shape");
+  clearPeopleWalletBlob();
+  const imported = await importPeopleWalletBackup(backup, "backup1");
+  if (imported.address !== againForge.payFace.address) throw new Error("import address");
+  const re = await unlockStoredPeopleWallet("backup1");
+  if (!re) throw new Error("unlock after import");
+  console.log("▸ PIN-sealed backup export/import ✓");
+
+  // Raw key wrap (WebAuthn PRF stand-in)
+  const rawKey = randomBytes(32);
+  const seed2 = randomBytes(32);
+  const rw = await wrapSeedWithRawKey(seed2, rawKey);
+  const back = await unwrapSeedWithRawKey(rw, rawKey);
+  if (bytesToHex(back) !== bytesToHex(seed2)) throw new Error("raw wrap mismatch");
+  console.log("▸ raw-key wrap (PRF path) ✓");
 
   console.log("\n═══ PASS — people wallet PIN ═══");
 }
