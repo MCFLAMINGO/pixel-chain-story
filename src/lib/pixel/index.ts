@@ -46,6 +46,7 @@ export * from "./energy-truth";
 export * from "./uptake";
 export * from "./custody";
 export * from "./people-wallet";
+export * from "./people-wallet-seal";
 export * from "./wallet-bridge";
 export * from "./worldlight";
 export * from "./lock-feeder";

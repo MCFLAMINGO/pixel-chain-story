@@ -1,18 +1,20 @@
 /**
- * People wallet selftest — forge/persist/unlock; pay face never exposes vault cells.
- * OTS nextLeaf persists across unlock (PATH Gate H).
+ * People wallet selftest — PIN wrap, pay face clean, OTS nextLeaf across unlock.
  * bun run test:wallet
  */
 import { signLightFull } from "../src/lib/pixel/crypto";
 import {
   clearPeopleWalletBlob,
   forgeAndPersistPeopleWallet,
+  isPinSealedBlob,
   loadPeopleWalletBlob,
   peopleWalletThesis,
   persistPeopleWalletLeaf,
   toPayFace,
   unlockStoredPeopleWallet,
 } from "../src/lib/pixel/people-wallet";
+import { wrapSeedWithPin, unwrapSeedWithPin } from "../src/lib/pixel/people-wallet-seal";
+import { randomBytes } from "../src/lib/pixel/crypto";
 
 function mockLocalStorage() {
   const map = new Map<string, string>();
@@ -29,38 +31,60 @@ function mockLocalStorage() {
 }
 
 async function main() {
-  console.log("═══ PEOPLE WALLET ═══\n");
+  console.log("═══ PEOPLE WALLET (PIN) ═══\n");
   mockLocalStorage();
   clearPeopleWalletBlob();
 
-  if (!peopleWalletThesis().includes("nextLeaf")) throw new Error("thesis");
+  if (!peopleWalletThesis().includes("PIN-wrapped")) throw new Error("thesis");
   console.log("▸ thesis ✓");
 
-  const { payFace, source } = await forgeAndPersistPeopleWallet("erik");
-  if (payFace.address !== source.address) throw new Error("pay face address");
+  const seed = randomBytes(32);
+  const wrapped = await wrapSeedWithPin(seed, "123456");
+  const bad = unwrapSeedWithPin(wrapped, "000000").then(
+    () => "ok",
+    (e: Error) => e.message,
+  );
+  if ((await bad) === "ok") throw new Error("wrong PIN must fail");
+  const round = await unwrapSeedWithPin(wrapped, "123456");
+  if (round.length !== 32) throw new Error("unwrap length");
+  console.log("▸ AES-GCM wrap / wrong PIN refuse ✓");
+
+  const { payFace, unlocked } = await forgeAndPersistPeopleWallet("erik", "secret1");
+  if (payFace.address !== unlocked.keypair.address) throw new Error("pay face address");
   if ("vault" in payFace) throw new Error("pay face must not carry vault");
-  if (!loadPeopleWalletBlob()?.source.vault.cells?.length) {
-    throw new Error("vault must persist sealed");
+  const blob = loadPeopleWalletBlob();
+  if (!isPinSealedBlob(blob)) throw new Error("must persist v2 pin seal");
+  const raw = JSON.stringify(blob);
+  if (raw.includes("cells") || raw.includes("payloadHex")) {
+    throw new Error("storage leaked optical vault plaintext");
   }
-  const faceJson = JSON.stringify(toPayFace(source));
+  if (raw.includes(unlocked.keypair.seed)) throw new Error("storage leaked seed hex");
+  const faceJson = JSON.stringify(toPayFace(payFace));
   if (faceJson.includes("cells")) throw new Error("serialized pay face leaked cells");
-  console.log("▸ forge + persist; pay face clean ✓", payFace.address.slice(0, 16) + "…");
+  console.log("▸ forge + PIN persist; pay face clean ✓", payFace.address.slice(0, 16) + "…");
 
-  const unlocked = await unlockStoredPeopleWallet();
-  if (!unlocked || unlocked.unlocked.keypair.address !== payFace.address) {
-    throw new Error("unlock mismatch");
+  try {
+    await unlockStoredPeopleWallet("wrong!!");
+    throw new Error("bad PIN should throw");
+  } catch (e) {
+    if (!(e instanceof Error) || !/Wrong PIN|PIN must/i.test(e.message)) {
+      throw e;
+    }
   }
-  if (unlocked.unlocked.keypair.nextLeaf !== 0) throw new Error("fresh nextLeaf");
-  console.log("▸ unlock sealed vault ✓");
+  console.log("▸ wrong PIN refused ✓");
 
-  // Burn a leaf (as pay would) and persist cursor — re-unlock must restore it.
-  await signLightFull("people-wallet-leaf-cursor", unlocked.unlocked.keypair);
-  const advanced = unlocked.unlocked.keypair.nextLeaf;
+  const u1 = await unlockStoredPeopleWallet("secret1");
+  if (!u1 || u1.unlocked.keypair.address !== payFace.address) throw new Error("unlock mismatch");
+  if (u1.unlocked.keypair.nextLeaf !== 0) throw new Error("fresh nextLeaf");
+  console.log("▸ PIN unlock ✓");
+
+  await signLightFull("people-wallet-leaf-cursor", u1.unlocked.keypair);
+  const advanced = u1.unlocked.keypair.nextLeaf;
   if (advanced !== 1) throw new Error(`expected nextLeaf 1 got ${advanced}`);
   persistPeopleWalletLeaf(advanced);
   if (loadPeopleWalletBlob()?.nextLeaf !== 1) throw new Error("blob nextLeaf");
 
-  const again = await unlockStoredPeopleWallet();
+  const again = await unlockStoredPeopleWallet("secret1");
   if (!again || again.unlocked.keypair.nextLeaf !== 1) {
     throw new Error(
       `leaf cursor lost on unlock: got ${again?.unlocked.keypair.nextLeaf ?? "null"}`,
@@ -72,7 +96,7 @@ async function main() {
   if (loadPeopleWalletBlob()) throw new Error("clear failed");
   console.log("▸ clear device hold ✓");
 
-  console.log("\n═══ PASS — people wallet ═══");
+  console.log("\n═══ PASS — people wallet PIN ═══");
 }
 
 main().catch((e) => {

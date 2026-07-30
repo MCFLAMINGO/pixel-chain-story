@@ -4,9 +4,10 @@ import {
   clearPeopleWalletBlob,
   fetchTipBalance,
   forgeAndPersistPeopleWallet,
+  isPinSealedBlob,
   loadPeopleWalletBlob,
+  payFaceFromBlob,
   payOnSharedTip,
-  toPayFace,
   unlockStoredPeopleWallet,
   type PayFace,
 } from "@/lib/pixel/people-wallet";
@@ -28,7 +29,7 @@ export type BridgeReceipt = {
 };
 
 /**
- * Browser people wallet — sealed Personal Source + pay face + tip balance + tip pay + bridge.
+ * Browser people wallet — PIN-sealed Personal Source + pay face + tip balance.
  */
 export function usePeopleWallet(rpcOverride?: string) {
   const rpc = rpcOverride ?? defaultPixelRpc();
@@ -46,6 +47,8 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [tipFaucet, setTipFaucet] = useState<boolean | null>(null);
   const [crownedTip, setCrownedTip] = useState<boolean | null>(null);
   const [faucetNote, setFaucetNote] = useState<string | null>(null);
+  const [needsPinUpgrade, setNeedsPinUpgrade] = useState(false);
+  const [pinSealed, setPinSealed] = useState(false);
 
   const refreshBalance = useCallback(
     async (address: string) => {
@@ -88,23 +91,28 @@ export function usePeopleWallet(rpcOverride?: string) {
   useEffect(() => {
     const blob = loadPeopleWalletBlob();
     if (blob) {
-      setPayFace(toPayFace(blob.source));
-      void refreshBalance(blob.source.address);
+      setPayFace(payFaceFromBlob(blob));
+      setPinSealed(isPinSealedBlob(blob));
+      setNeedsPinUpgrade(blob.v === 1);
+      void refreshBalance(payFaceFromBlob(blob).address);
     }
     setReady(true);
   }, [refreshBalance]);
 
   const forge = useCallback(
-    async (localId: string) => {
+    async (localId: string, pin: string) => {
       setBusy(true);
       setError(null);
       try {
         const { payFace: face, unlocked: u } = await forgeAndPersistPeopleWallet(
           localId.trim() || "you",
+          pin,
         );
         setPayFace(face);
         setSession(u);
         setUnlocked(true);
+        setPinSealed(true);
+        setNeedsPinUpgrade(false);
         await refreshBalance(face.address);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Forge failed");
@@ -115,32 +123,36 @@ export function usePeopleWallet(rpcOverride?: string) {
     [refreshBalance],
   );
 
-  const unlock = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await unlockStoredPeopleWallet();
-      if (!r) {
-        setError("No wallet on this device");
-        return;
+  const unlock = useCallback(
+    async (pin: string) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const r = await unlockStoredPeopleWallet(pin);
+        if (!r) {
+          setError("No wallet on this device");
+          return;
+        }
+        setPayFace(r.payFace);
+        setSession(r.unlocked);
+        setUnlocked(true);
+        setPinSealed(true);
+        await refreshBalance(r.payFace.address);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Unlock failed");
+        setUnlocked(false);
+        setSession(null);
+      } finally {
+        setBusy(false);
       }
-      setPayFace(toPayFace(r.source));
-      setSession(r.unlocked);
-      setUnlocked(true);
-      await refreshBalance(r.source.address);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unlock failed");
-      setUnlocked(false);
-      setSession(null);
-    } finally {
-      setBusy(false);
-    }
-  }, [refreshBalance]);
+    },
+    [refreshBalance],
+  );
 
   const pay = useCallback(
     async (toAddress: string, amount: number, note?: string) => {
       if (!rpc) throw new Error("No tip RPC — open with ?rpc= or set VITE_PIXEL_RPC");
-      if (!session) throw new Error("Unlock first — vault stays sealed until you unlock");
+      if (!session) throw new Error("Unlock with PIN first — vault stays sealed");
       setBusy(true);
       setError(null);
       setLastPay(null);
@@ -236,7 +248,14 @@ export function usePeopleWallet(rpcOverride?: string) {
     setLastPay(null);
     setLastBridge(null);
     setFaucetNote(null);
+    setNeedsPinUpgrade(false);
+    setPinSealed(false);
     setError(null);
+  }, []);
+
+  const lock = useCallback(() => {
+    setUnlocked(false);
+    setSession(null);
   }, []);
 
   return {
@@ -254,9 +273,12 @@ export function usePeopleWallet(rpcOverride?: string) {
     crownedTip,
     crownedPrefix: CROWNED_GENESIS_PREFIX,
     faucetNote,
+    needsPinUpgrade,
+    pinSealed,
     rpc: rpc ?? null,
     forge,
     unlock,
+    lock,
     pay,
     faucet,
     bridgeIn,
