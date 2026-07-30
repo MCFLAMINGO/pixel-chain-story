@@ -36,12 +36,33 @@ export const Route = createFileRoute("/wallet")({
   }),
   validateSearch: (s: Record<string, unknown>) => ({
     rpc: typeof s.rpc === "string" ? s.rpc : undefined,
-    tab: s.tab === "send" || s.tab === "bridge" || s.tab === "hold" ? s.tab : undefined,
+    tab:
+      s.tab === "send" || s.tab === "bridge" || s.tab === "hold" || s.tab === "concept"
+        ? s.tab
+        : undefined,
   }),
   component: WalletPage,
 });
 
-type Tab = "hold" | "send" | "bridge";
+type Tab = "hold" | "send" | "bridge" | "concept";
+
+/** Plain talk — phone = card, tip = bank, Bridge = deposit. */
+const WALLET_CONCEPT = {
+  title: "How this works",
+  lines: [
+    "Your phone is like a debit card.",
+    "The tip is like the bank.",
+    "PIX is the money in that bank account.",
+  ],
+  bullets: [
+    { label: "Phone", text: "proves it’s you (holds your key)." },
+    { label: "Tip", text: "is where your balance actually lives." },
+    { label: "Bridge", text: "deposit dollars / USDC → it shows up as PIX." },
+    { label: "Send", text: "Venmo to a friend on the same bank." },
+    { label: "Fund tip", text: "a free starter top-up so you can try it." },
+  ],
+  closer: "You don’t run a bank on your phone. You just open the app, see your balance, and pay.",
+};
 
 function WalletPage() {
   const { rpc: rpcQuery, tab: tabQuery } = Route.useSearch();
@@ -185,6 +206,30 @@ function WalletPage() {
             </section>
 
             <div className="mt-8 flex-1">
+              {tab === "concept" ? (
+                <div className="space-y-5 text-sm leading-relaxed text-white/70">
+                  <h2 className="font-display text-2xl font-bold tracking-tight text-white">
+                    {WALLET_CONCEPT.title}
+                  </h2>
+                  <ul className="space-y-2">
+                    {WALLET_CONCEPT.lines.map((line) => (
+                      <li key={line} className="text-base text-white/85">
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                  <ul className="space-y-3 border-t border-white/10 pt-4">
+                    {WALLET_CONCEPT.bullets.map((b) => (
+                      <li key={b.label}>
+                        <span className="font-medium text-emerald-200/90">{b.label}</span>
+                        <span className="text-white/55"> — {b.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-white/55">{WALLET_CONCEPT.closer}</p>
+                </div>
+              ) : null}
+
               {tab === "hold" ? (
                 <div className="space-y-4 text-sm text-white/65">
                   <p>{walletBridgeThesis()}</p>
@@ -338,12 +383,13 @@ function WalletPage() {
       </div>
 
       {w.payFace ? (
-        <nav className="wallet-tabbar" aria-label="Wallet">
+        <nav className="wallet-tabbar wallet-tabbar-4" aria-label="Wallet">
           {(
             [
               ["hold", "Hold"],
               ["send", "Send"],
               ["bridge", "Bridge"],
+              ["concept", "Concept"],
             ] as const
           ).map(([id, label]) => (
             <button
