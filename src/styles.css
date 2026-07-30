@@ -453,6 +453,15 @@
   background: oklch(0.08 0.02 145 / 0.92);
   backdrop-filter: blur(14px);
 }
+.wallet-tabbar-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+.wallet-tabbar-4 .wallet-tab,
+.wallet-tabbar-4 .wallet-tab-active {
+  letter-spacing: 0.1em;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
 .wallet-tab,
 .wallet-tab-active {
   font-family: var(--font-pixel, ui-sans-serif);
