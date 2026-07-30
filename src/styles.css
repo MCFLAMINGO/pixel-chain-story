@@ -257,6 +257,27 @@
     color: var(--color-foreground);
     font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
   }
+
+  /* Lovable injects "Edit with Lovable" — hide on published / phone wallet */
+  #lovable-badge,
+  #lovable-badge *,
+  [id="lovable-badge"],
+  a#lovable-badge,
+  div#lovable-badge {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html.wallet-route,
+  body.wallet-route {
+    background: #0c1410;
+    overscroll-behavior: none;
+  }
 }
 
 @keyframes pixel-rise {
@@ -366,15 +387,24 @@
   }
 }
 
-/* ─── Phone wallet (/wallet) — hold · send · bridge ─── */
+/* ─── Phone wallet (/wallet) — hold · send · bridge · concept ─── */
 .wallet-phone {
   position: relative;
   isolation: isolate;
+  min-height: 100dvh;
+  min-height: 100svh;
+  width: 100%;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   background:
     radial-gradient(ellipse 120% 80% at 50% -20%, oklch(0.45 0.12 155 / 0.35), transparent 55%),
     radial-gradient(ellipse 80% 50% at 100% 80%, oklch(0.35 0.08 200 / 0.22), transparent 50%),
     linear-gradient(180deg, #0c1410 0%, #08100c 55%, #050a08 100%);
   color: oklch(0.95 0.02 145);
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 .wallet-phone-glow {
   pointer-events: none;
@@ -382,6 +412,36 @@
   inset: 0;
   background: linear-gradient(180deg, transparent 50%, oklch(0.08 0.02 145 / 0.9));
   z-index: 0;
+}
+.wallet-phone-shell {
+  position: relative;
+  z-index: 10;
+  margin-inline: auto;
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+  min-height: 100dvh;
+  min-height: 100svh;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 1.25rem 1.1rem calc(5.75rem + env(safe-area-inset-bottom)) 1.1rem;
+}
+@media (max-width: 420px) {
+  .wallet-phone-shell {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .wallet-phone .font-display.text-5xl {
+    font-size: 2.75rem;
+    line-height: 1.05;
+  }
+  .wallet-tabbar {
+    width: 100%;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+  }
 }
 .wallet-phone .font-display {
   font-family: Syne, ui-sans-serif, system-ui, sans-serif;
@@ -391,9 +451,12 @@
   border-radius: 0.9rem;
   border: 1px solid oklch(1 0 0 / 0.12);
   background: oklch(0 0 0 / 0.45);
-  padding: 0.75rem 0.9rem;
+  padding: 0.85rem 0.9rem;
+  font-size: 16px; /* iOS: avoid zoom on focus */
   color: inherit;
   outline: none;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .wallet-input:focus {
   border-color: oklch(0.78 0.16 155 / 0.55);
@@ -412,11 +475,13 @@
   border-radius: 1rem;
   background: oklch(0.78 0.16 155);
   color: oklch(0.14 0.04 145);
-  padding: 0.95rem 1rem;
+  padding: 1rem 1rem;
   font-size: 0.8rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 700;
+  touch-action: manipulation;
+  min-height: 3rem;
 }
 .wallet-cta:disabled {
   opacity: 0.45;
@@ -426,12 +491,14 @@
   font-family: var(--font-pixel, ui-sans-serif);
   border-radius: 999px;
   border: 1px solid oklch(1 0 0 / 0.14);
-  padding: 0.45rem 0.85rem;
+  padding: 0.55rem 0.85rem;
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: oklch(1 0 0 / 0.55);
   background: oklch(0 0 0 / 0.25);
+  touch-action: manipulation;
+  min-height: 2.5rem;
 }
 .wallet-chip-active {
   border-color: oklch(0.78 0.16 155 / 0.45);
@@ -440,7 +507,7 @@
 }
 .wallet-tabbar {
   position: fixed;
-  z-index: 40;
+  z-index: 50;
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
@@ -448,29 +515,33 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.25rem;
-  padding: 0.65rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom));
+  padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom));
   border-top: 1px solid oklch(1 0 0 / 0.08);
-  background: oklch(0.08 0.02 145 / 0.92);
+  background: oklch(0.08 0.02 145 / 0.96);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 .wallet-tabbar-4 {
   grid-template-columns: repeat(4, 1fr);
 }
 .wallet-tabbar-4 .wallet-tab,
 .wallet-tabbar-4 .wallet-tab-active {
-  letter-spacing: 0.1em;
-  padding-left: 0.2rem;
-  padding-right: 0.2rem;
+  letter-spacing: 0.08em;
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+  font-size: 9px;
 }
 .wallet-tab,
 .wallet-tab-active {
   font-family: var(--font-pixel, ui-sans-serif);
   border-radius: 0.85rem;
-  padding: 0.7rem 0.4rem;
+  padding: 0.75rem 0.35rem;
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: oklch(1 0 0 / 0.4);
+  touch-action: manipulation;
+  min-height: 2.85rem;
 }
 .wallet-tab-active {
   color: oklch(0.85 0.14 155);

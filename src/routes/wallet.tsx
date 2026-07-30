@@ -23,11 +23,17 @@ export const Route = createFileRoute("/wallet")({
         content:
           "Your Pixel hold on the public tip — balance, pay, bridge USDC and crypto. Add to Home Screen.",
       },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no",
+      },
       { name: "theme-color", content: "#0c1410" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "PIXEL" },
       { name: "mobile-web-app-capable", content: "yes" },
+      { name: "format-detection", content: "telephone=no" },
     ],
     links: [
       { rel: "manifest", href: "/manifest.webmanifest" },
@@ -94,6 +100,16 @@ function WalletPage() {
   const [installHint, setInstallHint] = useState(false);
 
   useEffect(() => {
+    document.documentElement.classList.add("wallet-route");
+    document.body.classList.add("wallet-route");
+    const scrubLovable = () => {
+      document
+        .querySelectorAll("#lovable-badge, [id='lovable-badge']")
+        .forEach((el) => el.remove());
+    };
+    scrubLovable();
+    const mo = new MutationObserver(scrubLovable);
+    mo.observe(document.documentElement, { childList: true, subtree: true });
     if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/sw-wallet.js").catch(() => {
         /* optional */
@@ -104,12 +120,17 @@ function WalletPage() {
       // @ts-expect-error iOS Safari
       Boolean(navigator.standalone);
     setInstallHint(!standalone);
+    return () => {
+      mo.disconnect();
+      document.documentElement.classList.remove("wallet-route");
+      document.body.classList.remove("wallet-route");
+    };
   }, []);
 
   return (
-    <main className="wallet-phone min-h-[100dvh] text-foreground">
+    <main className="wallet-phone text-foreground">
       <div className="wallet-phone-glow" aria-hidden />
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-28 pt-8">
+      <div className="wallet-phone-shell">
         <header className="flex items-start justify-between gap-3">
           <div>
             <p className="font-pixel text-[10px] tracking-[0.34em] text-emerald-300/90 uppercase">
