@@ -506,7 +506,7 @@ function WalletPage() {
                               const eth = getInjectedEthereum();
                               if (!eth) {
                                 throw new Error(
-                                  `No MetaMask / injected wallet — lock on ${w.tipBridgeEvm!.chainName}, then paste the tx hash below`,
+                                  `No Rabby / MetaMask — lock on ${w.tipBridgeEvm!.chainName}, then paste the tx hash below`,
                                 );
                               }
                               if (!w.payFace || !w.tipBridgeEvm) return;
@@ -577,8 +577,8 @@ function WalletPage() {
                         {w.busy ? "Verifying…" : "Shine lock → PIX"}
                       </button>
                       <p className="text-xs text-white/40">
-                        Pixel is not this L2 — the foreign lock is only a receipt. Phone Safari
-                        without MetaMask: lock elsewhere, paste tx.
+                        Pixel is not this L2 — the foreign lock is only a receipt. No Rabby /
+                        MetaMask: lock elsewhere, paste tx.
                       </p>
                     </form>
                   ) : null}

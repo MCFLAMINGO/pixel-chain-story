@@ -1,6 +1,7 @@
 /**
- * Browser helper: lock MockUSDC into PixelUsdcLock via injected ethereum (MetaMask).
- * Phone Safari without an injected wallet: paste a lock tx hash instead (WalletConnect later).
+ * Browser helper: lock MockUSDC into PixelUsdcLock via injected ethereum
+ * (Rabby, MetaMask, etc). Phone Safari without an injected wallet: paste a
+ * lock tx hash instead (WalletConnect later).
  */
 
 import {
@@ -17,37 +18,56 @@ export type SepoliaBridgeConfig = EvmBridgeConfig;
 
 export type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  isRabby?: boolean;
+  isMetaMask?: boolean;
+  providers?: EthereumProvider[];
 };
 
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
+    rabby?: EthereumProvider;
   }
 }
 
+/**
+ * Prefer Rabby when several wallets inject `window.ethereum` (common on desktop).
+ */
 export function getInjectedEthereum(): EthereumProvider | null {
   if (typeof window === "undefined") return null;
-  return window.ethereum ?? null;
+  const eth = window.ethereum;
+  if (!eth) return window.rabby ?? null;
+  const many = eth.providers?.filter((p) => typeof p?.request === "function") ?? [];
+  if (many.length > 0) {
+    return (
+      many.find((p) => p.isRabby) ||
+      window.rabby ||
+      many.find((p) => p.isMetaMask) ||
+      many[0] ||
+      null
+    );
+  }
+  return eth;
 }
 
-/** MetaMask often throws plain `{ code, message }` — not always `Error`. */
+/** Injected wallets often throw plain `{ code, message }` — not always `Error`. */
 export function ethProviderErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
   if (err && typeof err === "object") {
     const o = err as { message?: unknown; code?: unknown; data?: { message?: unknown } };
     if (typeof o.message === "string" && o.message.trim()) {
       if (o.code === 4001 || /user rejected|rejected the request/i.test(o.message)) {
-        return "MetaMask: you rejected the request — approve mint → approve → lock";
+        return "Wallet: you rejected — approve mint → approve → lock (3 prompts)";
       }
-      if (o.code === 4902) return "MetaMask: add Ethereum Sepolia, then try again";
-      if (o.code === -32002) return "MetaMask: a request is already pending — open the extension";
+      if (o.code === 4902) return "Wallet: add Ethereum Sepolia, then try again";
+      if (o.code === -32002) return "Wallet: a request is already pending — open Rabby / MetaMask";
       return o.message;
     }
     if (typeof o.data?.message === "string" && o.data.message.trim()) return o.data.message;
-    if (o.code === 4001) return "MetaMask: you rejected the request";
+    if (o.code === 4001) return "Wallet: you rejected the request";
   }
   if (typeof err === "string" && err.trim()) return err;
-  return "EVM lock failed — check MetaMask is on Ethereum Sepolia with testnet ETH";
+  return "EVM lock failed — Rabby on Ethereum Sepolia with Sepolia ETH for gas?";
 }
 
 export async function ensureEthChain(
