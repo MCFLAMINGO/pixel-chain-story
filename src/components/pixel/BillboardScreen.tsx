@@ -46,7 +46,7 @@ export function BillboardScreen({
         const gh = health.genesisHash ?? pixels[0]?.hash;
         setCanvasShort(
           typeof health.networkId === "number" && gh
-            ? `${health.networkId}:${gh.slice(0, 10)}…`
+            ? `${health.networkId}:${gh.slice(0, 8)}…`
             : "",
         );
         setLive(true);
@@ -62,6 +62,19 @@ export function BillboardScreen({
     };
   }, [rpc]);
 
+  // Lovable injects an Edit badge that eats the phone chrome — scrub it on the field too.
+  useEffect(() => {
+    const scrub = () => {
+      document
+        .querySelectorAll("#lovable-badge, [id='lovable-badge']")
+        .forEach((el) => el.remove());
+    };
+    scrub();
+    const mo = new MutationObserver(scrub);
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+
   const pixels = remote ?? local.chain?.pixels ?? [];
   const pendingCount = remote ? pending : local.pending;
   const countLabel = remote ? tip : local.chain ? `#${local.chain.pixels.length - 1}` : "…";
@@ -75,6 +88,10 @@ export function BillboardScreen({
     : igniting
       ? "igniting…"
       : "lab light";
+
+  const statusMeta = igniting
+    ? "forging first light…"
+    : `${litCount} lit${pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}`;
 
   return (
     <main className="billboard-phone fixed inset-0 overflow-hidden bg-[oklch(0.08_0.02_145)] text-foreground">
@@ -114,41 +131,35 @@ export function BillboardScreen({
         aria-hidden
       />
 
-      <header className="absolute inset-x-0 top-0 flex flex-col gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-8 sm:pt-8 md:px-14 md:pt-12">
-        <div className="min-w-0">
-          <p className="font-pixel text-[10px] font-semibold tracking-[0.35em] text-[oklch(0.92_0.18_95)] uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-xs sm:tracking-[0.45em]">
-            Live field
-          </p>
-          <h1 className="font-pixel mt-1 text-[clamp(2.5rem,14vw,8rem)] leading-none font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] sm:mt-2">
-            PIXEL
-          </h1>
-        </div>
-        <div className="font-pixel flex flex-col gap-3 sm:items-end sm:text-right sm:text-sm md:text-base">
-          <div className="inline-block w-fit rounded-md bg-black/70 px-3 py-2 backdrop-blur-sm ring-1 ring-white/10">
-            <p className="tracking-[0.2em] text-[oklch(0.9_0.02_95)] uppercase">{feedLabel}</p>
-            <p className="mt-1 text-2xl font-bold text-white sm:mt-2 sm:text-3xl md:text-5xl">
+      <header className="billboard-chrome absolute inset-x-0 top-0 z-10">
+        <div className="flex w-full min-w-0 flex-col gap-3">
+          <div className="min-w-0">
+            <p className="font-pixel text-[10px] font-semibold tracking-[0.35em] text-[oklch(0.92_0.18_95)] uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-xs sm:tracking-[0.45em]">
+              Live field
+            </p>
+            <h1 className="font-pixel mt-1 text-[clamp(2.75rem,16vw,8rem)] leading-none font-extrabold tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
+              PIXEL
+            </h1>
+          </div>
+
+          <div className="font-pixel billboard-status min-w-0 w-full max-w-full">
+            <p className="tracking-[0.18em] text-[oklch(0.9_0.02_95)] uppercase">{feedLabel}</p>
+            <p className="mt-0.5 truncate text-2xl font-bold text-white sm:text-3xl md:text-5xl">
               {countLabel}
             </p>
-            <p className="mt-1 text-xs text-[oklch(0.88_0.02_95)] sm:text-sm">
-              {igniting ? "forging first light…" : `${litCount} lit`}
-              {!igniting && pendingCount > 0 ? ` · ${pendingCount} waiting` : ""}
+            <p className="mt-0.5 truncate text-xs text-[oklch(0.88_0.02_95)] sm:text-sm">
+              {statusMeta}
+              {rpc && live && canvasShort ? ` · ${canvasShort}` : ""}
             </p>
-            {rpc && live && canvasShort ? (
-              <p className="mt-1 font-mono text-[10px] tracking-wide text-[oklch(0.78_0.02_95)]">
-                canvas {canvasShort}
-              </p>
-            ) : null}
           </div>
-          {showLabLink && (
-            <nav
-              className="pointer-events-auto flex flex-wrap gap-2 sm:max-w-[14rem] sm:flex-col sm:items-end"
-              aria-label="Site"
-            >
+
+          {showLabLink ? (
+            <nav className="billboard-nav pointer-events-auto" aria-label="Site">
               {(
                 [
                   ["/wallet", "Wallet", rpc ? { rpc } : {}],
                   ["/doors", "Doors", {}],
-                  ["/shine", "Shine in", {}],
+                  ["/shine", "Shine", {}],
                   ["/lab", "Lab", {}],
                 ] as const
               ).map(([to, label, search]) => (
@@ -156,17 +167,17 @@ export function BillboardScreen({
                   key={to}
                   to={to}
                   search={search as never}
-                  className="phone-nav-link bg-black/70 text-[oklch(0.95_0.15_95)] ring-1 ring-white/10 backdrop-blur-sm"
+                  className="phone-nav-link bg-black/70 text-[oklch(0.95_0.15_95)]"
                 >
                   {label}
                 </Link>
               ))}
             </nav>
-          )}
+          ) : null}
         </div>
       </header>
 
-      <footer className="absolute inset-x-0 bottom-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-8 md:px-14 md:pb-12">
+      <footer className="billboard-chrome absolute inset-x-0 bottom-0 z-10">
         <p className="font-pixel max-w-xl rounded-md bg-black/70 px-3 py-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur-sm sm:px-4 sm:py-3 sm:text-sm md:text-lg">
           {igniting
             ? "Lab light is being forged — local look-dev, not the public tip of humanity."
