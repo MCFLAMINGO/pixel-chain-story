@@ -23,48 +23,49 @@ verify Locked log → illuminateIngress → PIX on pay face
 | Piece | Status |
 | --- | --- |
 | Tip verify + consume digests | **shipped** (`shineInFromUsdcLockTx`, `bridge-feeder.json`) |
-| Phone Bridge UI (MetaMask + paste tx) | **shipped** when tip publishes `bridgeEvm` in `/health` |
+| Phone Bridge UI (MetaMask + paste tx) | **shipped** — tip `/health.bridgeEvm` live (Sepolia) |
 | Venues (presets) | Sepolia · Base Sepolia · Polygon Amoy · Arbitrum Sepolia |
 | Lab open shine-in | Still behind `PIXEL_BRIDGE_LAB=1` (demo; `lab: true`) |
 | Anvil evidence | `bun run test:sepolia-bridge` (CI after Foundry) |
-| Public deploy + explorer links | **ops — needs funded deploy key** |
+| Public lock contracts | **Sepolia live** — first lock tx / tip index still open |
 
-### Deploy (ops)
-
-```bash
-# pick a venue
-export PIXEL_EVM_CHAIN=base-sepolia   # or sepolia | amoy | arb-sepolia
-export PIXEL_EVM_DEPLOY_KEY=0x…       # funded testnet gas
-bun run deploy:evm-lock
-```
-
-Then set on Railway **pixel-tip** (from script output):
+### Live tip env (Railway `pixel-tip`)
 
 ```bash
 PIXEL_BRIDGE_EVM=1
-PIXEL_EVM_CHAIN=base-sepolia
-PIXEL_EVM_RPC=https://sepolia.base.org
-PIXEL_EVM_CHAIN_ID=84532
-PIXEL_EVM_LOCK=0x…
-PIXEL_EVM_USDC=0x…
-PIXEL_EVM_EXPLORER_TX=https://sepolia.basescan.org/tx/
+PIXEL_EVM_CHAIN=sepolia
+PIXEL_EVM_RPC=https://ethereum-sepolia-rpc.publicnode.com
+PIXEL_EVM_CHAIN_ID=11155111
+PIXEL_EVM_LOCK=0xb99Fbb5aeB6252423a06acb95c9c61fEF8973211
+PIXEL_EVM_USDC=0x21A91215fbFc4fc002B07cc87698A6fC01Aed523
+PIXEL_EVM_EXPLORER_TX=https://sepolia.etherscan.io/tx/
 # optional demo rail:
 PIXEL_BRIDGE_LAB=1
 PIXEL_FAUCET=1
 ```
 
-Legacy `PIXEL_USDC_LOCK_SEPOLIA` / `PIXEL_BRIDGE_SEPOLIA` still read. Redeploy tip → `/health.bridgeEvm` → first lock → paste URLs below.
+Never put deploy private keys on Railway. Tip only needs RPC + public lock/USDC addresses. Confirmed: `curl …/health` → `bridgeEvm.lock` matches above.
+
+### Deploy another venue (ops)
+
+```bash
+export PIXEL_EVM_CHAIN=base-sepolia   # or sepolia | amoy | arb-sepolia
+export PIXEL_EVM_DEPLOY_KEY=0x…       # funded testnet gas — local only
+bun run deploy:evm-lock
+```
+
+Legacy `PIXEL_USDC_LOCK_SEPOLIA` / `PIXEL_BRIDGE_SEPOLIA` still read.
 
 ### Public testnet tx links
 
-| Network | Lock contract | Lock tx | Shine-in tip index | Notes |
-| --- | --- | --- | --- | --- |
-| Ethereum Sepolia | *pending* | *pending* | *pending* | `PIXEL_EVM_CHAIN=sepolia` |
-| Base Sepolia | *pending* | *pending* | *pending* | easy faucet |
-| Polygon Amoy | *pending* | *pending* | *pending* | POL gas |
-| Arbitrum Sepolia | *pending* | *pending* | *pending* | |
+| Network | Lock contract | MockUSDC | Lock tx | Shine-in tip index | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Ethereum Sepolia | [`0xb99Fbb5a…8973211`](https://sepolia.etherscan.io/address/0xb99Fbb5aeB6252423a06acb95c9c61fEF8973211) | [`0x21A91215…01Aed523`](https://sepolia.etherscan.io/address/0x21A91215fbFc4fc002B07cc87698A6fC01Aed523) | *pending first lock* | *pending* | tip `bridgeEvm` live |
+| Base Sepolia | *pending* | *pending* | *pending* | *pending* | easy faucet |
+| Polygon Amoy | *pending* | *pending* | *pending* | *pending* | POL gas |
+| Arbitrum Sepolia | *pending* | *pending* | *pending* | *pending* | |
 
-Until those rows fill: **do not claim “testnet bridge live.”** Do claim: tip can verify `Locked` on a configured EVM RPC and credit PIX; path proven on anvil.
+**Claim now:** tip verifies `Locked` on Sepolia RPC and can credit PIX. **Still open:** paste first public lock tx + tip pixel index after phone Bridge shine-in. Until then: do not claim “Visa / mainnet USDC.”
 
 ---
 
