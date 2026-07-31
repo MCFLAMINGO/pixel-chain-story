@@ -35,39 +35,49 @@ declare global {
  */
 export function getInjectedEthereum(): EthereumProvider | null {
   if (typeof window === "undefined") return null;
+  if (window.rabby && typeof window.rabby.request === "function") return window.rabby;
   const eth = window.ethereum;
-  if (!eth) return window.rabby ?? null;
+  if (!eth) return null;
   const many = eth.providers?.filter((p) => typeof p?.request === "function") ?? [];
   if (many.length > 0) {
-    return (
-      many.find((p) => p.isRabby) ||
-      window.rabby ||
-      many.find((p) => p.isMetaMask) ||
-      many[0] ||
-      null
-    );
+    return many.find((p) => p.isRabby) || many.find((p) => p.isMetaMask) || many[0] || null;
   }
   return eth;
 }
 
 /** Injected wallets often throw plain `{ code, message }` — not always `Error`. */
-export function ethProviderErrorMessage(err: unknown): string {
-  if (err instanceof Error && err.message) return err.message;
+export function ethProviderErrorMessage(err: unknown, step?: string): string {
+  const prefix = step ? `${step}: ` : "";
+  if (err instanceof Error && err.message) {
+    if (step && err.message.startsWith(step)) return err.message;
+    return `${prefix}${err.message}`;
+  }
   if (err && typeof err === "object") {
     const o = err as { message?: unknown; code?: unknown; data?: { message?: unknown } };
     if (typeof o.message === "string" && o.message.trim()) {
       if (o.code === 4001 || /user rejected|rejected the request/i.test(o.message)) {
-        return "Wallet: you rejected — approve mint → approve → lock (3 prompts)";
+        return `${prefix}you rejected — open Rabby and approve (don't dismiss)`;
       }
-      if (o.code === 4902) return "Wallet: add Ethereum Sepolia, then try again";
-      if (o.code === -32002) return "Wallet: a request is already pending — open Rabby / MetaMask";
-      return o.message;
+      if (o.code === 4902) return `${prefix}add Ethereum Sepolia in Rabby, then try again`;
+      if (o.code === -32002) {
+        return `${prefix}Rabby has a pending request — open the Rabby extension, clear/approve it, refresh this page`;
+      }
+      return `${prefix}${o.message}`;
     }
-    if (typeof o.data?.message === "string" && o.data.message.trim()) return o.data.message;
-    if (o.code === 4001) return "Wallet: you rejected the request";
+    if (typeof o.data?.message === "string" && o.data.message.trim()) {
+      return `${prefix}${o.data.message}`;
+    }
+    if (o.code === 4001) return `${prefix}you rejected the request`;
+    if (o.code === -32002) {
+      return `${prefix}Rabby has a pending request — open the extension`;
+    }
   }
-  if (typeof err === "string" && err.trim()) return err;
-  return "EVM lock failed — Rabby on Ethereum Sepolia with Sepolia ETH for gas?";
+  if (typeof err === "string" && err.trim()) return `${prefix}${err}`;
+  return `${prefix}failed — Rabby on Ethereum Sepolia with Sepolia ETH? Open Rabby icon for a stuck popup.`;
+}
+
+function fail(step: string, err: unknown): never {
+  throw new Error(ethProviderErrorMessage(err, step));
 }
 
 export async function ensureEthChain(
@@ -78,7 +88,12 @@ export async function ensureEthChain(
   >,
 ): Promise<void> {
   const hexId = `0x${cfg.chainId.toString(16)}`;
-  const current = (await ethereum.request({ method: "eth_chainId" })) as string;
+  let current: string;
+  try {
+    current = (await ethereum.request({ method: "eth_chainId" })) as string;
+  } catch (e) {
+    fail("chainId", e);
+  }
   if (Number(BigInt(current)) === cfg.chainId) return;
   try {
     await ethereum.request({
@@ -87,38 +102,47 @@ export async function ensureEthChain(
     });
   } catch (e) {
     const code = (e as { code?: number })?.code;
-    if (code !== 4902) throw e;
+    if (code !== 4902) fail("switch-chain", e);
     const explorer = cfg.explorerTxBase.replace(/\/tx\/?$/, "");
-    await ethereum.request({
-      method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId: hexId,
-          chainName: cfg.chainName,
-          nativeCurrency: {
-            name: cfg.nativeSymbol,
-            symbol: cfg.nativeSymbol,
-            decimals: 18,
+    try {
+      await ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: hexId,
+            chainName: cfg.chainName,
+            nativeCurrency: {
+              name: cfg.nativeSymbol,
+              symbol: cfg.nativeSymbol,
+              decimals: 18,
+            },
+            rpcUrls: [
+              cfg.ethRpcUrl ||
+                Object.values(EVM_CHAIN_PRESETS).find((p) => p.chainId === cfg.chainId)
+                  ?.defaultRpc ||
+                "",
+            ].filter(Boolean),
+            blockExplorerUrls: explorer ? [explorer] : [],
           },
-          rpcUrls: [
-            cfg.ethRpcUrl ||
-              Object.values(EVM_CHAIN_PRESETS).find((p) => p.chainId === cfg.chainId)?.defaultRpc ||
-              "",
-          ].filter(Boolean),
-          blockExplorerUrls: explorer ? [explorer] : [],
-        },
-      ],
-    });
+        ],
+      });
+    } catch (addErr) {
+      fail("add-chain", addErr);
+    }
   }
 }
 
 export async function connectEthAccount(ethereum: EthereumProvider): Promise<string> {
-  const accounts = (await ethereum.request({
-    method: "eth_requestAccounts",
-  })) as string[];
-  const a = accounts[0];
-  if (!a) throw new Error("No Ethereum account");
-  return a;
+  try {
+    const accounts = (await ethereum.request({
+      method: "eth_requestAccounts",
+    })) as string[];
+    const a = accounts[0];
+    if (!a) throw new Error("No Ethereum account selected in Rabby");
+    return a;
+  } catch (e) {
+    fail("connect", e);
+  }
 }
 
 /**
@@ -133,42 +157,47 @@ export async function lockUsdcWithInjectedWallet(params: {
   /** When true and tip exposes mock USDC, mint to the locker first (testnet only). */
   mintIfMock?: boolean;
 }): Promise<{ txHash: string; salt: Hex; amountRaw: bigint }> {
+  if (!(params.humanUsd > 0)) throw new Error("amount must be > 0");
+  const cfg = {
+    ...params.cfg,
+    ethRpcUrl:
+      params.cfg.ethRpcUrl ||
+      Object.values(EVM_CHAIN_PRESETS).find((p) => p.chainId === params.cfg.chainId)?.defaultRpc ||
+      "",
+  };
+
+  // Connect first so Rabby always opens a prompt before chain/tx steps.
+  const account = await connectEthAccount(params.ethereum);
+  await ensureEthChain(params.ethereum, cfg);
+
+  const amountRaw = BigInt(Math.round(params.humanUsd * 1e6));
+  const salt = bytesToHex(randomBytes(32)) as Hex;
+
+  if (!cfg.usdcContract) {
+    throw new Error("Tip did not publish USDC token address — set PIXEL_EVM_USDC");
+  }
+
+  if (params.mintIfMock) {
+    try {
+      await params.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: account,
+            to: cfg.usdcContract,
+            data: encodeMintCalldata(account, amountRaw),
+          },
+        ],
+      });
+    } catch (e) {
+      // MockUSDC mint is public; if user rejects, stop — don't silently continue.
+      const msg = ethProviderErrorMessage(e);
+      if (/reject|denied|4001/i.test(msg)) fail("mint", e);
+      /* non-mock token: continue; approve will fail clearly */
+    }
+  }
+
   try {
-    if (!(params.humanUsd > 0)) throw new Error("amount must be > 0");
-    const cfg = {
-      ...params.cfg,
-      ethRpcUrl:
-        params.cfg.ethRpcUrl ||
-        Object.values(EVM_CHAIN_PRESETS).find((p) => p.chainId === params.cfg.chainId)
-          ?.defaultRpc ||
-        "",
-    };
-    await ensureEthChain(params.ethereum, cfg);
-    const account = await connectEthAccount(params.ethereum);
-    const amountRaw = BigInt(Math.round(params.humanUsd * 1e6));
-    const salt = bytesToHex(randomBytes(32)) as Hex;
-
-    if (params.mintIfMock && cfg.usdcContract) {
-      try {
-        await params.ethereum.request({
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: account,
-              to: cfg.usdcContract,
-              data: encodeMintCalldata(account, amountRaw),
-            },
-          ],
-        });
-      } catch {
-        /* mint may fail if not MockUSDC — continue; approve will fail clearly */
-      }
-    }
-
-    if (!cfg.usdcContract) {
-      throw new Error("Tip did not publish USDC token address — set PIXEL_EVM_USDC");
-    }
-
     await params.ethereum.request({
       method: "eth_sendTransaction",
       params: [
@@ -179,8 +208,13 @@ export async function lockUsdcWithInjectedWallet(params: {
         },
       ],
     });
+  } catch (e) {
+    fail("approve", e);
+  }
 
-    const txHash = (await params.ethereum.request({
+  let txHash: string;
+  try {
+    txHash = (await params.ethereum.request({
       method: "eth_sendTransaction",
       params: [
         {
@@ -194,9 +228,13 @@ export async function lockUsdcWithInjectedWallet(params: {
         },
       ],
     })) as string;
-
-    return { txHash, salt, amountRaw };
-  } catch (err) {
-    throw new Error(ethProviderErrorMessage(err));
+  } catch (e) {
+    fail("lock", e);
   }
+
+  if (!txHash || !/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+    throw new Error("lock: wallet returned no tx hash");
+  }
+
+  return { txHash, salt, amountRaw };
 }
