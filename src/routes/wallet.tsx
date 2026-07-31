@@ -498,6 +498,9 @@ function WalletPage() {
                           void (async () => {
                             try {
                               setEthLockNote("");
+                              if (!w.unlocked) {
+                                throw new Error("Unlock with PIN first, then lock on Sepolia");
+                              }
                               const { getInjectedEthereum, lockUsdcWithInjectedWallet } =
                                 await import("@/lib/pixel/browser-eth-lock");
                               const eth = getInjectedEthereum();
@@ -527,9 +530,10 @@ function WalletPage() {
                               setLockTxHash(txHash);
                               await w.bridgeFromLockTx(txHash);
                             } catch (err) {
-                              setEthLockNote(
-                                err instanceof Error ? err.message : "EVM lock failed",
+                              const { ethProviderErrorMessage } = await import(
+                                "@/lib/pixel/browser-eth-lock",
                               );
+                              setEthLockNote(ethProviderErrorMessage(err));
                             }
                           })();
                         }}

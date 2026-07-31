@@ -30,6 +30,26 @@ export function getInjectedEthereum(): EthereumProvider | null {
   return window.ethereum ?? null;
 }
 
+/** MetaMask often throws plain `{ code, message }` — not always `Error`. */
+export function ethProviderErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object") {
+    const o = err as { message?: unknown; code?: unknown; data?: { message?: unknown } };
+    if (typeof o.message === "string" && o.message.trim()) {
+      if (o.code === 4001 || /user rejected|rejected the request/i.test(o.message)) {
+        return "MetaMask: you rejected the request — approve mint → approve → lock";
+      }
+      if (o.code === 4902) return "MetaMask: add Ethereum Sepolia, then try again";
+      if (o.code === -32002) return "MetaMask: a request is already pending — open the extension";
+      return o.message;
+    }
+    if (typeof o.data?.message === "string" && o.data.message.trim()) return o.data.message;
+    if (o.code === 4001) return "MetaMask: you rejected the request";
+  }
+  if (typeof err === "string" && err.trim()) return err;
+  return "EVM lock failed — check MetaMask is on Ethereum Sepolia with testnet ETH";
+}
+
 export async function ensureEthChain(
   ethereum: EthereumProvider,
   cfg: Pick<
@@ -93,58 +113,70 @@ export async function lockUsdcWithInjectedWallet(params: {
   /** When true and tip exposes mock USDC, mint to the locker first (testnet only). */
   mintIfMock?: boolean;
 }): Promise<{ txHash: string; salt: Hex; amountRaw: bigint }> {
-  if (!(params.humanUsd > 0)) throw new Error("amount must be > 0");
-  await ensureEthChain(params.ethereum, params.cfg);
-  const account = await connectEthAccount(params.ethereum);
-  const amountRaw = BigInt(Math.round(params.humanUsd * 1e6));
-  const salt = bytesToHex(randomBytes(32)) as Hex;
+  try {
+    if (!(params.humanUsd > 0)) throw new Error("amount must be > 0");
+    const cfg = {
+      ...params.cfg,
+      ethRpcUrl:
+        params.cfg.ethRpcUrl ||
+        Object.values(EVM_CHAIN_PRESETS).find((p) => p.chainId === params.cfg.chainId)
+          ?.defaultRpc ||
+        "",
+    };
+    await ensureEthChain(params.ethereum, cfg);
+    const account = await connectEthAccount(params.ethereum);
+    const amountRaw = BigInt(Math.round(params.humanUsd * 1e6));
+    const salt = bytesToHex(randomBytes(32)) as Hex;
 
-  if (params.mintIfMock && params.cfg.usdcContract) {
-    try {
-      await params.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: account,
-            to: params.cfg.usdcContract,
-            data: encodeMintCalldata(account, amountRaw),
-          },
-        ],
-      });
-    } catch {
-      /* mint may fail if not MockUSDC — continue; approve will fail clearly */
+    if (params.mintIfMock && cfg.usdcContract) {
+      try {
+        await params.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: account,
+              to: cfg.usdcContract,
+              data: encodeMintCalldata(account, amountRaw),
+            },
+          ],
+        });
+      } catch {
+        /* mint may fail if not MockUSDC — continue; approve will fail clearly */
+      }
     }
+
+    if (!cfg.usdcContract) {
+      throw new Error("Tip did not publish USDC token address — set PIXEL_EVM_USDC");
+    }
+
+    await params.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: account,
+          to: cfg.usdcContract,
+          data: encodeApproveCalldata(cfg.lockContract, amountRaw),
+        },
+      ],
+    });
+
+    const txHash = (await params.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: account,
+          to: cfg.lockContract,
+          data: encodeLockCalldata({
+            amountRaw,
+            pixelRecipient: params.pixelRecipient,
+            salt,
+          }),
+        },
+      ],
+    })) as string;
+
+    return { txHash, salt, amountRaw };
+  } catch (err) {
+    throw new Error(ethProviderErrorMessage(err));
   }
-
-  if (!params.cfg.usdcContract) {
-    throw new Error("Tip did not publish USDC token address — set PIXEL_USDC_TOKEN_SEPOLIA");
-  }
-
-  await params.ethereum.request({
-    method: "eth_sendTransaction",
-    params: [
-      {
-        from: account,
-        to: params.cfg.usdcContract,
-        data: encodeApproveCalldata(params.cfg.lockContract, amountRaw),
-      },
-    ],
-  });
-
-  const txHash = (await params.ethereum.request({
-    method: "eth_sendTransaction",
-    params: [
-      {
-        from: account,
-        to: params.cfg.lockContract,
-        data: encodeLockCalldata({
-          amountRaw,
-          pixelRecipient: params.pixelRecipient,
-          salt,
-        }),
-      },
-    ],
-  })) as string;
-
-  return { txHash, salt, amountRaw };
 }
