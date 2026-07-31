@@ -3,6 +3,7 @@
  * bun run test:sepolia-bridge
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { createGenesis, generatePixelKeypair } from "../src/lib/pixel/index";
@@ -14,6 +15,13 @@ const FOUNDRY = `${process.env.HOME}/.foundry/bin`;
 const PATH = `${FOUNDRY}:${process.env.PATH}`;
 const BASE = `/tmp/pixel-sepolia-bridge-${process.pid}`;
 const RPC = 19_300 + (process.pid % 400);
+
+function foundryBin(name: string): string {
+  const home = `${FOUNDRY}/${name}`;
+  if (existsSync(home)) return home;
+  // foundry-toolchain CI puts anvil on PATH
+  return name;
+}
 
 async function sh(cmd: string, args: string[]): Promise<string> {
   const { spawnSync } = await import("node:child_process");
@@ -35,7 +43,10 @@ async function main() {
 
   let anvil: ChildProcess | null = null;
   try {
-    anvil = spawn(`${FOUNDRY}/anvil`, ["--silent", "--chain-id", "11155111"], {
+    const anvilBin = foundryBin("anvil");
+    const forgeBin = foundryBin("forge");
+    const castBin = foundryBin("cast");
+    anvil = spawn(anvilBin, ["--silent", "--chain-id", "11155111"], {
       env: { ...process.env, PATH },
       stdio: "ignore",
     });
@@ -46,7 +57,7 @@ async function main() {
     const ethRpc = "http://127.0.0.1:8545";
 
     const usdc = parseDeployAddress(
-      await sh(`${FOUNDRY}/forge`, [
+      await sh(forgeBin, [
         "create",
         "contracts/MockUSDC.sol:MockUSDC",
         "--rpc-url",
@@ -57,7 +68,7 @@ async function main() {
       ]),
     );
     const lock = parseDeployAddress(
-      await sh(`${FOUNDRY}/forge`, [
+      await sh(forgeBin, [
         "create",
         "contracts/PixelUsdcLock.sol:PixelUsdcLock",
         "--rpc-url",
@@ -74,11 +85,12 @@ async function main() {
 
     process.env.PIXEL_ALLOW_LAB_GENESIS = "1";
     process.env.PIXEL_TIP_HOST = "1";
-    process.env.PIXEL_BRIDGE_SEPOLIA = "1";
-    process.env.PIXEL_USDC_LOCK_SEPOLIA = lock;
-    process.env.PIXEL_USDC_TOKEN_SEPOLIA = usdc;
-    process.env.PIXEL_ETH_RPC = ethRpc;
-    process.env.PIXEL_ETH_CHAIN_ID = "11155111";
+    process.env.PIXEL_BRIDGE_EVM = "1";
+    process.env.PIXEL_EVM_CHAIN = "sepolia";
+    process.env.PIXEL_EVM_LOCK = lock;
+    process.env.PIXEL_EVM_USDC = usdc;
+    process.env.PIXEL_EVM_RPC = ethRpc;
+    process.env.PIXEL_EVM_CHAIN_ID = "11155111";
     process.env.PIXEL_BRIDGE_LAB = "0";
     process.env.PIXEL_FAUCET = "0";
 
@@ -103,7 +115,7 @@ async function main() {
     const amountRaw = "5000000";
     const salt = "0x2222222222222222222222222222222222222222222222222222222222222222";
 
-    await sh(`${FOUNDRY}/cast`, [
+    await sh(castBin, [
       "send",
       usdc,
       "mint(address,uint256)",
@@ -114,7 +126,7 @@ async function main() {
       "--private-key",
       pk,
     ]);
-    await sh(`${FOUNDRY}/cast`, [
+    await sh(castBin, [
       "send",
       usdc,
       "approve(address,uint256)",
@@ -125,7 +137,7 @@ async function main() {
       "--private-key",
       pk,
     ]);
-    const txOut = await sh(`${FOUNDRY}/cast`, [
+    const txOut = await sh(castBin, [
       "send",
       lock,
       "lock(uint256,string,bytes32)",
@@ -143,12 +155,12 @@ async function main() {
     console.log("▸ lock tx", txHash);
 
     const health = (await fetch(`${base}/health`).then((r) => r.json())) as {
-      bridgeSepolia?: { lock: string };
+      bridgeEvm?: { lock: string; chainKey?: string };
       bridgeLab?: boolean;
     };
-    if (!health.bridgeSepolia?.lock) throw new Error("health missing bridgeSepolia");
+    if (!health.bridgeEvm?.lock) throw new Error("health missing bridgeEvm");
     if (health.bridgeLab) throw new Error("lab bridge should be off for this test");
-    console.log("▸ health bridgeSepolia ✓");
+    console.log("▸ health bridgeEvm ✓", health.bridgeEvm.chainKey);
 
     const shine = (await fetch(`${base}/bridge/shine-in-lock`, {
       method: "POST",

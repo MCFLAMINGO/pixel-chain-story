@@ -23,14 +23,14 @@ Open: **`/wallet`** (optional `?rpc=https://…`).
 ## Bridge honesty
 
 ```
-# Real(ish) — Sepolia MockUSDC
+# Real(ish) — any configured EVM testnet (receipt only; Pixel settles PIX)
 PixelUsdcLock.lock → tip POST /bridge/shine-in-lock → PIX
 
 # Lab demo (still available)
 POST /bridge/shine-in (PIXEL_BRIDGE_LAB=1) → PIX  # marked lab: true
 ```
 
-- **Sepolia path:** tip sets `PIXEL_USDC_LOCK_SEPOLIA` + `PIXEL_ETH_RPC` → `/health.bridgeSepolia` → phone MetaMask or paste lock tx → verified `Locked` → PIX. Digests persisted (`bridge-feeder.json`) — no double shine.
+- **EVM path:** tip sets `PIXEL_EVM_LOCK` + `PIXEL_EVM_RPC` (+ `PIXEL_EVM_CHAIN`) → `/health.bridgeEvm` → phone MetaMask or paste lock tx → verified `Locked` → PIX. Digests persisted (`bridge-feeder.json`) — no double shine. Pixel is not that L2.
 - **Lab path:** `PIXEL_BRIDGE_LAB=1` → open shine-in without ethereum (friend demos).
 - **Fallback:** local lab rail when tip has neither.
 - **Not claimed:** Circle mainnet USDC until [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) says so.
@@ -48,12 +48,12 @@ VITE_REQUIRE_PUBLIC_TIP=1
 PIXEL_BRIDGE_LAB=1
 PIXEL_FAUCET=1
 
-# Tip host — Sepolia verified lock (after bun run deploy:sepolia-lock)
-PIXEL_BRIDGE_SEPOLIA=1
-PIXEL_ETH_RPC=https://ethereum-sepolia-rpc.publicnode.com
-PIXEL_ETH_CHAIN_ID=11155111
-PIXEL_USDC_LOCK_SEPOLIA=0x…
-PIXEL_USDC_TOKEN_SEPOLIA=0x…
+# Tip host — EVM verified lock (after bun run deploy:evm-lock)
+PIXEL_BRIDGE_EVM=1
+PIXEL_EVM_CHAIN=base-sepolia   # or sepolia | amoy | arb-sepolia
+PIXEL_EVM_RPC=https://sepolia.base.org
+PIXEL_EVM_LOCK=0x…
+PIXEL_EVM_USDC=0x…
 ```
 
 Invite paste: [`demos/friend-invite.md`](./demos/friend-invite.md)

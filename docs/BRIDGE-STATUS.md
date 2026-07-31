@@ -4,14 +4,14 @@
 
 **Custody law:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX. Enforced in `illuminateIngress` + `bun run test:bridge-custody`.
 
-**Forbidden claim:** production mainnet USDC movement / “Visa on Pixel.”
+**Forbidden claim:** production mainnet USDC movement / “Visa on Pixel.” Pixel is **not** an ETH L2 — foreign chains are ingress venues only.
 
 ---
 
-## Sepolia lock path (in progress)
+## EVM lock path (agnostic shine-in)
 
 ```
-MetaMask / cast → PixelUsdcLock.lock (Sepolia MockUSDC)
+MetaMask / cast → PixelUsdcLock.lock (any EVM testnet)
         ↓
 Phone /wallet → paste tx  (or Lock USDC MetaMask)
         ↓
@@ -23,42 +23,48 @@ verify Locked log → illuminateIngress → PIX on pay face
 | Piece | Status |
 | --- | --- |
 | Tip verify + consume digests | **shipped** (`shineInFromUsdcLockTx`, `bridge-feeder.json`) |
-| Phone Bridge UI (MetaMask + paste tx) | **shipped** when tip publishes `bridgeSepolia` in `/health` |
-| Lab open shine-in | Still behind `PIXEL_BRIDGE_LAB=1` (demo only; response marks `lab: true`) |
-| Anvil evidence | `bun run test:sepolia-bridge` |
-| Public Sepolia deploy + explorer links | **ops — needs funded `SEPOLIA_PRIVATE_KEY`** |
+| Phone Bridge UI (MetaMask + paste tx) | **shipped** when tip publishes `bridgeEvm` in `/health` |
+| Venues (presets) | Sepolia · Base Sepolia · Polygon Amoy · Arbitrum Sepolia |
+| Lab open shine-in | Still behind `PIXEL_BRIDGE_LAB=1` (demo; `lab: true`) |
+| Anvil evidence | `bun run test:sepolia-bridge` (CI after Foundry) |
+| Public deploy + explorer links | **ops — needs funded deploy key** |
 
 ### Deploy (ops)
 
 ```bash
-export SEPOLIA_PRIVATE_KEY=0x…          # funded Sepolia ETH
-export SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-bun run deploy:sepolia-lock
+# pick a venue
+export PIXEL_EVM_CHAIN=base-sepolia   # or sepolia | amoy | arb-sepolia
+export PIXEL_EVM_DEPLOY_KEY=0x…       # funded testnet gas
+bun run deploy:evm-lock
 ```
 
-Then set on Railway **pixel-tip**:
+Then set on Railway **pixel-tip** (from script output):
 
 ```bash
-PIXEL_BRIDGE_SEPOLIA=1
-PIXEL_ETH_RPC=https://ethereum-sepolia-rpc.publicnode.com
-PIXEL_ETH_CHAIN_ID=11155111
-PIXEL_USDC_LOCK_SEPOLIA=0x…   # from deploy script
-PIXEL_USDC_TOKEN_SEPOLIA=0x…  # MockUSDC
-PIXEL_ETH_EXPLORER_TX=https://sepolia.etherscan.io/tx/
+PIXEL_BRIDGE_EVM=1
+PIXEL_EVM_CHAIN=base-sepolia
+PIXEL_EVM_RPC=https://sepolia.base.org
+PIXEL_EVM_CHAIN_ID=84532
+PIXEL_EVM_LOCK=0x…
+PIXEL_EVM_USDC=0x…
+PIXEL_EVM_EXPLORER_TX=https://sepolia.basescan.org/tx/
 # optional demo rail:
 PIXEL_BRIDGE_LAB=1
 PIXEL_FAUCET=1
 ```
 
-Redeploy tip → `/health` shows `bridgeSepolia` → first lock → paste URLs below.
+Legacy `PIXEL_USDC_LOCK_SEPOLIA` / `PIXEL_BRIDGE_SEPOLIA` still read. Redeploy tip → `/health.bridgeEvm` → first lock → paste URLs below.
 
 ### Public testnet tx links
 
 | Network | Lock contract | Lock tx | Shine-in tip index | Notes |
 | --- | --- | --- | --- | --- |
-| Ethereum Sepolia | *pending deploy* | *pending* | *pending* | Fill after `deploy:sepolia-lock` + first phone shine |
+| Ethereum Sepolia | *pending* | *pending* | *pending* | `PIXEL_EVM_CHAIN=sepolia` |
+| Base Sepolia | *pending* | *pending* | *pending* | easy faucet |
+| Polygon Amoy | *pending* | *pending* | *pending* | POL gas |
+| Arbitrum Sepolia | *pending* | *pending* | *pending* | |
 
-Until those rows fill: **do not claim “testnet bridge live.”** Do claim: tip can verify `Locked` and credit PIX when configured; path proven on anvil (`test:sepolia-bridge`).
+Until those rows fill: **do not claim “testnet bridge live.”** Do claim: tip can verify `Locked` on a configured EVM RPC and credit PIX; path proven on anvil.
 
 ---
 
@@ -87,8 +93,8 @@ Phone /wallet → Fund tip (POST /faucet)
 | Foundry | `forge test` |
 | TS parity | `bun run test:ula` |
 | ML-DSA ULA | `bun run test:ula-mldsa` |
-| Relayer (local anvil) | `bun run test:ula-relayer` — `Locked` → feed → shineIn |
-| Tip lock shine-in (anvil) | `bun run test:sepolia-bridge` |
+| Relayer (local anvil) | `bun run test:ula-relayer` |
+| Tip EVM lock shine-in (anvil) | `bun run test:sepolia-bridge` |
 | Custody inversion | `bun run test:bridge-custody` |
 | Phone bridge | `bun run test:wallet-bridge` |
 
@@ -116,6 +122,6 @@ bun run test:ula-relayer
 bun run test:sepolia-bridge
 bun run test:wallet-bridge
 bun run test:bridge-custody
-bun run deploy:sepolia-lock   # needs SEPOLIA_PRIVATE_KEY
+PIXEL_EVM_CHAIN=base-sepolia bun run deploy:evm-lock
 forge test
 ```

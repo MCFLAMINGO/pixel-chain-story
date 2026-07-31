@@ -13,7 +13,7 @@ import {
   ValidationError,
 } from "../lib/pixel/validators";
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
-import { readSepoliaBridgeConfig } from "../lib/pixel/eth-usdc-lock";
+import { evmBridgeHealth, readEvmBridgeConfig } from "../lib/pixel/eth-usdc-lock";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -93,16 +93,9 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
             process.env.PIXEL_FAUCET === "true" ||
             process.env.PIXEL_BRIDGE_LAB === "1" ||
             process.env.PIXEL_BRIDGE_LAB === "true",
-          bridgeSepolia: (() => {
-            const cfg = readSepoliaBridgeConfig();
-            if (!cfg) return null;
-            return {
-              chainId: cfg.chainId,
-              lock: cfg.lockContract,
-              usdc: cfg.usdcContract || null,
-              explorerTxBase: cfg.explorerTxBase,
-            };
-          })(),
+          bridgeEvm: evmBridgeHealth(readEvmBridgeConfig()),
+          /** @deprecated alias — same as bridgeEvm */
+          bridgeSepolia: evmBridgeHealth(readEvmBridgeConfig()),
         });
       }
 
@@ -200,12 +193,12 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
        * Body: { txHash, ownerAddress, ownerLocalId? }
        */
       if (req.method === "POST" && url.pathname === "/bridge/shine-in-lock") {
-        if (!readSepoliaBridgeConfig()) {
+        if (!readEvmBridgeConfig()) {
           return json(
             {
               ok: false,
               error:
-                "Sepolia lock bridge not configured — set PIXEL_USDC_LOCK_SEPOLIA + PIXEL_ETH_RPC",
+                "EVM lock bridge not configured — set PIXEL_EVM_LOCK + PIXEL_EVM_RPC (or legacy PIXEL_USDC_LOCK_SEPOLIA)",
             },
             { status: 404 },
           );

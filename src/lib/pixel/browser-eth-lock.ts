@@ -7,9 +7,13 @@ import {
   encodeApproveCalldata,
   encodeLockCalldata,
   encodeMintCalldata,
-  type SepoliaBridgeConfig,
+  EVM_CHAIN_PRESETS,
+  type EvmBridgeConfig,
 } from "./eth-usdc-lock";
 import { bytesToHex, randomBytes, type Hex } from "./crypto";
+
+/** @deprecated alias */
+export type SepoliaBridgeConfig = EvmBridgeConfig;
 
 export type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -28,11 +32,14 @@ export function getInjectedEthereum(): EthereumProvider | null {
 
 export async function ensureEthChain(
   ethereum: EthereumProvider,
-  chainId: number,
+  cfg: Pick<
+    EvmBridgeConfig,
+    "chainId" | "chainName" | "ethRpcUrl" | "nativeSymbol" | "explorerTxBase"
+  >,
 ): Promise<void> {
-  const hexId = `0x${chainId.toString(16)}`;
+  const hexId = `0x${cfg.chainId.toString(16)}`;
   const current = (await ethereum.request({ method: "eth_chainId" })) as string;
-  if (Number(BigInt(current)) === chainId) return;
+  if (Number(BigInt(current)) === cfg.chainId) return;
   try {
     await ethereum.request({
       method: "wallet_switchEthereumChain",
@@ -40,22 +47,28 @@ export async function ensureEthChain(
     });
   } catch (e) {
     const code = (e as { code?: number })?.code;
-    if (code === 4902 && chainId === 11155111) {
-      await ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: hexId,
-            chainName: "Sepolia",
-            nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
-            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
-            blockExplorerUrls: ["https://sepolia.etherscan.io"],
+    if (code !== 4902) throw e;
+    const explorer = cfg.explorerTxBase.replace(/\/tx\/?$/, "");
+    await ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: hexId,
+          chainName: cfg.chainName,
+          nativeCurrency: {
+            name: cfg.nativeSymbol,
+            symbol: cfg.nativeSymbol,
+            decimals: 18,
           },
-        ],
-      });
-      return;
-    }
-    throw e;
+          rpcUrls: [
+            cfg.ethRpcUrl ||
+              Object.values(EVM_CHAIN_PRESETS).find((p) => p.chainId === cfg.chainId)?.defaultRpc ||
+              "",
+          ].filter(Boolean),
+          blockExplorerUrls: explorer ? [explorer] : [],
+        },
+      ],
+    });
   }
 }
 
@@ -74,14 +87,14 @@ export async function connectEthAccount(ethereum: EthereumProvider): Promise<str
  */
 export async function lockUsdcWithInjectedWallet(params: {
   ethereum: EthereumProvider;
-  cfg: SepoliaBridgeConfig;
+  cfg: EvmBridgeConfig;
   humanUsd: number;
   pixelRecipient: string;
   /** When true and tip exposes mock USDC, mint to the locker first (testnet only). */
   mintIfMock?: boolean;
 }): Promise<{ txHash: string; salt: Hex; amountRaw: bigint }> {
   if (!(params.humanUsd > 0)) throw new Error("amount must be > 0");
-  await ensureEthChain(params.ethereum, params.cfg.chainId);
+  await ensureEthChain(params.ethereum, params.cfg);
   const account = await connectEthAccount(params.ethereum);
   const amountRaw = BigInt(Math.round(params.humanUsd * 1e6));
   const salt = bytesToHex(randomBytes(32)) as Hex;

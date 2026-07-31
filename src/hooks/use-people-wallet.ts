@@ -27,12 +27,18 @@ import {
 import { CROWNED_GENESIS_PREFIX, isCrownedGenesisHash } from "@/lib/pixel/crowned-genesis";
 import { webAuthnPrfSupported } from "@/lib/pixel/people-wallet-webauthn";
 
-export type TipBridgeSepolia = {
+export type TipBridgeEvm = {
+  chainKey: string;
+  chainName: string;
   chainId: number;
   lock: string;
   usdc: string | null;
   explorerTxBase: string;
+  nativeSymbol: string;
 };
+
+/** @deprecated use TipBridgeEvm */
+export type TipBridgeSepolia = TipBridgeEvm;
 
 export type BridgeReceipt = {
   plane: "shared_tip" | "lab_local";
@@ -64,7 +70,7 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [lastPay, setLastPay] = useState<TipMarkReceipt | null>(null);
   const [lastBridge, setLastBridge] = useState<BridgeReceipt | null>(null);
   const [tipBridgeLab, setTipBridgeLab] = useState<boolean | null>(null);
-  const [tipBridgeSepolia, setTipBridgeSepolia] = useState<TipBridgeSepolia | null>(null);
+  const [tipBridgeEvm, setTipBridgeEvm] = useState<TipBridgeEvm | null>(null);
   const [tipFaucet, setTipFaucet] = useState<boolean | null>(null);
   const [crownedTip, setCrownedTip] = useState<boolean | null>(null);
   const [faucetNote, setFaucetNote] = useState<string | null>(null);
@@ -106,7 +112,7 @@ export function usePeopleWallet(rpcOverride?: string) {
         setBalance(null);
         setTipIndex(undefined);
         setTipBridgeLab(null);
-        setTipBridgeSepolia(null);
+        setTipBridgeEvm(null);
         setTipFaucet(null);
         setCrownedTip(null);
         return;
@@ -125,16 +131,17 @@ export function usePeopleWallet(rpcOverride?: string) {
             bridgeLab?: boolean;
             faucet?: boolean;
             genesisHash?: string;
-            bridgeSepolia?: TipBridgeSepolia | null;
+            bridgeEvm?: TipBridgeEvm | null;
+            bridgeSepolia?: TipBridgeEvm | null;
           };
           setTipBridgeLab(Boolean(j.bridgeLab));
-          setTipBridgeSepolia(j.bridgeSepolia ?? null);
+          setTipBridgeEvm(j.bridgeEvm ?? j.bridgeSepolia ?? null);
           setTipFaucet(Boolean(j.faucet ?? j.bridgeLab));
           setCrownedTip(isCrownedGenesisHash(j.genesisHash));
         }
       } catch {
         setTipBridgeLab(null);
-        setTipBridgeSepolia(null);
+        setTipBridgeEvm(null);
         setTipFaucet(null);
         setCrownedTip(null);
       }
@@ -442,7 +449,9 @@ export function usePeopleWallet(rpcOverride?: string) {
     lastPay,
     lastBridge,
     tipBridgeLab,
-    tipBridgeSepolia,
+    tipBridgeEvm,
+    /** @deprecated alias */
+    tipBridgeSepolia: tipBridgeEvm,
     tipFaucet,
     crownedTip,
     crownedPrefix: CROWNED_GENESIS_PREFIX,

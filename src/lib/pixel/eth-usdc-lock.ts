@@ -98,10 +98,7 @@ export async function ethChainId(rpcUrl: string): Promise<number> {
   return Number(BigInt(hex));
 }
 
-export function parseLockedLog(params: {
-  log: EthRpcLog;
-  txHash: string;
-}): ParsedLockedEvent {
+export function parseLockedLog(params: { log: EthRpcLog; txHash: string }): ParsedLockedEvent {
   const { log, txHash } = params;
   if ((log.topics[0] ?? "").toLowerCase() !== PIXEL_USDC_LOCKED_TOPIC0.toLowerCase()) {
     throw new Error("not a PixelUsdcLock Locked event");
@@ -134,10 +131,7 @@ export function parseLockedLog(params: {
   };
 }
 
-export function findLockedLog(
-  receipt: EthTxReceipt,
-  lockContract: string,
-): EthRpcLog | undefined {
+export function findLockedLog(receipt: EthTxReceipt, lockContract: string): EthRpcLog | undefined {
   const want = lockContract.toLowerCase();
   return (receipt.logs ?? []).find(
     (l) =>
@@ -208,37 +202,139 @@ export function lockReceiptFromParsed(
   });
 }
 
-/** Tip / site config for Sepolia mock-USDC lock (testnet, not Circle mainnet). */
-export type SepoliaBridgeConfig = {
+/**
+ * EVM lock venue config — any eth_getTransactionReceipt chain can host PixelUsdcLock.
+ * Pixel stays the settlement picture; foreign chain is receipt-only (not an ETH derivative).
+ */
+export type EvmBridgeConfig = {
   enabled: boolean;
+  /** Short id: sepolia | base-sepolia | amoy | … */
+  chainKey: string;
+  chainName: string;
   chainId: number;
   ethRpcUrl: string;
   lockContract: string;
   usdcContract: string;
   explorerTxBase: string;
+  nativeSymbol: string;
 };
 
-export function readSepoliaBridgeConfig(
-  env: NodeJS.ProcessEnv = process.env,
-): SepoliaBridgeConfig | null {
-  const enabled =
+/** @deprecated use EvmBridgeConfig */
+export type SepoliaBridgeConfig = EvmBridgeConfig;
+
+export type EvmChainPreset = {
+  key: string;
+  name: string;
+  chainId: number;
+  defaultRpc: string;
+  explorerTxBase: string;
+  nativeSymbol: string;
+};
+
+/** Agnostic shine-in venues we deploy to first (EVM testnets). */
+export const EVM_CHAIN_PRESETS: Record<string, EvmChainPreset> = {
+  sepolia: {
+    key: "sepolia",
+    name: "Ethereum Sepolia",
+    chainId: SEPOLIA_CHAIN_ID,
+    defaultRpc: "https://ethereum-sepolia-rpc.publicnode.com",
+    explorerTxBase: "https://sepolia.etherscan.io/tx/",
+    nativeSymbol: "ETH",
+  },
+  "base-sepolia": {
+    key: "base-sepolia",
+    name: "Base Sepolia",
+    chainId: 84532,
+    defaultRpc: "https://sepolia.base.org",
+    explorerTxBase: "https://sepolia.basescan.org/tx/",
+    nativeSymbol: "ETH",
+  },
+  amoy: {
+    key: "amoy",
+    name: "Polygon Amoy",
+    chainId: 80002,
+    defaultRpc: "https://rpc-amoy.polygon.technology",
+    explorerTxBase: "https://amoy.polygonscan.com/tx/",
+    nativeSymbol: "POL",
+  },
+  "arb-sepolia": {
+    key: "arb-sepolia",
+    name: "Arbitrum Sepolia",
+    chainId: 421614,
+    defaultRpc: "https://sepolia-rollup.arbitrum.io/rpc",
+    explorerTxBase: "https://sepolia.arbiscan.io/tx/",
+    nativeSymbol: "ETH",
+  },
+};
+
+export function resolveEvmPreset(key: string | undefined): EvmChainPreset {
+  const k = (key ?? "sepolia").trim().toLowerCase();
+  return EVM_CHAIN_PRESETS[k] ?? EVM_CHAIN_PRESETS.sepolia!;
+}
+
+/**
+ * Read tip EVM lock config.
+ * Prefer PIXEL_EVM_* ; legacy PIXEL_*_SEPOLIA / PIXEL_BRIDGE_SEPOLIA still work.
+ */
+export function readEvmBridgeConfig(env: NodeJS.ProcessEnv = process.env): EvmBridgeConfig | null {
+  const lockContract = (env.PIXEL_EVM_LOCK ?? env.PIXEL_USDC_LOCK_SEPOLIA ?? "").trim();
+  const ethRpcUrl = (env.PIXEL_EVM_RPC ?? env.PIXEL_ETH_RPC ?? env.SEPOLIA_RPC_URL ?? "").trim();
+  const enabledFlag =
+    env.PIXEL_BRIDGE_EVM === "1" ||
+    env.PIXEL_BRIDGE_EVM === "true" ||
     env.PIXEL_BRIDGE_SEPOLIA === "1" ||
     env.PIXEL_BRIDGE_SEPOLIA === "true" ||
-    Boolean(env.PIXEL_USDC_LOCK_SEPOLIA?.trim());
-  const lockContract = (env.PIXEL_USDC_LOCK_SEPOLIA ?? "").trim();
-  const ethRpcUrl = (env.PIXEL_ETH_RPC ?? env.SEPOLIA_RPC_URL ?? "").trim();
-  const usdcContract = (env.PIXEL_USDC_TOKEN_SEPOLIA ?? "").trim();
-  if (!enabled || !lockContract || !ethRpcUrl) return null;
+    Boolean(lockContract);
+  if (!enabledFlag || !lockContract || !ethRpcUrl) return null;
   if (!/^0x[a-fA-F0-9]{40}$/.test(lockContract)) return null;
+
+  const preset = resolveEvmPreset(env.PIXEL_EVM_CHAIN);
+  const chainId = Number(env.PIXEL_EVM_CHAIN_ID ?? env.PIXEL_ETH_CHAIN_ID ?? preset.chainId);
+  const usdcContract = (env.PIXEL_EVM_USDC ?? env.PIXEL_USDC_TOKEN_SEPOLIA ?? "").trim();
+  const explorerTxBase = (
+    env.PIXEL_EVM_EXPLORER_TX ??
+    env.PIXEL_ETH_EXPLORER_TX ??
+    preset.explorerTxBase
+  ).replace(/\/?$/, "/");
+
   return {
     enabled: true,
-    chainId: Number(env.PIXEL_ETH_CHAIN_ID ?? SEPOLIA_CHAIN_ID),
+    chainKey: preset.key,
+    chainName: preset.name,
+    chainId,
     ethRpcUrl,
     lockContract,
     usdcContract,
-    explorerTxBase: (env.PIXEL_ETH_EXPLORER_TX ?? "https://sepolia.etherscan.io/tx/").replace(
-      /\/?$/,
-      "/",
-    ),
+    explorerTxBase,
+    nativeSymbol: preset.nativeSymbol,
+  };
+}
+
+/** @deprecated use readEvmBridgeConfig */
+export function readSepoliaBridgeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): EvmBridgeConfig | null {
+  return readEvmBridgeConfig(env);
+}
+
+/** Public tip /health payload for phone Bridge. */
+export function evmBridgeHealth(cfg: EvmBridgeConfig | null): {
+  chainKey: string;
+  chainName: string;
+  chainId: number;
+  lock: string;
+  usdc: string | null;
+  explorerTxBase: string;
+  nativeSymbol: string;
+} | null {
+  if (!cfg) return null;
+  return {
+    chainKey: cfg.chainKey,
+    chainName: cfg.chainName,
+    chainId: cfg.chainId,
+    lock: cfg.lockContract,
+    usdc: cfg.usdcContract || null,
+    explorerTxBase: cfg.explorerTxBase,
+    nativeSymbol: cfg.nativeSymbol,
   };
 }

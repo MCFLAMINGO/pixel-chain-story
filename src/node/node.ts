@@ -460,9 +460,9 @@ export class PixelLedgerNode {
   }
 
   /**
-   * Real(ish) USDC path: verify PixelUsdcLock.Locked on configured eth RPC,
-   * then illuminate PIX on this tip. Requires PIXEL_USDC_LOCK_SEPOLIA + PIXEL_ETH_RPC
-   * (or PIXEL_BRIDGE_SEPOLIA=1 with those set). Lab open shine-in stays separate.
+   * Agnostic EVM shine-in: verify PixelUsdcLock.Locked on configured eth RPC,
+   * then illuminate PIX on this tip. Set PIXEL_EVM_LOCK + PIXEL_EVM_RPC
+   * (legacy PIXEL_USDC_LOCK_SEPOLIA still works). Lab open shine-in stays separate.
    */
   async shineInFromUsdcLockTx(params: {
     txHash: string;
@@ -477,15 +477,14 @@ export class PixelLedgerNode {
     lockTx: string;
     humanUsd: number;
     plane: "shared_tip";
+    chainKey: string;
   }> {
-    const { readSepoliaBridgeConfig, verifyUsdcLockTx, lockReceiptFromParsed } =
+    const { readEvmBridgeConfig, verifyUsdcLockTx, lockReceiptFromParsed } =
       await import("../lib/pixel/eth-usdc-lock");
     const { WALLET_BRIDGE_MAX_USD } = await import("../lib/pixel/wallet-bridge");
-    const cfg = readSepoliaBridgeConfig();
+    const cfg = readEvmBridgeConfig();
     if (!cfg) {
-      throw new Error(
-        "Sepolia USDC lock bridge not configured — set PIXEL_USDC_LOCK_SEPOLIA + PIXEL_ETH_RPC",
-      );
+      throw new Error("EVM lock bridge not configured — set PIXEL_EVM_LOCK + PIXEL_EVM_RPC");
     }
     const { assertPixelAddress } = await import("../lib/pixel/crypto");
     assertPixelAddress(params.ownerAddress, "ownerAddress");
@@ -547,11 +546,12 @@ export class PixelLedgerNode {
         pixCredited: res.pixCredited,
         tipIndex: tip.index,
         balance: balanceOf(this.chain, params.ownerAddress),
-        summary: `${res.summary} · lock ${parsed.txHash.slice(0, 10)}…`,
+        summary: `${res.summary} · ${cfg.chainName} lock ${parsed.txHash.slice(0, 10)}…`,
         canvasId: snap.canvasId,
         lockTx: parsed.txHash,
         humanUsd,
         plane: "shared_tip" as const,
+        chainKey: cfg.chainKey,
       };
     });
   }

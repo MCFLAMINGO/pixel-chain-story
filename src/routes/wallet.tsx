@@ -472,7 +472,7 @@ function WalletPage() {
 
               {tab === "bridge" ? (
                 <div className="space-y-6">
-                  {w.tipBridgeSepolia ? (
+                  {w.tipBridgeEvm ? (
                     <form
                       className="space-y-4"
                       onSubmit={(e) => {
@@ -481,11 +481,13 @@ function WalletPage() {
                       }}
                     >
                       <p className="text-sm text-white/55">
-                        Real path: lock MockUSDC on Sepolia into{" "}
+                        Shine in from{" "}
+                        <span className="text-white/85">{w.tipBridgeEvm.chainName}</span>: lock
+                        MockUSDC into{" "}
                         <span className="font-mono text-[11px] text-white/70">
-                          {w.tipBridgeSepolia.lock.slice(0, 10)}…
+                          {w.tipBridgeEvm.lock.slice(0, 10)}…
                         </span>
-                        , then shine into PIX on this tip. Caps at $
+                        → native PIX on this tip (foreign chain is receipt-only). Caps at $
                         {WALLET_BRIDGE_MAX_USD}.
                       </p>
                       <button
@@ -501,19 +503,22 @@ function WalletPage() {
                               const eth = getInjectedEthereum();
                               if (!eth) {
                                 throw new Error(
-                                  "No MetaMask / injected wallet — lock on Sepolia, then paste the tx hash below",
+                                  `No MetaMask / injected wallet — lock on ${w.tipBridgeEvm!.chainName}, then paste the tx hash below`,
                                 );
                               }
-                              if (!w.payFace || !w.tipBridgeSepolia) return;
+                              if (!w.payFace || !w.tipBridgeEvm) return;
                               const { txHash } = await lockUsdcWithInjectedWallet({
                                 ethereum: eth,
                                 cfg: {
                                   enabled: true,
-                                  chainId: w.tipBridgeSepolia.chainId,
+                                  chainKey: w.tipBridgeEvm.chainKey,
+                                  chainName: w.tipBridgeEvm.chainName,
+                                  chainId: w.tipBridgeEvm.chainId,
                                   ethRpcUrl: "",
-                                  lockContract: w.tipBridgeSepolia.lock,
-                                  usdcContract: w.tipBridgeSepolia.usdc ?? "",
-                                  explorerTxBase: w.tipBridgeSepolia.explorerTxBase,
+                                  lockContract: w.tipBridgeEvm.lock,
+                                  usdcContract: w.tipBridgeEvm.usdc ?? "",
+                                  explorerTxBase: w.tipBridgeEvm.explorerTxBase,
+                                  nativeSymbol: w.tipBridgeEvm.nativeSymbol,
                                 },
                                 humanUsd: Number(bridgeUsd) || 0,
                                 pixelRecipient: w.payFace.address,
@@ -523,13 +528,15 @@ function WalletPage() {
                               await w.bridgeFromLockTx(txHash);
                             } catch (err) {
                               setEthLockNote(
-                                err instanceof Error ? err.message : "Ethereum lock failed",
+                                err instanceof Error ? err.message : "EVM lock failed",
                               );
                             }
                           })();
                         }}
                       >
-                        {w.busy ? "Locking…" : `Lock ${bridgeUsd} USDC (MetaMask)`}
+                        {w.busy
+                          ? "Locking…"
+                          : `Lock ${bridgeUsd} USDC on ${w.tipBridgeEvm.chainName}`}
                       </button>
                       {ethLockNote ? (
                         <p className="text-xs text-amber-200/90" role="status">
@@ -549,7 +556,7 @@ function WalletPage() {
                         />
                       </label>
                       <label className="block">
-                        <span className="wallet-label">Or paste Sepolia lock tx</span>
+                        <span className="wallet-label">Or paste lock tx hash</span>
                         <input
                           value={lockTxHash}
                           onChange={(e) => setLockTxHash(e.target.value)}
@@ -558,11 +565,16 @@ function WalletPage() {
                           required
                         />
                       </label>
-                      <button type="submit" disabled={w.busy || !lockTxHash.trim()} className="wallet-cta">
+                      <button
+                        type="submit"
+                        disabled={w.busy || !lockTxHash.trim()}
+                        className="wallet-cta"
+                      >
                         {w.busy ? "Verifying…" : "Shine lock → PIX"}
                       </button>
                       <p className="text-xs text-white/40">
-                        Phone Safari without MetaMask: lock elsewhere, paste tx. WalletConnect next.
+                        Pixel is not this L2 — the foreign lock is only a receipt. Phone Safari
+                        without MetaMask: lock elsewhere, paste tx.
                       </p>
                     </form>
                   ) : null}
@@ -575,10 +587,10 @@ function WalletPage() {
                     }}
                   >
                     <p className="text-sm text-white/55">
-                      {w.tipBridgeSepolia
-                        ? "Lab demo rail (still available while Sepolia path is open):"
+                      {w.tipBridgeEvm
+                        ? "Lab demo rail (theater — no foreign lock):"
                         : "Bridge world value into PIX — USDC, ETH (USD quote), or bank wire. Caps at $"}
-                      {!w.tipBridgeSepolia ? `${WALLET_BRIDGE_MAX_USD} per shine-in (lab).` : null}
+                      {!w.tipBridgeEvm ? `${WALLET_BRIDGE_MAX_USD} per shine-in (lab).` : null}
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {(["USDC", "ETH", "USD"] as WalletBridgeAsset[]).map((a) => (
@@ -611,14 +623,14 @@ function WalletPage() {
                         ? "Bridging…"
                         : `Lab bridge ${bridgeUsd} ${bridgeAsset === "USD" ? "USD" : bridgeAsset}`}
                     </button>
-                    {w.rpc && w.tipBridgeLab === false && !w.tipBridgeSepolia ? (
+                    {w.rpc && w.tipBridgeLab === false && !w.tipBridgeEvm ? (
                       <p className="text-xs text-white/40">
                         Tip has no open shine-in yet — this phone will use the local lab rail.
                       </p>
                     ) : null}
                     {w.tipBridgeLab ? (
                       <p className="text-xs text-amber-200/70">
-                        Lab bridge is tip faucet theater — not Sepolia USDC.
+                        Lab bridge is tip faucet theater — not a verified foreign lock.
                       </p>
                     ) : null}
                   </form>
@@ -634,14 +646,14 @@ function WalletPage() {
                           : "lab rail (local)"}
                       </p>
                       <p className="text-xs text-white/55">{w.lastBridge.summary}</p>
-                      {w.lastBridge.lockTx && w.tipBridgeSepolia ? (
+                      {w.lastBridge.lockTx && w.tipBridgeEvm ? (
                         <a
                           className="block text-xs text-emerald-200/80 underline"
-                          href={`${w.tipBridgeSepolia.explorerTxBase}${w.lastBridge.lockTx}`}
+                          href={`${w.tipBridgeEvm.explorerTxBase}${w.lastBridge.lockTx}`}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          View lock tx
+                          View lock tx on {w.tipBridgeEvm.chainName}
                         </a>
                       ) : null}
                     </div>
