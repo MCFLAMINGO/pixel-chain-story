@@ -184,9 +184,37 @@ export type TipShineInResult = {
   balance: number;
   summary: string;
   canvasId: string | null;
+  lab?: boolean;
+  lockTx?: string;
+  humanUsd?: number;
 };
 
-/** Call tip `POST /bridge/shine-in` (requires PIXEL_BRIDGE_LAB=1 on tip). */
+/** Call tip `POST /bridge/shine-in-lock` — verified eth Locked → PIX. */
+export async function shineInViaLockTx(params: {
+  rpc: string;
+  txHash: string;
+  ownerAddress: string;
+  ownerLocalId: string;
+}): Promise<TipShineInResult> {
+  assertPixelAddress(params.ownerAddress, "ownerAddress");
+  const base = params.rpc.replace(/\/$/, "");
+  const res = await fetch(`${base}/bridge/shine-in-lock`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      txHash: params.txHash,
+      ownerAddress: params.ownerAddress,
+      ownerLocalId: params.ownerLocalId,
+    }),
+  });
+  const data = (await res.json()) as TipShineInResult & { ok?: boolean; error?: string };
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error ?? `tip lock bridge HTTP ${res.status}`);
+  }
+  return data as TipShineInResult;
+}
+
+/** Call tip `POST /bridge/shine-in` (requires PIXEL_BRIDGE_LAB=1 on tip — demo only). */
 export async function shineInViaTipRpc(params: {
   rpc: string;
   asset: WalletBridgeAsset;

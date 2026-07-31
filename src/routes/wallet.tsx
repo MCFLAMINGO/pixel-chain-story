@@ -97,6 +97,8 @@ function WalletPage() {
   const [note, setNote] = useState("");
   const [bridgeAsset, setBridgeAsset] = useState<WalletBridgeAsset>("USDC");
   const [bridgeUsd, setBridgeUsd] = useState("5");
+  const [lockTxHash, setLockTxHash] = useState("");
+  const [ethLockNote, setEthLockNote] = useState("");
   const [installHint, setInstallHint] = useState(false);
 
   useEffect(() => {
@@ -469,64 +471,182 @@ function WalletPage() {
               ) : null}
 
               {tab === "bridge" ? (
-                <form
-                  className="space-y-4"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void w.bridgeIn(bridgeAsset, Number(bridgeUsd) || 0).catch(() => undefined);
-                  }}
-                >
-                  <p className="text-sm text-white/55">
-                    Bridge world value into PIX on your pay face — USDC, ETH (USD quote), or bank
-                    wire. Caps at ${WALLET_BRIDGE_MAX_USD} per shine-in (lab).
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["USDC", "ETH", "USD"] as WalletBridgeAsset[]).map((a) => (
+                <div className="space-y-6">
+                  {w.tipBridgeSepolia ? (
+                    <form
+                      className="space-y-4"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void w.bridgeFromLockTx(lockTxHash.trim()).catch(() => undefined);
+                      }}
+                    >
+                      <p className="text-sm text-white/55">
+                        Real path: lock MockUSDC on Sepolia into{" "}
+                        <span className="font-mono text-[11px] text-white/70">
+                          {w.tipBridgeSepolia.lock.slice(0, 10)}…
+                        </span>
+                        , then shine into PIX on this tip. Caps at $
+                        {WALLET_BRIDGE_MAX_USD}.
+                      </p>
                       <button
-                        key={a}
                         type="button"
-                        onClick={() => setBridgeAsset(a)}
-                        className={bridgeAsset === a ? "wallet-chip-active" : "wallet-chip"}
+                        disabled={w.busy || !w.payFace}
+                        className="wallet-cta"
+                        onClick={() => {
+                          void (async () => {
+                            try {
+                              setEthLockNote("");
+                              const { getInjectedEthereum, lockUsdcWithInjectedWallet } =
+                                await import("@/lib/pixel/browser-eth-lock");
+                              const eth = getInjectedEthereum();
+                              if (!eth) {
+                                throw new Error(
+                                  "No MetaMask / injected wallet — lock on Sepolia, then paste the tx hash below",
+                                );
+                              }
+                              if (!w.payFace || !w.tipBridgeSepolia) return;
+                              const { txHash } = await lockUsdcWithInjectedWallet({
+                                ethereum: eth,
+                                cfg: {
+                                  enabled: true,
+                                  chainId: w.tipBridgeSepolia.chainId,
+                                  ethRpcUrl: "",
+                                  lockContract: w.tipBridgeSepolia.lock,
+                                  usdcContract: w.tipBridgeSepolia.usdc ?? "",
+                                  explorerTxBase: w.tipBridgeSepolia.explorerTxBase,
+                                },
+                                humanUsd: Number(bridgeUsd) || 0,
+                                pixelRecipient: w.payFace.address,
+                                mintIfMock: true,
+                              });
+                              setLockTxHash(txHash);
+                              await w.bridgeFromLockTx(txHash);
+                            } catch (err) {
+                              setEthLockNote(
+                                err instanceof Error ? err.message : "Ethereum lock failed",
+                              );
+                            }
+                          })();
+                        }}
                       >
-                        {a === "USD" ? "Wire" : a}
+                        {w.busy ? "Locking…" : `Lock ${bridgeUsd} USDC (MetaMask)`}
                       </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-white/40">{bridgeAssetLabel(bridgeAsset)}</p>
-                  <label className="block">
-                    <span className="wallet-label">Amount (USD)</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={WALLET_BRIDGE_MAX_USD}
-                      step={1}
-                      value={bridgeUsd}
-                      onChange={(e) => setBridgeUsd(e.target.value)}
-                      className="wallet-input mt-1"
-                      required
-                    />
-                  </label>
-                  <button type="submit" disabled={w.busy} className="wallet-cta">
-                    {w.busy
-                      ? "Bridging…"
-                      : `Bridge in ${bridgeUsd} ${bridgeAsset === "USD" ? "USD" : bridgeAsset}`}
-                  </button>
-                  {w.rpc && w.tipBridgeLab === false ? (
-                    <p className="text-xs text-white/40">
-                      Tip has no open shine-in yet — this phone will use the local lab rail, then
-                      you can still pay once the tip funds your face.
-                    </p>
+                      {ethLockNote ? (
+                        <p className="text-xs text-amber-200/90" role="status">
+                          {ethLockNote}
+                        </p>
+                      ) : null}
+                      <label className="block">
+                        <span className="wallet-label">Amount (USD)</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={WALLET_BRIDGE_MAX_USD}
+                          step={1}
+                          value={bridgeUsd}
+                          onChange={(e) => setBridgeUsd(e.target.value)}
+                          className="wallet-input mt-1"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="wallet-label">Or paste Sepolia lock tx</span>
+                        <input
+                          value={lockTxHash}
+                          onChange={(e) => setLockTxHash(e.target.value)}
+                          placeholder="0x…"
+                          className="wallet-input mt-1 font-mono text-sm"
+                          required
+                        />
+                      </label>
+                      <button type="submit" disabled={w.busy || !lockTxHash.trim()} className="wallet-cta">
+                        {w.busy ? "Verifying…" : "Shine lock → PIX"}
+                      </button>
+                      <p className="text-xs text-white/40">
+                        Phone Safari without MetaMask: lock elsewhere, paste tx. WalletConnect next.
+                      </p>
+                    </form>
                   ) : null}
+
+                  <form
+                    className="space-y-4"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void w.bridgeIn(bridgeAsset, Number(bridgeUsd) || 0).catch(() => undefined);
+                    }}
+                  >
+                    <p className="text-sm text-white/55">
+                      {w.tipBridgeSepolia
+                        ? "Lab demo rail (still available while Sepolia path is open):"
+                        : "Bridge world value into PIX — USDC, ETH (USD quote), or bank wire. Caps at $"}
+                      {!w.tipBridgeSepolia ? `${WALLET_BRIDGE_MAX_USD} per shine-in (lab).` : null}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["USDC", "ETH", "USD"] as WalletBridgeAsset[]).map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => setBridgeAsset(a)}
+                          className={bridgeAsset === a ? "wallet-chip-active" : "wallet-chip"}
+                        >
+                          {a === "USD" ? "Wire" : a}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-white/40">{bridgeAssetLabel(bridgeAsset)}</p>
+                    <label className="block">
+                      <span className="wallet-label">Amount (USD)</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={WALLET_BRIDGE_MAX_USD}
+                        step={1}
+                        value={bridgeUsd}
+                        onChange={(e) => setBridgeUsd(e.target.value)}
+                        className="wallet-input mt-1"
+                        required
+                      />
+                    </label>
+                    <button type="submit" disabled={w.busy} className="wallet-cta">
+                      {w.busy
+                        ? "Bridging…"
+                        : `Lab bridge ${bridgeUsd} ${bridgeAsset === "USD" ? "USD" : bridgeAsset}`}
+                    </button>
+                    {w.rpc && w.tipBridgeLab === false && !w.tipBridgeSepolia ? (
+                      <p className="text-xs text-white/40">
+                        Tip has no open shine-in yet — this phone will use the local lab rail.
+                      </p>
+                    ) : null}
+                    {w.tipBridgeLab ? (
+                      <p className="text-xs text-amber-200/70">
+                        Lab bridge is tip faucet theater — not Sepolia USDC.
+                      </p>
+                    ) : null}
+                  </form>
+
                   {w.lastBridge ? (
                     <div className="space-y-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-3 text-sm">
                       <p className="text-emerald-300">
                         +{w.lastBridge.pixCredited} PIX ·{" "}
-                        {w.lastBridge.plane === "shared_tip" ? "on shared tip" : "lab rail (local)"}
+                        {w.lastBridge.plane === "shared_tip"
+                          ? w.lastBridge.lab
+                            ? "shared tip (lab)"
+                            : "shared tip (lock verified)"
+                          : "lab rail (local)"}
                       </p>
                       <p className="text-xs text-white/55">{w.lastBridge.summary}</p>
+                      {w.lastBridge.lockTx && w.tipBridgeSepolia ? (
+                        <a
+                          className="block text-xs text-emerald-200/80 underline"
+                          href={`${w.tipBridgeSepolia.explorerTxBase}${w.lastBridge.lockTx}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View lock tx
+                        </a>
+                      ) : null}
                     </div>
                   ) : null}
-                </form>
+                </div>
               ) : null}
             </div>
           </>

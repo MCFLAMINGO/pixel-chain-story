@@ -50,6 +50,7 @@ export * from "./people-wallet-seal";
 export * from "./people-wallet-idb";
 export * from "./people-wallet-webauthn";
 export * from "./wallet-bridge";
+export * from "./eth-usdc-lock";
 export * from "./worldlight";
 export * from "./lock-feeder";
 export * from "./lock-lead";

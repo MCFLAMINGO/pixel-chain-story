@@ -8,11 +8,65 @@
 
 ---
 
-## Friend tip path (live)
+## Sepolia lock path (in progress)
+
+```
+MetaMask / cast → PixelUsdcLock.lock (Sepolia MockUSDC)
+        ↓
+Phone /wallet → paste tx  (or Lock USDC MetaMask)
+        ↓
+Tip POST /bridge/shine-in-lock
+        ↓
+verify Locked log → illuminateIngress → PIX on pay face
+```
+
+| Piece | Status |
+| --- | --- |
+| Tip verify + consume digests | **shipped** (`shineInFromUsdcLockTx`, `bridge-feeder.json`) |
+| Phone Bridge UI (MetaMask + paste tx) | **shipped** when tip publishes `bridgeSepolia` in `/health` |
+| Lab open shine-in | Still behind `PIXEL_BRIDGE_LAB=1` (demo only; response marks `lab: true`) |
+| Anvil evidence | `bun run test:sepolia-bridge` |
+| Public Sepolia deploy + explorer links | **ops — needs funded `SEPOLIA_PRIVATE_KEY`** |
+
+### Deploy (ops)
+
+```bash
+export SEPOLIA_PRIVATE_KEY=0x…          # funded Sepolia ETH
+export SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+bun run deploy:sepolia-lock
+```
+
+Then set on Railway **pixel-tip**:
+
+```bash
+PIXEL_BRIDGE_SEPOLIA=1
+PIXEL_ETH_RPC=https://ethereum-sepolia-rpc.publicnode.com
+PIXEL_ETH_CHAIN_ID=11155111
+PIXEL_USDC_LOCK_SEPOLIA=0x…   # from deploy script
+PIXEL_USDC_TOKEN_SEPOLIA=0x…  # MockUSDC
+PIXEL_ETH_EXPLORER_TX=https://sepolia.etherscan.io/tx/
+# optional demo rail:
+PIXEL_BRIDGE_LAB=1
+PIXEL_FAUCET=1
+```
+
+Redeploy tip → `/health` shows `bridgeSepolia` → first lock → paste URLs below.
+
+### Public testnet tx links
+
+| Network | Lock contract | Lock tx | Shine-in tip index | Notes |
+| --- | --- | --- | --- | --- |
+| Ethereum Sepolia | *pending deploy* | *pending* | *pending* | Fill after `deploy:sepolia-lock` + first phone shine |
+
+Until those rows fill: **do not claim “testnet bridge live.”** Do claim: tip can verify `Locked` and credit PIX when configured; path proven on anvil (`test:sepolia-bridge`).
+
+---
+
+## Friend tip path (lab — still live)
 
 ```
 Phone /wallet → Fund tip (POST /faucet)
-             → Bridge USDC (POST /bridge/shine-in)
+             → Lab Bridge USDC (POST /bridge/shine-in)   # PIXEL_BRIDGE_LAB=1
              → PIX on pay face on crowned tip
 ```
 
@@ -34,16 +88,9 @@ Phone /wallet → Fund tip (POST /faucet)
 | TS parity | `bun run test:ula` |
 | ML-DSA ULA | `bun run test:ula-mldsa` |
 | Relayer (local anvil) | `bun run test:ula-relayer` — `Locked` → feed → shineIn |
+| Tip lock shine-in (anvil) | `bun run test:sepolia-bridge` |
 | Custody inversion | `bun run test:bridge-custody` |
 | Phone bridge | `bun run test:wallet-bridge` |
-
-### Public testnet tx links
-
-| Network | Lock / verify tx | Notes |
-| --- | --- | --- |
-| Ethereum Sepolia (or equiv.) | *pending* | Anvil + tip lab faucet/bridge shipped; paste explorer URLs here when a public lock+verify pair exists |
-
-Until Sepolia links land: **do not claim “testnet bridge live.”** Do claim: tip lab shine-in + faucet for friend invites on the crowned Earth.
 
 ---
 
@@ -66,7 +113,9 @@ Shine-out (Pixel → foreign): `createEvmUlaPackage` → foreign `ULAVerifier.ac
 ```bash
 bun run test:ula
 bun run test:ula-relayer
+bun run test:sepolia-bridge
 bun run test:wallet-bridge
 bun run test:bridge-custody
+bun run deploy:sepolia-lock   # needs SEPOLIA_PRIVATE_KEY
 forge test
 ```

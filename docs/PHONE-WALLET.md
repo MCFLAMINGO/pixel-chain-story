@@ -23,16 +23,17 @@ Open: **`/wallet`** (optional `?rpc=https://…`).
 ## Bridge honesty
 
 ```
-Lock (USDC rail / ETH quote / wire)
-        ↓
-shine-in prepare + illuminate
-        ↓
-PIX on pay face
+# Real(ish) — Sepolia MockUSDC
+PixelUsdcLock.lock → tip POST /bridge/shine-in-lock → PIX
+
+# Lab demo (still available)
+POST /bridge/shine-in (PIXEL_BRIDGE_LAB=1) → PIX  # marked lab: true
 ```
 
-- **Tip path:** tip must set `PIXEL_BRIDGE_LAB=1` → `POST /bridge/shine-in` credits the **shared tip**.
-- **Fallback:** local lab rail teaches the pipe when the tip has not opened shine-in.
-- **Not claimed:** mainnet USDC escrow / public Sepolia until listed in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md).
+- **Sepolia path:** tip sets `PIXEL_USDC_LOCK_SEPOLIA` + `PIXEL_ETH_RPC` → `/health.bridgeSepolia` → phone MetaMask or paste lock tx → verified `Locked` → PIX. Digests persisted (`bridge-feeder.json`) — no double shine.
+- **Lab path:** `PIXEL_BRIDGE_LAB=1` → open shine-in without ethereum (friend demos).
+- **Fallback:** local lab rail when tip has neither.
+- **Not claimed:** Circle mainnet USDC until [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) says so.
 
 Cap: `$25` per shine-in (`WALLET_BRIDGE_MAX_USD`).
 
@@ -43,9 +44,16 @@ Cap: `$25` per shine-in (`WALLET_BRIDGE_MAX_USD`).
 VITE_PIXEL_RPC=https://pixel-tip-production.up.railway.app
 VITE_REQUIRE_PUBLIC_TIP=1
 
-# Tip host (Railway) — bridge + faucet for friends
+# Tip host (Railway) — lab friend path
 PIXEL_BRIDGE_LAB=1
 PIXEL_FAUCET=1
+
+# Tip host — Sepolia verified lock (after bun run deploy:sepolia-lock)
+PIXEL_BRIDGE_SEPOLIA=1
+PIXEL_ETH_RPC=https://ethereum-sepolia-rpc.publicnode.com
+PIXEL_ETH_CHAIN_ID=11155111
+PIXEL_USDC_LOCK_SEPOLIA=0x…
+PIXEL_USDC_TOKEN_SEPOLIA=0x…
 ```
 
 Invite paste: [`demos/friend-invite.md`](./demos/friend-invite.md)

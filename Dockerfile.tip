@@ -22,6 +22,11 @@ ENV PIXEL_GOSSIP_PORT=9001
 ENV PIXEL_BRIDGE_LAB=1
 ENV PIXEL_FAUCET=1
 ENV PIXEL_TIP_HOST=1
+# Sepolia verified lock (set via Railway after bun run deploy:sepolia-lock):
+# PIXEL_BRIDGE_SEPOLIA=1
+# PIXEL_ETH_RPC=https://ethereum-sepolia-rpc.publicnode.com
+# PIXEL_USDC_LOCK_SEPOLIA=0x…
+# PIXEL_USDC_TOKEN_SEPOLIA=0x…
 
 # Persist via Railway Volume mounted at /data/pixel (Docker VOLUME unsupported on Railway).
 EXPOSE 8545
