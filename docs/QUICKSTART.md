@@ -10,7 +10,7 @@
 3. Create wallet → **Fund tip** → Bridge USDC or Send PIX
 4. Confirm tip genesis starts with **`f1d193f62d54e982`**
 
-Discord paste: [`docs/demos/friend-invite.md`](./demos/friend-invite.md)
+Discord paste: [`demos/friend-invite.md`](./demos/friend-invite.md) · bot: [`demos/discord-bot.md`](./demos/discord-bot.md)
 
 ## B. Friend node (laptop / VPS)
 

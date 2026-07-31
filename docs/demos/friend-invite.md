@@ -1,6 +1,8 @@
 # Friend invite — one Earth, phone wallet, laptop join
 
-Copy the **Discord paste** below. Full ops: [`PHONE-WALLET.md`](../PHONE-WALLET.md) · [`CANONICAL-TIP.md`](../CANONICAL-TIP.md).
+Copy the **Discord paste** below — or run the invite bot (`/pixel join|tip|wallet`): [`discord-bot.md`](./discord-bot.md).
+
+Full ops: [`PHONE-WALLET.md`](../PHONE-WALLET.md) · [`CANONICAL-TIP.md`](../CANONICAL-TIP.md).
 
 ---
 
