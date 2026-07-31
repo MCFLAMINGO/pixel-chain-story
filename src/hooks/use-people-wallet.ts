@@ -19,9 +19,26 @@ import {
 import type { TipMarkReceipt } from "@/lib/pixel/tip-mark";
 import type { UnlockedSource } from "@/lib/pixel/custody";
 import { defaultPixelRpc } from "@/lib/pixel-rpc";
-import { shineInForPhoneWallet, type WalletBridgeAsset } from "@/lib/pixel/wallet-bridge";
+import {
+  shineInForPhoneWallet,
+  shineInViaLockTx,
+  type WalletBridgeAsset,
+} from "@/lib/pixel/wallet-bridge";
 import { CROWNED_GENESIS_PREFIX, isCrownedGenesisHash } from "@/lib/pixel/crowned-genesis";
 import { webAuthnPrfSupported } from "@/lib/pixel/people-wallet-webauthn";
+
+export type TipBridgeEvm = {
+  chainKey: string;
+  chainName: string;
+  chainId: number;
+  lock: string;
+  usdc: string | null;
+  explorerTxBase: string;
+  nativeSymbol: string;
+};
+
+/** @deprecated use TipBridgeEvm */
+export type TipBridgeSepolia = TipBridgeEvm;
 
 export type BridgeReceipt = {
   plane: "shared_tip" | "lab_local";
@@ -32,6 +49,8 @@ export type BridgeReceipt = {
   canvasId: string | null;
   asset: WalletBridgeAsset;
   humanUsd: number;
+  lockTx?: string;
+  lab?: boolean;
 };
 
 /**
@@ -51,6 +70,7 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [lastPay, setLastPay] = useState<TipMarkReceipt | null>(null);
   const [lastBridge, setLastBridge] = useState<BridgeReceipt | null>(null);
   const [tipBridgeLab, setTipBridgeLab] = useState<boolean | null>(null);
+  const [tipBridgeEvm, setTipBridgeEvm] = useState<TipBridgeEvm | null>(null);
   const [tipFaucet, setTipFaucet] = useState<boolean | null>(null);
   const [crownedTip, setCrownedTip] = useState<boolean | null>(null);
   const [faucetNote, setFaucetNote] = useState<string | null>(null);
@@ -92,6 +112,7 @@ export function usePeopleWallet(rpcOverride?: string) {
         setBalance(null);
         setTipIndex(undefined);
         setTipBridgeLab(null);
+        setTipBridgeEvm(null);
         setTipFaucet(null);
         setCrownedTip(null);
         return;
@@ -110,13 +131,17 @@ export function usePeopleWallet(rpcOverride?: string) {
             bridgeLab?: boolean;
             faucet?: boolean;
             genesisHash?: string;
+            bridgeEvm?: TipBridgeEvm | null;
+            bridgeSepolia?: TipBridgeEvm | null;
           };
           setTipBridgeLab(Boolean(j.bridgeLab));
+          setTipBridgeEvm(j.bridgeEvm ?? j.bridgeSepolia ?? null);
           setTipFaucet(Boolean(j.faucet ?? j.bridgeLab));
           setCrownedTip(isCrownedGenesisHash(j.genesisHash));
         }
       } catch {
         setTipBridgeLab(null);
+        setTipBridgeEvm(null);
         setTipFaucet(null);
         setCrownedTip(null);
       }
@@ -338,6 +363,8 @@ export function usePeopleWallet(rpcOverride?: string) {
           canvasId: res.canvasId,
           asset,
           humanUsd,
+          lab: res.lab,
+          lockTx: res.lockTx,
         };
         setLastBridge(receipt);
         if (res.plane === "shared_tip") {
@@ -346,6 +373,47 @@ export function usePeopleWallet(rpcOverride?: string) {
         return receipt;
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Bridge failed";
+        setError(msg);
+        throw e;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [payFace, rpc, refreshBalance],
+  );
+
+  /** Verified eth lock tx → tip PIX (Sepolia path). */
+  const bridgeFromLockTx = useCallback(
+    async (txHash: string) => {
+      if (!payFace) throw new Error("Forge a wallet first");
+      if (!rpc) throw new Error("Connect tip RPC");
+      setBusy(true);
+      setError(null);
+      setLastBridge(null);
+      try {
+        const res = await shineInViaLockTx({
+          rpc,
+          txHash,
+          ownerAddress: payFace.address,
+          ownerLocalId: payFace.localId,
+        });
+        const receipt: BridgeReceipt = {
+          plane: "shared_tip",
+          pixCredited: res.pixCredited,
+          tipIndex: res.tipIndex,
+          balance: res.balance,
+          summary: res.summary,
+          canvasId: res.canvasId,
+          asset: "USDC",
+          humanUsd: res.humanUsd ?? 0,
+          lockTx: res.lockTx ?? txHash,
+          lab: false,
+        };
+        setLastBridge(receipt);
+        await refreshBalance(payFace.address);
+        return receipt;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Lock bridge failed";
         setError(msg);
         throw e;
       } finally {
@@ -381,6 +449,9 @@ export function usePeopleWallet(rpcOverride?: string) {
     lastPay,
     lastBridge,
     tipBridgeLab,
+    tipBridgeEvm,
+    /** @deprecated alias */
+    tipBridgeSepolia: tipBridgeEvm,
     tipFaucet,
     crownedTip,
     crownedPrefix: CROWNED_GENESIS_PREFIX,
@@ -400,6 +471,7 @@ export function usePeopleWallet(rpcOverride?: string) {
     pay,
     faucet,
     bridgeIn,
+    bridgeFromLockTx,
     clear,
     refresh: payFace ? () => refreshBalance(payFace.address) : async () => {},
   };

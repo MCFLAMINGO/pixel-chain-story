@@ -54,9 +54,11 @@ import {
   loadChain,
   loadIdentity,
   loadOrCreateIdentity,
+  loadBridgeFeeder,
   loadPeers,
   loadWallet,
   persistIdentityLeaf,
+  saveBridgeFeeder,
   saveChain,
   savePeers,
   saveWallet,
@@ -109,6 +111,8 @@ export class PixelLedgerNode {
   readonly waveBus: WaveBus = createWaveBus();
   /** Lumen modules beside chain.json — source text, re-parsed on load. */
   lumen!: PersistedLumenBundle;
+  /** Ethereum lock digests already shone in (persisted). */
+  private bridgeConsumed = new Set<string>();
 
   constructor(private opts: NodeOptions) {
     this.datadir = opts.datadir;
@@ -157,6 +161,7 @@ export class PixelLedgerNode {
     this.lastTipIndex = this.chain.pixels.length - 1;
     this.lastTipChangeAt = Date.now();
     this.lumen = await loadOrSeedLumenModules(this.datadir, TRANSFER_LUMEN);
+    this.bridgeConsumed = await loadBridgeFeeder(this.datadir);
     await this.persist();
 
     const seeds = this.opts.seeds ?? (await loadPeers(this.datadir));
@@ -265,6 +270,7 @@ export class PixelLedgerNode {
     if (this.lumen) {
       await saveLumenModules(this.datadir, this.lumen);
     }
+    await saveBridgeFeeder(this.datadir, this.bridgeConsumed);
     const identity = await loadIdentity(this.datadir);
     if (identity) {
       await persistIdentityLeaf(this.datadir, identity, this.keypair);
@@ -449,6 +455,103 @@ export class PixelLedgerNode {
         balance: balanceOf(this.chain, params.ownerAddress),
         summary: res.summary,
         canvasId: snap.canvasId,
+      };
+    });
+  }
+
+  /**
+   * Agnostic EVM shine-in: verify PixelUsdcLock.Locked on configured eth RPC,
+   * then illuminate PIX on this tip. Set PIXEL_EVM_LOCK + PIXEL_EVM_RPC
+   * (legacy PIXEL_USDC_LOCK_SEPOLIA still works). Lab open shine-in stays separate.
+   */
+  async shineInFromUsdcLockTx(params: {
+    txHash: string;
+    ownerAddress: string;
+    ownerLocalId?: string;
+  }): Promise<{
+    pixCredited: number;
+    tipIndex: number;
+    balance: number;
+    summary: string;
+    canvasId: string | null;
+    lockTx: string;
+    humanUsd: number;
+    plane: "shared_tip";
+    chainKey: string;
+  }> {
+    const { readEvmBridgeConfig, verifyUsdcLockTx, lockReceiptFromParsed } =
+      await import("../lib/pixel/eth-usdc-lock");
+    const { WALLET_BRIDGE_MAX_USD } = await import("../lib/pixel/wallet-bridge");
+    const cfg = readEvmBridgeConfig();
+    if (!cfg) {
+      throw new Error("EVM lock bridge not configured — set PIXEL_EVM_LOCK + PIXEL_EVM_RPC");
+    }
+    const { assertPixelAddress } = await import("../lib/pixel/crypto");
+    assertPixelAddress(params.ownerAddress, "ownerAddress");
+
+    const parsed = await verifyUsdcLockTx({
+      ethRpcUrl: cfg.ethRpcUrl,
+      txHash: params.txHash,
+      lockContract: cfg.lockContract,
+      expectedChainId: cfg.chainId,
+      expectPixelRecipient: params.ownerAddress,
+    });
+    const humanUsd = Number(parsed.amountRaw) / 1e6;
+    if (!(humanUsd > 0) || humanUsd > WALLET_BRIDGE_MAX_USD) {
+      throw new Error(`lock amount must be 0 < x ≤ $${WALLET_BRIDGE_MAX_USD}`);
+    }
+    const digest = parsed.lockDigest.replace(/^0x/, "").toLowerCase();
+    if (this.bridgeConsumed.has(digest)) {
+      throw new Error("lock already shone in — no double credit");
+    }
+
+    return this.withChainLock(async () => {
+      if (this.bridgeConsumed.has(digest)) {
+        throw new Error("lock already shone in — no double credit");
+      }
+      const { LockFeeder } = await import("../lib/pixel/lock-feeder");
+      const { illuminateIngress } = await import("../lib/pixel/worldlight");
+      const receipt = lockReceiptFromParsed(parsed, cfg.chainId);
+      const feeder = LockFeeder.createState();
+      for (const d of this.bridgeConsumed) feeder.consumed.add(d);
+
+      const prepared = await LockFeeder.feed({
+        receipt,
+        ownerLocalId: (params.ownerLocalId ?? "phone").slice(0, 64),
+        feeder,
+        ethereumLogVerified: true,
+      });
+      const vaultBal = balanceOf(this.chain, this.keypair.address);
+      if (vaultBal < prepared.pixCredit) {
+        throw new Error(
+          `bridge vault needs ${prepared.pixCredit} PIX (has ${vaultBal}) — tip escrow empty`,
+        );
+      }
+      const res = await illuminateIngress({
+        prepared,
+        state: this.chain,
+        bridgeVault: this.keypair,
+        sequencer: this.keypair,
+      });
+      LockFeeder.consume(feeder, receipt.lockDigest);
+      this.bridgeConsumed.add(digest);
+      this.chain = res.state;
+      const tip = this.chain.pixels[this.chain.pixels.length - 1]!;
+      this.gossip?.broadcast({ type: "pixel", pixel: tip });
+      this.noteTipProgress();
+      this.fanoutWave(tip, "sequence");
+      this.queuePersist();
+      const snap = this.syncSnapshot();
+      return {
+        pixCredited: res.pixCredited,
+        tipIndex: tip.index,
+        balance: balanceOf(this.chain, params.ownerAddress),
+        summary: `${res.summary} · ${cfg.chainName} lock ${parsed.txHash.slice(0, 10)}…`,
+        canvasId: snap.canvasId,
+        lockTx: parsed.txHash,
+        humanUsd,
+        plane: "shared_tip" as const,
+        chainKey: cfg.chainKey,
       };
     });
   }

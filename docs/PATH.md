@@ -115,7 +115,8 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Custody inversion law: foreign = receipt, Pixel = vault (`BRIDGE_CUSTODY_AXIOM`, `test:bridge-custody`)
 - [x] Native ULAs under ML-DSA sequencers + keccak-OTS twin projection (`test:ula-mldsa`)
 - [x] Lab off-chain ML-DSA commit gate (`ULAOffchainMldsaGate.sol`) — **not** full on-chain Dilithium
-- [ ] Public testnet tx links (Sepolia or equiv.) — still open
+- [x] Tip `POST /bridge/shine-in-lock` + phone Bridge UI (anvil evidence `test:sepolia-bridge`); lab shine-in stays behind `PIXEL_BRIDGE_LAB`
+- [ ] Public Sepolia deploy + explorer tx links in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) — ops (`deploy:sepolia-lock`)
 - [ ] Full on-chain ML-DSA verify (zk/precompile research) — open
 
 **Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) + [`docs/ULA-MLDSA.md`](./ULA-MLDSA.md) (public tx links pending)  

@@ -170,3 +170,24 @@ export async function loadPeers(datadir: string): Promise<string[]> {
     return [];
   }
 }
+
+/** Consumed ethereum lock digests — prevent double shine-in of the same Locked tx. */
+export type BridgeFeederBook = {
+  v: 1;
+  consumed: string[];
+};
+
+export async function saveBridgeFeeder(datadir: string, consumed: Set<string>): Promise<void> {
+  const book: BridgeFeederBook = { v: 1, consumed: [...consumed] };
+  await writeJsonAtomic(join(datadir, "bridge-feeder.json"), book);
+}
+
+export async function loadBridgeFeeder(datadir: string): Promise<Set<string>> {
+  try {
+    const raw = await readFile(join(datadir, "bridge-feeder.json"), "utf8");
+    const book = JSON.parse(raw) as BridgeFeederBook;
+    return new Set(book.consumed ?? []);
+  } catch {
+    return new Set();
+  }
+}

@@ -13,6 +13,7 @@ import {
   ValidationError,
 } from "../lib/pixel/validators";
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
+import { evmBridgeHealth, readEvmBridgeConfig } from "../lib/pixel/eth-usdc-lock";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -92,6 +93,9 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
             process.env.PIXEL_FAUCET === "true" ||
             process.env.PIXEL_BRIDGE_LAB === "1" ||
             process.env.PIXEL_BRIDGE_LAB === "true",
+          bridgeEvm: evmBridgeHealth(readEvmBridgeConfig()),
+          /** @deprecated alias — same as bridgeEvm */
+          bridgeSepolia: evmBridgeHealth(readEvmBridgeConfig()),
         });
       }
 
@@ -184,7 +188,47 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         }
       }
 
-      /** Phone-wallet lab bridge — USDC/ETH/wire → PIX on pay face (PIXEL_BRIDGE_LAB=1). */
+      /**
+       * Verified Sepolia (or configured) PixelUsdcLock.Locked → PIX on pay face.
+       * Body: { txHash, ownerAddress, ownerLocalId? }
+       */
+      if (req.method === "POST" && url.pathname === "/bridge/shine-in-lock") {
+        if (!readEvmBridgeConfig()) {
+          return json(
+            {
+              ok: false,
+              error:
+                "EVM lock bridge not configured — set PIXEL_EVM_LOCK + PIXEL_EVM_RPC (or legacy PIXEL_USDC_LOCK_SEPOLIA)",
+            },
+            { status: 404 },
+          );
+        }
+        const body = await readBodyWithLimit(req, MAX_RPC_BODY_BYTES);
+        if (!body.ok) {
+          return json({ ok: false, error: body.error }, { status: 413 });
+        }
+        let parsed: { txHash?: string; ownerAddress?: string; ownerLocalId?: string };
+        try {
+          parsed = JSON.parse(body.text) as typeof parsed;
+        } catch {
+          return json({ ok: false, error: "bad json" }, { status: 400 });
+        }
+        try {
+          const out = await node.shineInFromUsdcLockTx({
+            txHash: String(parsed.txHash ?? ""),
+            ownerAddress: String(parsed.ownerAddress ?? ""),
+            ownerLocalId: parsed.ownerLocalId
+              ? String(parsed.ownerLocalId).slice(0, 64)
+              : undefined,
+          });
+          return json({ ok: true, ...out });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "lock bridge failed";
+          return json({ ok: false, error: msg }, { status: 400 });
+        }
+      }
+
+      /** Phone-wallet lab bridge — USDC/ETH/wire → PIX (PIXEL_BRIDGE_LAB=1 demo only). */
       if (req.method === "POST" && url.pathname === "/bridge/shine-in") {
         const enabled =
           process.env.PIXEL_BRIDGE_LAB === "1" || process.env.PIXEL_BRIDGE_LAB === "true";
@@ -220,7 +264,7 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
             ownerAddress: String(parsed.ownerAddress ?? ""),
             ownerLocalId: String(parsed.ownerLocalId ?? "phone").slice(0, 64),
           });
-          return json({ ok: true, plane: "shared_tip", ...out });
+          return json({ ok: true, plane: "shared_tip", lab: true, ...out });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "bridge failed";
           return json({ ok: false, error: msg }, { status: 400 });

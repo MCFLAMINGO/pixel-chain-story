@@ -30,6 +30,8 @@ jobs:
         run: cargo test --manifest-path contracts/cosmwasm/ula-verifier/Cargo.toml
       - name: Relayer Locked → shineIn (anvil)
         run: bun run test:ula-relayer
+      - name: Tip EVM lock → shine-in-lock (anvil)
+        run: bun run test:sepolia-bridge
       - name: Lint
         run: bun run lint
       - name: Build
