@@ -116,11 +116,11 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Native ULAs under ML-DSA sequencers + keccak-OTS twin projection (`test:ula-mldsa`)
 - [x] Lab off-chain ML-DSA commit gate (`ULAOffchainMldsaGate.sol`) — **not** full on-chain Dilithium
 - [x] Tip `POST /bridge/shine-in-lock` + phone Bridge UI (anvil evidence `test:sepolia-bridge`); lab shine-in stays behind `PIXEL_BRIDGE_LAB`
-- [ ] Public Sepolia deploy + explorer tx links in [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) — ops (`deploy:sepolia-lock`)
+- [x] Public Sepolia deploy + first lock → tip PIX — [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) (lock [`0xa1c12522…`](https://sepolia.etherscan.io/tx/0xa1c12522d6cd051ec09cff0ff7e22e17a24ff453b1aa7e5bb9ed3980abfea8df) → tip **#7**)
 - [ ] Full on-chain ML-DSA verify (zk/precompile research) — open
 
-**Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) + [`docs/ULA-MLDSA.md`](./ULA-MLDSA.md) (public tx links pending)  
-**Claim unlock (partial):** _“ULA verify real on EVM/CosmWasm twins (lab); native ML-DSA ULAs; PQ commit gate; local lock→shineIn; foreign verify ≠ vault release.”_ Full _“Testnet ULA bridge”_ when public links land. Do **not** claim “on-chain Dilithium.”
+**Evidence:** green Foundry + [`docs/BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) + [`docs/ULA-MLDSA.md`](./ULA-MLDSA.md) (Sepolia public lock landed)  
+**Claim unlock (partial):** _“ULA verify real on EVM/CosmWasm twins (lab); native ML-DSA ULAs; PQ commit gate; Sepolia MockUSDC lock→tip PIX (public); foreign verify ≠ vault release.”_ Do **not** claim mainnet USDC or “on-chain Dilithium.”
 
 ### Gate F — Light clients & gossip that scale past 3 peers
 
