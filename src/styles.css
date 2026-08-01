@@ -646,7 +646,7 @@
   height: 100%;
 }
 
-/* Kindling full-phone projector — blaze the pay face edge-to-edge */
+/* Kindling projector — square fits inside dvh (no scroll); bloom = glow (cells codec-true) */
 .kindling-projector {
   position: fixed;
   inset: 0;
@@ -654,68 +654,109 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: stretch;
-  background: #f7fff8;
-  animation: kindling-flare 0.45s ease-out;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  padding:
+    calc(0.65rem + env(safe-area-inset-top))
+    0.85rem
+    calc(0.65rem + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 45%, oklch(0.28 0.08 145 / 0.55), transparent 70%),
+    #030504;
 }
-.kindling-projector-glow {
+.kindling-projector-stage-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+.kindling-projector-stage {
+  /* One square: never taller/wider than the free viewport (hint + close reserved). */
+  --kindling-face: min(
+    26rem,
+    calc(100vw - 1.7rem),
+    calc(100dvh - 5.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))
+  );
+  position: relative;
+  width: var(--kindling-face);
+  height: var(--kindling-face);
+  max-width: 100%;
+  max-height: 100%;
+}
+.kindling-projector-bloom {
   pointer-events: none;
   position: absolute;
-  inset: -20%;
+  inset: -28%;
+  border-radius: 40%;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, oklch(0.98 0.12 145 / 0.95), transparent 70%),
-    radial-gradient(ellipse 100% 80% at 50% 100%, oklch(0.95 0.08 95 / 0.7), transparent 55%);
-  animation: kindling-pulse 2.4s ease-in-out infinite;
+    radial-gradient(circle at 50% 50%, oklch(0.98 0.2 145 / 0.75), transparent 52%),
+    radial-gradient(circle at 50% 50%, oklch(1 0.1 100 / 0.5), transparent 68%),
+    radial-gradient(circle at 50% 50%, oklch(0.85 0.12 145 / 0.35), transparent 78%);
+  filter: blur(22px);
+  animation: kindling-pulse 1.6s ease-in-out infinite;
+}
+.kindling-projector-halo {
+  pointer-events: none;
+  position: absolute;
+  inset: -8%;
+  border-radius: 1.35rem;
+  box-shadow:
+    0 0 28px 6px oklch(0.9 0.22 145 / 0.55),
+    0 0 80px 24px oklch(0.8 0.18 145 / 0.4),
+    0 0 140px 48px oklch(0.75 0.12 100 / 0.28);
+  animation: kindling-pulse 1.6s ease-in-out infinite;
 }
 .kindling-projector-grid {
   position: relative;
   z-index: 1;
-  flex: 1;
   display: grid;
   width: 100%;
   height: 100%;
-  min-height: 100dvh;
   gap: 0;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
-  box-sizing: border-box;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px oklch(0.95 0.14 145 / 0.65),
+    0 0 24px 4px oklch(0.9 0.2 145 / 0.7),
+    0 0 64px 16px oklch(0.85 0.18 145 / 0.45);
+  animation: kindling-flare 0.55s ease-out;
 }
 .kindling-projector-cell {
   min-height: 0;
   min-width: 0;
 }
 .kindling-projector-close {
-  position: fixed;
+  position: relative;
   z-index: 2;
-  left: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  align-self: center;
+  margin-top: 0.55rem;
   font-family: var(--font-pixel, ui-sans-serif);
   font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: 0.85rem 1.4rem;
+  padding: 0.7rem 1.25rem;
   border-radius: 999px;
-  border: 1px solid oklch(0.2 0.04 145 / 0.35);
-  background: oklch(0.12 0.03 145 / 0.72);
+  border: 1px solid oklch(1 0 0 / 0.22);
+  background: oklch(0.1 0.03 145 / 0.78);
   color: oklch(0.95 0.04 145);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   touch-action: manipulation;
 }
 .kindling-projector-hint {
-  position: fixed;
+  position: relative;
   z-index: 2;
-  left: 50%;
-  top: calc(0.75rem + env(safe-area-inset-top));
-  transform: translateX(-50%);
-  width: min(20rem, 90vw);
+  align-self: center;
+  width: min(20rem, 92%);
+  margin-top: 0.45rem;
   text-align: center;
   font-size: 11px;
   letter-spacing: 0.04em;
-  color: oklch(0.18 0.04 145 / 0.75);
-  text-shadow: 0 0 12px oklch(1 0 0 / 0.9);
-  pointer-events: none;
+  color: oklch(0.92 0.06 145 / 0.85);
+  text-shadow: 0 0 18px oklch(0.8 0.15 145 / 0.9);
 }
 .kindling-projector-loading {
   position: fixed;
@@ -723,8 +764,8 @@
   z-index: 200;
   display: grid;
   place-items: center;
-  background: #f7fff8;
-  color: oklch(0.25 0.05 145);
+  background: #050806;
+  color: oklch(0.85 0.1 145);
   font-size: 14px;
 }
 html.kindling-projecting .wallet-tabbar,
@@ -732,28 +773,119 @@ html.kindling-projecting .wallet-phone-shell > header,
 html.kindling-projecting .wallet-phone-glow {
   visibility: hidden;
 }
+
+/* Reader phone — brightens as matrix locks, peaks before Send */
+.kindling-reader {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  --kindling-heat: 0;
+  box-shadow:
+    0 0 calc(12px + var(--kindling-heat) * 36px) calc(var(--kindling-heat) * 10px)
+      oklch(0.85 0.2 145 / calc(var(--kindling-heat) * 0.65)),
+    0 0 calc(40px + var(--kindling-heat) * 80px) calc(var(--kindling-heat) * 20px)
+      oklch(0.75 0.14 100 / calc(var(--kindling-heat) * 0.35));
+  transition: box-shadow 0.15s linear;
+}
+.kindling-reader::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 40%,
+    oklch(0.98 0.18 145 / calc(var(--kindling-heat) * 0.72)),
+    oklch(0.9 0.1 100 / calc(var(--kindling-heat) * 0.25)) 45%,
+    transparent 70%
+  );
+  box-shadow: inset 0 0 80px oklch(0.95 0.22 145 / calc(var(--kindling-heat) * 0.55));
+  mix-blend-mode: screen;
+}
+.kindling-reader video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #000;
+  filter: brightness(calc(0.92 + var(--kindling-heat) * 0.35));
+}
+.kindling-reader-meter {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 1;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.15);
+  overflow: hidden;
+}
+.kindling-reader-meter > span {
+  display: block;
+  height: 100%;
+  width: calc(var(--kindling-heat) * 100%);
+  background: linear-gradient(90deg, oklch(0.7 0.14 145), oklch(0.98 0.2 100));
+  box-shadow: 0 0 14px oklch(0.95 0.22 145 / 0.9);
+  transition: width 0.12s linear;
+}
+.kindling-reader-blaze {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 42%,
+    oklch(1 0.14 145 / 0.95),
+    oklch(0.96 0.1 100 / 0.75) 40%,
+    oklch(0.2 0.05 145 / 0) 72%
+  );
+  animation: kindling-blaze-out 1.05s ease-out forwards;
+}
+.kindling-send-hot {
+  box-shadow:
+    0 0 0 1px oklch(0.95 0.16 145 / 0.55),
+    0 0 28px 6px oklch(0.9 0.2 145 / 0.55),
+    0 0 64px 16px oklch(0.85 0.14 100 / 0.3) !important;
+  animation: kindling-pulse 1.2s ease-in-out infinite;
+}
 @keyframes kindling-flare {
   from {
-    filter: brightness(0.4);
-    opacity: 0.6;
+    opacity: 0.5;
+    transform: scale(0.96);
   }
   to {
-    filter: brightness(1.15);
     opacity: 1;
+    transform: scale(1);
   }
 }
 @keyframes kindling-pulse {
   0%,
   100% {
-    opacity: 0.85;
+    opacity: 0.72;
+    transform: scale(0.985);
   }
   50% {
     opacity: 1;
+    transform: scale(1.04);
+  }
+}
+@keyframes kindling-blaze-out {
+  0% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .kindling-projector,
-  .kindling-projector-glow {
+  .kindling-projector-grid,
+  .kindling-projector-bloom,
+  .kindling-projector-halo,
+  .kindling-reader-blaze,
+  .kindling-send-hot {
     animation: none;
   }
 }
