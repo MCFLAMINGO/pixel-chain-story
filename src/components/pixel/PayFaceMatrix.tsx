@@ -3,13 +3,12 @@ import { type OpticalPattern } from "@/lib/pixel/optical";
 import { encodePayFaceMatrix } from "@/lib/pixel/pay-face-optical";
 
 /**
- * Bright projector colors — keep red channel ≈ cell byte so camera decode
- * still recovers the pay face (optical-capture prefers R).
+ * Projector cell colors — red channel must stay ≈ cell byte (camera decode).
+ * Glow is CSS around the grid, never a remap of payload luminance.
  */
 function projectorCssGrid(pattern: OpticalPattern): string[] {
   return pattern.cells.map((v) => {
     const t = Math.max(0, Math.min(255, Math.round(v)));
-    // Hot phosphor: full R, strong G, warm B — reads as blazing light on OLED.
     return `rgb(${t}, ${Math.min(255, Math.floor(t * 0.98))}, ${Math.min(255, Math.floor(t * 0.9))})`;
   });
 }
@@ -18,7 +17,7 @@ function projectorCssGrid(pattern: OpticalPattern): string[] {
 export function PayFaceMatrix(props: {
   address: string;
   className?: string;
-  /** Full-phone blazing projector (default for Show face). */
+  /** Full-phone projector (default). */
   projector?: boolean;
   onReady?: (pattern: OpticalPattern) => void;
   onClose?: () => void;
@@ -59,7 +58,7 @@ export function PayFaceMatrix(props: {
       })
       .catch(() => undefined);
     const prev = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = "#f4fff6";
+    document.body.style.backgroundColor = "#050806";
     document.documentElement.classList.add("kindling-projecting");
     return () => {
       document.body.style.backgroundColor = prev;
@@ -104,30 +103,24 @@ export function PayFaceMatrix(props: {
       className="kindling-projector"
       data-optical-pay-face="1"
       role="dialog"
+      aria-modal="true"
       aria-label={`Kindling pay face for ${props.address}`}
-      onClick={() => props.onClose?.()}
     >
-      <div className="kindling-projector-glow" aria-hidden />
-      <div
-        className="kindling-projector-grid"
-        style={{ gridTemplateColumns: "repeat(16, 1fr)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {colors.map((c, i) => (
-          <div key={i} className="kindling-projector-cell" style={{ background: c }} />
-        ))}
+      <div className="kindling-projector-stage-wrap">
+        <div className="kindling-projector-stage">
+          <div className="kindling-projector-bloom" aria-hidden />
+          <div className="kindling-projector-halo" aria-hidden />
+          <div className="kindling-projector-grid" style={{ gridTemplateColumns: "repeat(16, 1fr)" }}>
+            {colors.map((c, i) => (
+              <div key={i} className="kindling-projector-cell" style={{ background: c }} />
+            ))}
+          </div>
+        </div>
       </div>
-      <button
-        type="button"
-        className="kindling-projector-close"
-        onClick={(e) => {
-          e.stopPropagation();
-          props.onClose?.();
-        }}
-      >
+      <p className="kindling-projector-hint">Fill their camera with this square · vault sealed</p>
+      <button type="button" className="kindling-projector-close" onClick={() => props.onClose?.()}>
         Hide face
       </button>
-      <p className="kindling-projector-hint">Aim friend’s camera here · vault sealed</p>
     </div>
   );
 }

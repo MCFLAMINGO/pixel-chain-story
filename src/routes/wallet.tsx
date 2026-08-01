@@ -127,8 +127,11 @@ function WalletPage() {
   const [scanning, setScanning] = useState(false);
   const [scanMode, setScanMode] = useState<"qr" | "matrix" | null>(null);
   const [opticalPresence, setOpticalPresence] = useState(false);
+  const [readHeat, setReadHeat] = useState(0);
+  const [showBlaze, setShowBlaze] = useState(false);
   const scanVideoRef = useRef<HTMLVideoElement | null>(null);
   const scanStopRef = useRef<(() => void) | null>(null);
+  const readerRef = useRef<HTMLDivElement | null>(null);
   const [payReceipt, setPayReceipt] = useState<{
     mark: TipMarkReceipt;
     amount: number;
@@ -228,6 +231,8 @@ function WalletPage() {
   async function startScan(mode: "qr" | "matrix") {
     setScanNote("");
     setOpticalPresence(false);
+    setReadHeat(0);
+    setShowBlaze(false);
     if (mode === "qr" && !canScanPayQr()) {
       setScanNote("QR scan needs Chrome — try Scan matrix, Paste, or pay link");
       return;
@@ -251,6 +256,7 @@ function WalletPage() {
       const session = mode === "qr" ? await startPayQrScan(el) : await startPayMatrixScan(el);
       scanStopRef.current = session.stop;
       let frames = 0;
+      let heat = 0;
       const tick = async () => {
         if (!scanStopRef.current) return;
         try {
@@ -267,21 +273,36 @@ function WalletPage() {
             }
           } else {
             frames++;
-            // Let exposure settle a few frames before decoding the matrix.
-            if (frames > 8) {
+            if (frames > 2) {
               const hit = await pollPayMatrixFrame(el);
-              if (hit) {
+              // Climb toward lock; never drop hard — reading should feel like a rising shine.
+              heat = Math.min(1, Math.max(heat * 0.96, hit.score, heat + (hit.score > heat ? 0.04 : 0)));
+              setReadHeat(heat);
+              if (readerRef.current) {
+                readerRef.current.style.setProperty("--kindling-heat", String(heat));
+              }
+              if (hit.locked) {
                 setToAddr(hit.address);
                 setSendArmed(true);
                 setPayReceipt(null);
                 setOpticalPresence(hit.physical);
+                setReadHeat(1);
+                setShowBlaze(true);
                 setScanNote(
                   hit.physical
-                    ? "Kindling matrix — pay face from light"
-                    : "Decoded matrix pay face",
+                    ? "Shine peaked — Kindling locked from light. Send PIX."
+                    : "Shine peaked — matrix locked. Send PIX.",
                 );
-                stopScan();
+                stopScan({ keepBlaze: true });
+                window.setTimeout(() => setShowBlaze(false), 1100);
                 return;
+              }
+              if (frames % 40 === 0 && heat < 0.35) {
+                setScanNote("Fill the frame with their bright square — steady");
+              } else if (heat >= 0.5) {
+                setScanNote("Getting bright — hold steady…");
+              } else if (heat >= 0.3) {
+                setScanNote("Seeing the face — move closer");
               }
             }
           }
@@ -300,11 +321,15 @@ function WalletPage() {
     }
   }
 
-  function stopScan() {
+  function stopScan(opts?: { keepBlaze?: boolean }) {
     scanStopRef.current?.();
     scanStopRef.current = null;
     setScanning(false);
     setScanMode(null);
+    if (!opts?.keepBlaze) {
+      setReadHeat(0);
+      setShowBlaze(false);
+    }
   }
 
   return (
@@ -706,7 +731,19 @@ function WalletPage() {
                         </button>
                       ) : null}
                     </div>
-                    {scanning ? (
+                    {scanning && scanMode === "matrix" ? (
+                      <div
+                        ref={readerRef}
+                        className="kindling-reader mt-2 w-full max-w-[18rem]"
+                        style={{ ["--kindling-heat" as string]: String(readHeat) }}
+                      >
+                        <video ref={scanVideoRef} muted playsInline autoPlay />
+                        <div className="kindling-reader-meter" aria-hidden>
+                          <span />
+                        </div>
+                      </div>
+                    ) : null}
+                    {scanning && scanMode === "qr" ? (
                       <video
                         ref={scanVideoRef}
                         className="mt-2 aspect-square w-full max-w-[16rem] rounded-lg object-cover"
@@ -715,9 +752,10 @@ function WalletPage() {
                         autoPlay
                       />
                     ) : null}
+                    {showBlaze ? <div className="kindling-reader-blaze" aria-hidden /> : null}
                     {opticalPresence ? (
                       <p className="text-xs text-emerald-200/90" role="status">
-                        Optical presence — matrix captured from camera (not typed).
+                        Optical presence — matrix from camera. Shine peaked — Send PIX.
                       </p>
                     ) : null}
                     {scanNote ? (
@@ -765,7 +803,11 @@ function WalletPage() {
                     <button
                       type="submit"
                       disabled={w.busy || !w.unlocked || !sendArmed}
-                      className="wallet-cta"
+                      className={
+                        opticalPresence && sendArmed && !w.busy
+                          ? "wallet-cta kindling-send-hot"
+                          : "wallet-cta"
+                      }
                     >
                       {!w.unlocked
                         ? "Unlock with PIN to send"
@@ -773,7 +815,9 @@ function WalletPage() {
                           ? "Sending…"
                           : !sendArmed
                             ? "Sent — change amount to send again"
-                            : "Send PIX"}
+                            : opticalPresence
+                              ? "Send PIX — shine ready"
+                              : "Send PIX"}
                     </button>
                     {payReceipt ? (
                       <div
