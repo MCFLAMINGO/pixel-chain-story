@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { type OpticalPattern } from "@/lib/pixel/optical";
+import { useEffect, useRef, useState } from "react";
+import { OPTICAL_GRID, type OpticalPattern } from "@/lib/pixel/optical";
 import { encodePayFaceMatrix } from "@/lib/pixel/pay-face-optical";
 
 /**
@@ -13,6 +13,32 @@ function projectorCssGrid(pattern: OpticalPattern): string[] {
   });
 }
 
+function paintPayFace(canvas: HTMLCanvasElement, cells: number[], cssSize: number): void {
+  const grid = OPTICAL_GRID;
+  const dpr =
+    typeof window !== "undefined" ? Math.max(1, Math.floor(window.devicePixelRatio || 1)) : 1;
+  // Fill the stage edge-to-edge; split remainder pixels across cells (no side gutter).
+  const px = Math.max(grid, Math.floor(cssSize * dpr));
+  canvas.width = px;
+  canvas.height = px;
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) return;
+  ctx.imageSmoothingEnabled = false;
+  for (let row = 0; row < grid; row++) {
+    const y0 = Math.floor((row * px) / grid);
+    const y1 = Math.floor(((row + 1) * px) / grid);
+    for (let col = 0; col < grid; col++) {
+      const x0 = Math.floor((col * px) / grid);
+      const x1 = Math.floor(((col + 1) * px) / grid);
+      const v = Math.max(0, Math.min(255, Math.round(cells[row * grid + col] ?? 0)));
+      ctx.fillStyle = `rgb(${v}, ${Math.min(255, Math.floor(v * 0.98))}, ${Math.min(255, Math.floor(v * 0.9))})`;
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+  }
+}
+
 /** 16×16 pay-face Kindling matrix — public address only, never vault. */
 export function PayFaceMatrix(props: {
   address: string;
@@ -23,18 +49,23 @@ export function PayFaceMatrix(props: {
   onClose?: () => void;
 }) {
   const [colors, setColors] = useState<string[] | null>(null);
+  const [cells, setCells] = useState<number[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const projector = props.projector !== false;
 
   const onReady = props.onReady;
   useEffect(() => {
     let cancelled = false;
     setColors(null);
+    setCells(null);
     setErr(null);
     void encodePayFaceMatrix(props.address)
       .then((pattern) => {
         if (cancelled) return;
         setColors(projectorCssGrid(pattern));
+        setCells(pattern.cells);
         onReady?.(pattern);
       })
       .catch((e) => {
@@ -67,10 +98,31 @@ export function PayFaceMatrix(props: {
     };
   }, [projector]);
 
+  useEffect(() => {
+    if (!projector || !cells) return;
+    const stage = stageRef.current;
+    const canvas = canvasRef.current;
+    if (!stage || !canvas) return;
+
+    const draw = () => {
+      const size = Math.min(stage.clientWidth, stage.clientHeight);
+      if (size < 16) return;
+      paintPayFace(canvas, cells, size);
+    };
+    draw();
+    const ro = new ResizeObserver(draw);
+    ro.observe(stage);
+    window.addEventListener("resize", draw);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", draw);
+    };
+  }, [projector, cells]);
+
   if (err) {
     return <p className="text-xs text-amber-200/90">{err}</p>;
   }
-  if (!colors) {
+  if (!colors || !cells) {
     return (
       <p className={projector ? "kindling-projector-loading" : "text-xs text-white/40"}>
         Kindling face…
@@ -107,17 +159,15 @@ export function PayFaceMatrix(props: {
       aria-label={`Kindling pay face for ${props.address}`}
     >
       <div className="kindling-projector-stage-wrap">
-        <div className="kindling-projector-stage">
+        <div className="kindling-projector-stage" ref={stageRef}>
           <div className="kindling-projector-bloom" aria-hidden />
           <div className="kindling-projector-halo" aria-hidden />
-          <div
-            className="kindling-projector-grid"
-            style={{ gridTemplateColumns: "repeat(16, 1fr)" }}
-          >
-            {colors.map((c, i) => (
-              <div key={i} className="kindling-projector-cell" style={{ background: c }} />
-            ))}
-          </div>
+          <canvas
+            ref={canvasRef}
+            className="kindling-projector-canvas"
+            role="img"
+            aria-label={`Kindling pay face for ${props.address}`}
+          />
         </div>
       </div>
       <p className="kindling-projector-hint">Fill their camera with this square · vault sealed</p>
