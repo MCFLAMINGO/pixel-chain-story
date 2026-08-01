@@ -38,6 +38,14 @@ ON = 255, OFF = 0
 
 PXP1-A (amplitude) remains documented as lab/historical only — do not project it on RGB565 links.
 
+### Transport selection
+
+- **Renderer:** implicit — physical Show face / projector always paints **PXP1-P** (payload and magic unchanged).
+- **Decoder:** try PXP1-P first. Optional amplitude fallback only for historical lab rasters.
+- Do not signal transport in-band under PXP1; that would be **PXP2**.
+
+Paste-ready external brief: [`alignment-brief-pixel-optical.md`](./alignment-brief-pixel-optical.md).
+
 ## Quiet zone / registration
 
 **Finder and registration marks must live in the quiet zone outside the grid.**  
