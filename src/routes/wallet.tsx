@@ -11,7 +11,14 @@ import {
 import { formatCanvasId, settlementHonesty } from "@/lib/pixel";
 import { extractPayAddress, payFaceShareUrl, payLinkThesis } from "@/lib/pixel/pay-link";
 import { canScanPayQr, pollPayQrFrame, startPayQrScan } from "@/lib/pixel/pay-qr-scan";
+import {
+  canScanPayMatrix,
+  pollPayMatrixFrame,
+  startPayMatrixScan,
+} from "@/lib/pixel/pay-matrix-scan";
+import { payFaceOpticalThesis } from "@/lib/pixel/pay-face-optical";
 import { PayFaceQr } from "@/components/pixel/PayFaceShare";
+import { PayFaceMatrix } from "@/components/pixel/PayFaceMatrix";
 import { isPixelAddress } from "@/lib/pixel/crypto";
 import { fetchTipBalance } from "@/lib/pixel/people-wallet";
 import type { TipMarkReceipt } from "@/lib/pixel/tip-mark";
@@ -114,9 +121,12 @@ function WalletPage() {
   const [ethLockNote, setEthLockNote] = useState("");
   const [installHint, setInstallHint] = useState(false);
   const [showPayQr, setShowPayQr] = useState(false);
+  const [showPayMatrix, setShowPayMatrix] = useState(false);
   const [shareNote, setShareNote] = useState("");
   const [scanNote, setScanNote] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [scanMode, setScanMode] = useState<"qr" | "matrix" | null>(null);
+  const [opticalPresence, setOpticalPresence] = useState(false);
   const scanVideoRef = useRef<HTMLVideoElement | null>(null);
   const scanStopRef = useRef<(() => void) | null>(null);
   const [payReceipt, setPayReceipt] = useState<{
@@ -125,6 +135,7 @@ function WalletPage() {
     to: string;
     theirBalance: number | null;
     myBalance: number | null;
+    kindling?: boolean;
   } | null>(null);
   const [sendArmed, setSendArmed] = useState(true);
 
@@ -207,42 +218,72 @@ function WalletPage() {
       setToAddr(addr);
       setSendArmed(true);
       setPayReceipt(null);
+      setOpticalPresence(false);
       setScanNote("Pasted pay face");
     } catch {
       setScanNote("Clipboard blocked — paste into To");
     }
   }
 
-  async function startScan() {
+  async function startScan(mode: "qr" | "matrix") {
     setScanNote("");
-    if (!canScanPayQr()) {
-      setScanNote("Scan needs Chrome camera — use Paste or open their pay link");
+    setOpticalPresence(false);
+    if (mode === "qr" && !canScanPayQr()) {
+      setScanNote("QR scan needs Chrome — try Scan matrix, Paste, or pay link");
       return;
     }
+    if (mode === "matrix" && !canScanPayMatrix()) {
+      setScanNote("Camera not available — try Scan QR or Paste");
+      return;
+    }
+    setScanMode(mode);
     setScanning(true);
-    // Wait a frame so the <video> mounts before we attach the stream.
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
     const el = scanVideoRef.current;
     if (!el) {
       setScanning(false);
+      setScanMode(null);
       setScanNote("Camera view failed to open");
       return;
     }
     try {
       scanStopRef.current?.();
-      const session = await startPayQrScan(el);
+      const session = mode === "qr" ? await startPayQrScan(el) : await startPayMatrixScan(el);
       scanStopRef.current = session.stop;
+      let frames = 0;
       const tick = async () => {
         if (!scanStopRef.current) return;
         try {
-          const addr = await pollPayQrFrame(el);
-          if (addr) {
-            setToAddr(addr);
-            setSendArmed(true);
-            setPayReceipt(null);
-            setScanNote("Scanned pay face");
-            stopScan();
-            return;
+          if (mode === "qr") {
+            const addr = await pollPayQrFrame(el);
+            if (addr) {
+              setToAddr(addr);
+              setSendArmed(true);
+              setPayReceipt(null);
+              setOpticalPresence(false);
+              setScanNote("Scanned QR pay face");
+              stopScan();
+              return;
+            }
+          } else {
+            frames++;
+            // Let exposure settle a few frames before decoding the matrix.
+            if (frames > 8) {
+              const hit = await pollPayMatrixFrame(el);
+              if (hit) {
+                setToAddr(hit.address);
+                setSendArmed(true);
+                setPayReceipt(null);
+                setOpticalPresence(hit.physical);
+                setScanNote(
+                  hit.physical
+                    ? "Kindling matrix — pay face from light"
+                    : "Decoded matrix pay face",
+                );
+                stopScan();
+                return;
+              }
+            }
           }
         } catch (e) {
           setScanNote(e instanceof Error ? e.message : "Scan failed");
@@ -254,6 +295,7 @@ function WalletPage() {
       void tick();
     } catch (e) {
       setScanning(false);
+      setScanMode(null);
       setScanNote(e instanceof Error ? e.message : "Camera failed");
     }
   }
@@ -262,6 +304,7 @@ function WalletPage() {
     scanStopRef.current?.();
     scanStopRef.current = null;
     setScanning(false);
+    setScanMode(null);
   }
 
   return (
@@ -391,9 +434,22 @@ function WalletPage() {
                 <button
                   type="button"
                   className={showPayQr ? "wallet-chip-active" : "wallet-chip"}
-                  onClick={() => setShowPayQr((v) => !v)}
+                  onClick={() => {
+                    setShowPayQr((v) => !v);
+                    if (!showPayQr) setShowPayMatrix(false);
+                  }}
                 >
                   {showPayQr ? "Hide QR" : "Show QR"}
+                </button>
+                <button
+                  type="button"
+                  className={showPayMatrix ? "wallet-chip-active" : "wallet-chip"}
+                  onClick={() => {
+                    setShowPayMatrix((v) => !v);
+                    if (!showPayMatrix) setShowPayQr(false);
+                  }}
+                >
+                  {showPayMatrix ? "Hide face" : "Show face"}
                 </button>
               </div>
               {shareNote ? (
@@ -405,7 +461,15 @@ function WalletPage() {
                 <div className="mt-4 flex flex-col items-center gap-2">
                   <PayFaceQr address={w.payFace.address} className="pay-face-qr rounded-lg" />
                   <p className="max-w-[16rem] text-center text-[11px] leading-relaxed text-white/45">
-                    Friend scans this → Send fills in. Vault never in the QR.
+                    Friend scans QR → Send fills in. Vault never in the QR.
+                  </p>
+                </div>
+              ) : null}
+              {showPayMatrix ? (
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <PayFaceMatrix address={w.payFace.address} />
+                  <p className="max-w-[16rem] text-center text-[11px] leading-relaxed text-white/45">
+                    Kindling matrix — friend taps Scan matrix. Pay face only; vault stays sealed.
                   </p>
                 </div>
               ) : null}
@@ -598,6 +662,7 @@ function WalletPage() {
                             to,
                             theirBalance: theirs?.amount ?? null,
                             myBalance: mine?.amount ?? w.balance,
+                            kindling: opticalPresence,
                           });
                         } catch {
                           setSendArmed(true);
@@ -606,22 +671,32 @@ function WalletPage() {
                     }}
                   >
                     <p className="text-sm text-white/55">
-                      Pay PIX on the shared tip. Unlock with PIN first. Scan their QR or paste —
-                      don&apos;t type pix1….
+                      Pay PIX on the shared tip. Unlock with PIN first. Scan their Kindling face or
+                      QR — don&apos;t type pix1….
                     </p>
-                    <p className="text-xs text-white/40">{payLinkThesis()}</p>
+                    <p className="text-xs text-white/40">{payFaceOpticalThesis()}</p>
+                    <p className="text-xs text-white/35">{payLinkThesis()}</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         className="wallet-chip-active"
                         disabled={scanning}
-                        onClick={() => void startScan()}
+                        onClick={() => void startScan("matrix")}
                       >
-                        {scanning ? "Scanning…" : "Scan QR"}
+                        {scanning && scanMode === "matrix" ? "Reading face…" : "Scan matrix"}
                       </button>
                       <button
                         type="button"
                         className="wallet-chip"
+                        disabled={scanning}
+                        onClick={() => void startScan("qr")}
+                      >
+                        {scanning && scanMode === "qr" ? "Scanning…" : "Scan QR"}
+                      </button>
+                      <button
+                        type="button"
+                        className="wallet-chip"
+                        disabled={scanning}
                         onClick={() => void pastePayTo()}
                       >
                         Paste
@@ -641,6 +716,11 @@ function WalletPage() {
                         autoPlay
                       />
                     ) : null}
+                    {opticalPresence ? (
+                      <p className="text-xs text-emerald-200/90" role="status">
+                        Optical presence — matrix captured from camera (not typed).
+                      </p>
+                    ) : null}
                     {scanNote ? (
                       <p className="text-xs text-emerald-300/90" role="status">
                         {scanNote}
@@ -654,8 +734,9 @@ function WalletPage() {
                           setToAddr(e.target.value);
                           setSendArmed(true);
                           setPayReceipt(null);
+                          setOpticalPresence(false);
                         }}
-                        placeholder="pix1… or scan / paste"
+                        placeholder="pix1… or scan matrix / QR"
                         className="wallet-input mt-1 font-mono text-sm"
                         required
                       />
@@ -718,6 +799,11 @@ function WalletPage() {
                             ? ` · you hold ${payReceipt.myBalance} PIX`
                             : ""}
                         </p>
+                        {payReceipt.kindling ? (
+                          <p className="text-xs text-emerald-200/90">
+                            Kindling — address from optical matrix (camera)
+                          </p>
+                        ) : null}
                         <p className="font-mono text-[11px] break-all text-white/40">
                           canvas {formatCanvasId(payReceipt.mark.canvasId)}
                         </p>
