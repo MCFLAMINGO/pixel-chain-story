@@ -13,6 +13,8 @@ import { extractPayAddress, payFaceShareUrl, payLinkThesis } from "@/lib/pixel/p
 import { canScanPayQr, pollPayQrFrame, startPayQrScan } from "@/lib/pixel/pay-qr-scan";
 import { PayFaceQr } from "@/components/pixel/PayFaceShare";
 import { isPixelAddress } from "@/lib/pixel/crypto";
+import { fetchTipBalance } from "@/lib/pixel/people-wallet";
+import type { TipMarkReceipt } from "@/lib/pixel/tip-mark";
 
 /**
  * Phone Personal Source — hold, pay, bridge USDC/crypto on the one tip.
@@ -117,6 +119,14 @@ function WalletPage() {
   const [scanning, setScanning] = useState(false);
   const scanVideoRef = useRef<HTMLVideoElement | null>(null);
   const scanStopRef = useRef<(() => void) | null>(null);
+  const [payReceipt, setPayReceipt] = useState<{
+    mark: TipMarkReceipt;
+    amount: number;
+    to: string;
+    theirBalance: number | null;
+    myBalance: number | null;
+  } | null>(null);
+  const [sendArmed, setSendArmed] = useState(true);
 
   useEffect(() => {
     if (toQuery) {
@@ -195,6 +205,8 @@ function WalletPage() {
         return;
       }
       setToAddr(addr);
+      setSendArmed(true);
+      setPayReceipt(null);
       setScanNote("Pasted pay face");
     } catch {
       setScanNote("Clipboard blocked — paste into To");
@@ -226,6 +238,8 @@ function WalletPage() {
           const addr = await pollPayQrFrame(el);
           if (addr) {
             setToAddr(addr);
+            setSendArmed(true);
+            setPayReceipt(null);
             setScanNote("Scanned pay face");
             stopScan();
             return;
@@ -563,9 +577,32 @@ function WalletPage() {
                     className="space-y-4"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      void w
-                        .pay(toAddr, Math.floor(Number(amount) || 0), note || undefined)
-                        .catch(() => undefined);
+                      if (!sendArmed || w.busy || !w.unlocked) return;
+                      const amt = Math.floor(Number(amount) || 0);
+                      const to = toAddr.trim().toLowerCase();
+                      if (!isPixelAddress(to) || amt < 1) return;
+                      setSendArmed(false);
+                      void (async () => {
+                        try {
+                          const mark = await w.pay(to, amt, note || undefined);
+                          await w.refresh();
+                          const [theirs, mine] = await Promise.all([
+                            fetchTipBalance(w.rpc!, to),
+                            w.payFace
+                              ? fetchTipBalance(w.rpc!, w.payFace.address)
+                              : Promise.resolve(null),
+                          ]);
+                          setPayReceipt({
+                            mark,
+                            amount: amt,
+                            to,
+                            theirBalance: theirs?.amount ?? null,
+                            myBalance: mine?.amount ?? w.balance,
+                          });
+                        } catch {
+                          setSendArmed(true);
+                        }
+                      })();
                     }}
                   >
                     <p className="text-sm text-white/55">
@@ -613,7 +650,11 @@ function WalletPage() {
                       <span className="wallet-label">To</span>
                       <input
                         value={toAddr}
-                        onChange={(e) => setToAddr(e.target.value)}
+                        onChange={(e) => {
+                          setToAddr(e.target.value);
+                          setSendArmed(true);
+                          setPayReceipt(null);
+                        }}
                         placeholder="pix1… or scan / paste"
                         className="wallet-input mt-1 font-mono text-sm"
                         required
@@ -625,7 +666,10 @@ function WalletPage() {
                         type="number"
                         min={1}
                         value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          setSendArmed(true);
+                        }}
                         className="wallet-input mt-1"
                         required
                       />
@@ -638,17 +682,55 @@ function WalletPage() {
                         className="wallet-input mt-1"
                       />
                     </label>
-                    <button type="submit" disabled={w.busy || !w.unlocked} className="wallet-cta">
-                      {!w.unlocked ? "Unlock with PIN to send" : w.busy ? "Sending…" : "Send PIX"}
+                    <button
+                      type="submit"
+                      disabled={w.busy || !w.unlocked || !sendArmed}
+                      className="wallet-cta"
+                    >
+                      {!w.unlocked
+                        ? "Unlock with PIN to send"
+                        : w.busy
+                          ? "Sending…"
+                          : !sendArmed
+                            ? "Sent — change amount to send again"
+                            : "Send PIX"}
                     </button>
-                    {w.lastPay ? (
-                      <div className="space-y-1 text-sm" role="status">
-                        <p className="text-emerald-300">
-                          {settlementHonesty(w.lastPay.attachment)}
+                    {payReceipt ? (
+                      <div
+                        className="space-y-2 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm"
+                        role="status"
+                      >
+                        <p className="font-display text-lg font-bold text-emerald-200">
+                          Sent {payReceipt.amount} PIX
                         </p>
-                        <p className="font-mono text-[11px] break-all text-white/45">
-                          canvas {formatCanvasId(w.lastPay.canvasId)} · tip #{w.lastPay.tipIndex}
+                        <p className="text-emerald-300/90">
+                          {settlementHonesty(payReceipt.mark.attachment)}
                         </p>
+                        <p className="font-mono text-[11px] break-all text-white/55">
+                          → {payReceipt.to}
+                        </p>
+                        <p className="text-xs text-white/70">
+                          Tip #{payReceipt.mark.tipIndex}
+                          {payReceipt.theirBalance !== null
+                            ? ` · they now hold ${payReceipt.theirBalance} PIX`
+                            : ""}
+                          {payReceipt.myBalance !== null
+                            ? ` · you hold ${payReceipt.myBalance} PIX`
+                            : ""}
+                        </p>
+                        <p className="font-mono text-[11px] break-all text-white/40">
+                          canvas {formatCanvasId(payReceipt.mark.canvasId)}
+                        </p>
+                        <button
+                          type="button"
+                          className="wallet-chip-active"
+                          onClick={() => {
+                            setPayReceipt(null);
+                            setSendArmed(true);
+                          }}
+                        >
+                          Send another
+                        </button>
                       </div>
                     ) : null}
                   </form>
