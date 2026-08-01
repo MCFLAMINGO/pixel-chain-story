@@ -78,6 +78,7 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [pinSealed, setPinSealed] = useState(false);
   const [deviceUnlockOn, setDeviceUnlockOn] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const payInFlight = useRef(false);
 
   const lock = useCallback(() => {
     setUnlocked(false);
@@ -162,6 +163,15 @@ export function usePeopleWallet(rpcOverride?: string) {
       setReady(true);
     })();
   }, [refreshBalance]);
+
+  /** Keep Hold balance / tip # live — recipient shouldn't need Refresh. */
+  useEffect(() => {
+    if (!rpc || !payFace) return;
+    const id = window.setInterval(() => {
+      void refreshBalance(payFace.address);
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [rpc, payFace, refreshBalance]);
 
   const forge = useCallback(
     async (localId: string, pin: string) => {
@@ -294,6 +304,8 @@ export function usePeopleWallet(rpcOverride?: string) {
     async (toAddress: string, amount: number, note?: string) => {
       if (!rpc) throw new Error("No tip RPC — open with ?rpc= or set VITE_PIXEL_RPC");
       if (!session) throw new Error("Unlock with PIN first — vault stays sealed");
+      if (payInFlight.current) throw new Error("Already sending — wait for tip settle");
+      payInFlight.current = true;
       setBusy(true);
       setError(null);
       setLastPay(null);
@@ -307,6 +319,9 @@ export function usePeopleWallet(rpcOverride?: string) {
           note,
         });
         setLastPay(tipMark);
+        // Tip can race the first balance read — nudge twice.
+        await refreshBalance(session.keypair.address);
+        await new Promise((r) => setTimeout(r, 400));
         await refreshBalance(session.keypair.address);
         return tipMark;
       } catch (e) {
@@ -314,6 +329,7 @@ export function usePeopleWallet(rpcOverride?: string) {
         setError(msg);
         throw e;
       } finally {
+        payInFlight.current = false;
         setBusy(false);
       }
     },
