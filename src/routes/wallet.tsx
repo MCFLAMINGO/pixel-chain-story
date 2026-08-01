@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePeopleWallet } from "@/hooks/use-people-wallet";
 import { peopleWalletThesis } from "@/lib/pixel/people-wallet";
 import {
@@ -9,6 +9,10 @@ import {
   type WalletBridgeAsset,
 } from "@/lib/pixel/wallet-bridge";
 import { formatCanvasId, settlementHonesty } from "@/lib/pixel";
+import { extractPayAddress, payFaceShareUrl, payLinkThesis } from "@/lib/pixel/pay-link";
+import { canScanPayQr, pollPayQrFrame, startPayQrScan } from "@/lib/pixel/pay-qr-scan";
+import { PayFaceQr } from "@/components/pixel/PayFaceShare";
+import { isPixelAddress } from "@/lib/pixel/crypto";
 
 /**
  * Phone Personal Source — hold, pay, bridge USDC/crypto on the one tip.
@@ -40,13 +44,20 @@ export const Route = createFileRoute("/wallet")({
       { rel: "apple-touch-icon", href: "/icons/pixel-wallet.svg" },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
-    rpc: typeof s.rpc === "string" ? s.rpc : undefined,
-    tab:
-      s.tab === "send" || s.tab === "bridge" || s.tab === "hold" || s.tab === "concept"
-        ? s.tab
-        : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>) => {
+    const toRaw = typeof s.to === "string" ? s.to.trim().toLowerCase() : undefined;
+    const to = toRaw && isPixelAddress(toRaw) ? toRaw : undefined;
+    return {
+      rpc: typeof s.rpc === "string" ? s.rpc : undefined,
+      tab:
+        s.tab === "send" || s.tab === "bridge" || s.tab === "hold" || s.tab === "concept"
+          ? s.tab
+          : to
+            ? ("send" as const)
+            : undefined,
+      to,
+    };
+  },
   component: WalletPage,
 });
 
@@ -85,14 +96,14 @@ const WALLET_CONCEPT = {
 };
 
 function WalletPage() {
-  const { rpc: rpcQuery, tab: tabQuery } = Route.useSearch();
+  const { rpc: rpcQuery, tab: tabQuery, to: toQuery } = Route.useSearch();
   const w = usePeopleWallet(rpcQuery);
-  const [tab, setTab] = useState<Tab>(tabQuery ?? "hold");
+  const [tab, setTab] = useState<Tab>(tabQuery ?? (toQuery ? "send" : "hold"));
   const [name, setName] = useState("you");
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
   const [unlockPin, setUnlockPin] = useState("");
-  const [toAddr, setToAddr] = useState("");
+  const [toAddr, setToAddr] = useState(toQuery ?? "");
   const [amount, setAmount] = useState("1");
   const [note, setNote] = useState("");
   const [bridgeAsset, setBridgeAsset] = useState<WalletBridgeAsset>("USDC");
@@ -100,6 +111,19 @@ function WalletPage() {
   const [lockTxHash, setLockTxHash] = useState("");
   const [ethLockNote, setEthLockNote] = useState("");
   const [installHint, setInstallHint] = useState(false);
+  const [showPayQr, setShowPayQr] = useState(false);
+  const [shareNote, setShareNote] = useState("");
+  const [scanNote, setScanNote] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const scanVideoRef = useRef<HTMLVideoElement | null>(null);
+  const scanStopRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (toQuery) {
+      setToAddr(toQuery);
+      setTab("send");
+    }
+  }, [toQuery]);
 
   useEffect(() => {
     document.documentElement.classList.add("wallet-route");
@@ -126,8 +150,105 @@ function WalletPage() {
       mo.disconnect();
       document.documentElement.classList.remove("wallet-route");
       document.body.classList.remove("wallet-route");
+      scanStopRef.current?.();
+      scanStopRef.current = null;
     };
   }, []);
+
+  async function copyPayFace() {
+    if (!w.payFace) return;
+    try {
+      await navigator.clipboard.writeText(w.payFace.address);
+      setShareNote("Pay face copied");
+    } catch {
+      setShareNote("Copy failed — long-press the address");
+    }
+  }
+
+  async function sharePayFace() {
+    if (!w.payFace) return;
+    const url = payFaceShareUrl(w.payFace.address);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Pay me on Pixel",
+          text: w.payFace.address,
+          url,
+        });
+        setShareNote("Shared");
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareNote("Pay link copied");
+      }
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return;
+      setShareNote("Share failed — try Copy");
+    }
+  }
+
+  async function pastePayTo() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const addr = extractPayAddress(text);
+      if (!addr) {
+        setScanNote("Clipboard has no pix1… address");
+        return;
+      }
+      setToAddr(addr);
+      setScanNote("Pasted pay face");
+    } catch {
+      setScanNote("Clipboard blocked — paste into To");
+    }
+  }
+
+  async function startScan() {
+    setScanNote("");
+    if (!canScanPayQr()) {
+      setScanNote("Scan needs Chrome camera — use Paste or open their pay link");
+      return;
+    }
+    setScanning(true);
+    // Wait a frame so the <video> mounts before we attach the stream.
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    const el = scanVideoRef.current;
+    if (!el) {
+      setScanning(false);
+      setScanNote("Camera view failed to open");
+      return;
+    }
+    try {
+      scanStopRef.current?.();
+      const session = await startPayQrScan(el);
+      scanStopRef.current = session.stop;
+      const tick = async () => {
+        if (!scanStopRef.current) return;
+        try {
+          const addr = await pollPayQrFrame(el);
+          if (addr) {
+            setToAddr(addr);
+            setScanNote("Scanned pay face");
+            stopScan();
+            return;
+          }
+        } catch (e) {
+          setScanNote(e instanceof Error ? e.message : "Scan failed");
+          stopScan();
+          return;
+        }
+        requestAnimationFrame(() => void tick());
+      };
+      void tick();
+    } catch (e) {
+      setScanning(false);
+      setScanNote(e instanceof Error ? e.message : "Camera failed");
+    }
+  }
+
+  function stopScan() {
+    scanStopRef.current?.();
+    scanStopRef.current = null;
+    setScanning(false);
+  }
 
   return (
     <main className="wallet-phone text-foreground">
@@ -246,6 +367,34 @@ function WalletPage() {
               <p className="mt-4 break-all font-mono text-[11px] leading-relaxed text-white/55">
                 {w.payFace.address}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className="wallet-chip" onClick={() => void copyPayFace()}>
+                  Copy
+                </button>
+                <button type="button" className="wallet-chip" onClick={() => void sharePayFace()}>
+                  Share
+                </button>
+                <button
+                  type="button"
+                  className={showPayQr ? "wallet-chip-active" : "wallet-chip"}
+                  onClick={() => setShowPayQr((v) => !v)}
+                >
+                  {showPayQr ? "Hide QR" : "Show QR"}
+                </button>
+              </div>
+              {shareNote ? (
+                <p className="mt-2 text-xs text-emerald-300/90" role="status">
+                  {shareNote}
+                </p>
+              ) : null}
+              {showPayQr ? (
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <PayFaceQr address={w.payFace.address} className="pay-face-qr rounded-lg" />
+                  <p className="max-w-[16rem] text-center text-[11px] leading-relaxed text-white/45">
+                    Friend scans this → Send fills in. Vault never in the QR.
+                  </p>
+                </div>
+              ) : null}
               <div className="mt-5 flex flex-wrap gap-2">
                 {w.unlocked ? (
                   <button
@@ -420,14 +569,52 @@ function WalletPage() {
                     }}
                   >
                     <p className="text-sm text-white/55">
-                      Pay PIX on the shared tip. Unlock with PIN first. Vault never appears.
+                      Pay PIX on the shared tip. Unlock with PIN first. Scan their QR or paste —
+                      don&apos;t type pix1….
                     </p>
+                    <p className="text-xs text-white/40">{payLinkThesis()}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="wallet-chip-active"
+                        disabled={scanning}
+                        onClick={() => void startScan()}
+                      >
+                        {scanning ? "Scanning…" : "Scan QR"}
+                      </button>
+                      <button
+                        type="button"
+                        className="wallet-chip"
+                        onClick={() => void pastePayTo()}
+                      >
+                        Paste
+                      </button>
+                      {scanning ? (
+                        <button type="button" className="wallet-chip" onClick={stopScan}>
+                          Stop
+                        </button>
+                      ) : null}
+                    </div>
+                    {scanning ? (
+                      <video
+                        ref={scanVideoRef}
+                        className="mt-2 aspect-square w-full max-w-[16rem] rounded-lg object-cover"
+                        muted
+                        playsInline
+                        autoPlay
+                      />
+                    ) : null}
+                    {scanNote ? (
+                      <p className="text-xs text-emerald-300/90" role="status">
+                        {scanNote}
+                      </p>
+                    ) : null}
                     <label className="block">
                       <span className="wallet-label">To</span>
                       <input
                         value={toAddr}
                         onChange={(e) => setToAddr(e.target.value)}
-                        placeholder="pix1…"
+                        placeholder="pix1… or scan / paste"
                         className="wallet-input mt-1 font-mono text-sm"
                         required
                       />
