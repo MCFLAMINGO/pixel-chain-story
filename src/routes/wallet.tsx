@@ -276,7 +276,10 @@ function WalletPage() {
             if (frames > 2) {
               const hit = await pollPayMatrixFrame(el);
               // Climb toward lock; never drop hard — reading should feel like a rising shine.
-              heat = Math.min(1, Math.max(heat * 0.96, hit.score, heat + (hit.score > heat ? 0.04 : 0)));
+              heat = Math.min(
+                1,
+                Math.max(heat * 0.96, hit.score, heat + (hit.score > heat ? 0.04 : 0)),
+              );
               setReadHeat(heat);
               if (readerRef.current) {
                 readerRef.current.style.setProperty("--kindling-heat", String(heat));

@@ -110,7 +110,10 @@ export function PayFaceMatrix(props: {
         <div className="kindling-projector-stage">
           <div className="kindling-projector-bloom" aria-hidden />
           <div className="kindling-projector-halo" aria-hidden />
-          <div className="kindling-projector-grid" style={{ gridTemplateColumns: "repeat(16, 1fr)" }}>
+          <div
+            className="kindling-projector-grid"
+            style={{ gridTemplateColumns: "repeat(16, 1fr)" }}
+          >
             {colors.map((c, i) => (
               <div key={i} className="kindling-projector-cell" style={{ background: c }} />
             ))}

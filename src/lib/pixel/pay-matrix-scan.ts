@@ -95,11 +95,7 @@ export function findBrightRect(
 }
 
 /** Force a square crop centered on the bright rect (matrix is square). */
-export function squareifyRect(
-  rect: BrightRect,
-  frameW: number,
-  frameH: number,
-): BrightRect {
+export function squareifyRect(rect: BrightRect, frameW: number, frameH: number): BrightRect {
   const side = Math.max(rect.w, rect.h);
   let x = Math.floor(rect.x - (side - rect.w) / 2);
   let y = Math.floor(rect.y - (side - rect.h) / 2);
@@ -132,11 +128,7 @@ export function findBrightSquare(
 }
 
 /** Sample 16×16 cells from a rectangle in the raster (no canvas / DOM). */
-export function sampleGridFromRect(
-  raster: PixelRaster,
-  rect: BrightRect,
-  inset = 0,
-): number[] {
+export function sampleGridFromRect(raster: PixelRaster, rect: BrightRect, inset = 0): number[] {
   const grid = OPTICAL_GRID;
   const x0 = rect.x + rect.w * inset;
   const y0 = rect.y + rect.h * inset;
