@@ -466,12 +466,11 @@ function WalletPage() {
                 </div>
               ) : null}
               {showPayMatrix ? (
-                <div className="mt-4 flex flex-col items-center gap-2">
-                  <PayFaceMatrix address={w.payFace.address} />
-                  <p className="max-w-[16rem] text-center text-[11px] leading-relaxed text-white/45">
-                    Kindling matrix — friend taps Scan matrix. Pay face only; vault stays sealed.
-                  </p>
-                </div>
+                <PayFaceMatrix
+                  address={w.payFace.address}
+                  projector
+                  onClose={() => setShowPayMatrix(false)}
+                />
               ) : null}
               <div className="mt-5 flex flex-wrap gap-2">
                 {w.unlocked ? (
