@@ -153,11 +153,14 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] `getUserMedia` + canvas sample (`optical-capture.ts`)
 - [x] Raster round-trip CI (`bun run test:optical`)
 - [x] Kindling seals with `channel: "optical-capture"` when physical captures provided
+- [x] Phone `/wallet` pay-face Kindling matrix (Show face / Scan matrix) — address rail; vault never projected (`test:pay-face-optical`)
+- [ ] Tip `settleKindling` over RPC (offer/accept Presence Seal on public tip) — open
 - [ ] Two-phone field notes (aim at projector → sample)
 - [x] Personal Source unlock persists leaf cursor safely after optical unlock (`people-wallet` `nextLeaf` + `restoreLightKeypair`)
 - [ ] Scheme id persisted beside vault for ML-DSA Personal Sources (OTS path green)
 
-**Evidence:** `test:optical` + kindling optical-capture path green  
+**Evidence:** `test:optical` + kindling optical-capture path green + `test:pay-face-optical`  
+
 **Claim unlock:** _“Optical capture path shipped (pilot); presence-bound Kindling when channel=optical-capture.”_
 
 ### Gate I — External scrutiny
