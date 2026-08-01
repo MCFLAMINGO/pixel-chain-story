@@ -21,6 +21,8 @@ People path (not vault, not tip `settleKindling` yet):
 2. **Send → Scan matrix** — camera samples the grid → To fills; marks optical presence
 3. **Send PIX** — still tip RPC pay; receipt notes Kindling when address came from camera
 
+**Discovery (no tip API required to render):** [`/optical-profile.json`](../public/optical-profile.json) · [`/.well-known/optical-profile.json`](../public/.well-known/optical-profile.json) — SPAs hardcode `PXP1`; ignore unknown magic.
+
 QR / Paste remain fallbacks. Full offer/accept Presence Seal → tip settle is the next invent step (`KindlingPanel` on `/lab` already proves seal locally).
 
 ## Law

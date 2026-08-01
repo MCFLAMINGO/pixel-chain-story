@@ -43,6 +43,7 @@ Deep agent call: /docs/AGENTS-SISO.md
 ## Runtime truth
 
 - RPC: pix_protocolInfo.gates and .quantum — match claims to these badges
+- Optical pay-face profile (no tip RPC to render/scan): /optical-profile.json · /.well-known/optical-profile.json
 - Code creed: src/lib/pixel/one.ts (One.Creed)
 - SISO thesis: src/lib/pixel/siso.ts (sisoThesis)
 

@@ -191,8 +191,13 @@ export async function handlePixelRpc(
             "Diversity policy enforced when ≥7 providers are registered; single-node labs skip",
           bridge:
             "ULA keccak-OTS twin on-chain (ULAVerifier IS_STUB=false); see docs/BRIDGE-STATUS.md",
-          optical:
-            "luminance codec + getUserMedia/raster sample (optical-capture); simulate reserved for CI",
+          optical: {
+            thesis:
+              "luminance codec + getUserMedia/raster sample (optical-capture); simulate reserved for CI",
+            profileUrl: "/optical-profile.json",
+            wellKnownUrl: "/.well-known/optical-profile.json",
+            profile: (await import("./optical-profile")).opticalProfileDocument(),
+          },
           path: "docs/PATH.md",
           siso: (await import("./siso")).sisoThesis(),
           ethereumAnalogues: {

@@ -1,0 +1,37 @@
+{
+  "name": "Pixel optical pay-face",
+  "profileVersion": 1,
+  "thesis": "Light is the API — no tip RPC required to render or scan a pay face. Vault never projected.",
+  "profiles": [
+    {
+      "id": "PXP1",
+      "magic": [80, 88, 80, 49],
+      "magicAscii": "PXP1",
+      "grid": 16,
+      "cells": 256,
+      "payloadBytes": 32,
+      "kind": "pay_face",
+      "vault": false,
+      "address": {
+        "prefix": "pix1",
+        "bodyBytes": 19,
+        "bodyOffset": 4
+      },
+      "channel": {
+        "carrier": "red",
+        "rule": "Cell red channel must stay ≈ payload byte; glow/bloom is CSS only — never remap cell RGB for style."
+      },
+      "layout": {
+        "payloadCells": [0, 31],
+        "sealCells": [32, 63],
+        "textureCells": [64, 255]
+      },
+      "unknownMagic": "ignore_or_upgrade"
+    }
+  ],
+  "discovery": {
+    "profileUrl": "/optical-profile.json",
+    "walletUrl": "/wallet",
+    "tipRpc": "optional — encode/decode works offline from pix1…"
+  }
+}
