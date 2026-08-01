@@ -530,9 +530,8 @@ function WalletPage() {
                               setLockTxHash(txHash);
                               await w.bridgeFromLockTx(txHash);
                             } catch (err) {
-                              const { ethProviderErrorMessage } = await import(
-                                "@/lib/pixel/browser-eth-lock",
-                              );
+                              const { ethProviderErrorMessage } =
+                                await import("@/lib/pixel/browser-eth-lock");
                               setEthLockNote(ethProviderErrorMessage(err));
                             }
                           })();
