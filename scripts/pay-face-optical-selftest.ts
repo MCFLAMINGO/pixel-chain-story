@@ -29,6 +29,18 @@ assert(
 );
 assert(JSON.stringify(binaryCellsToPayload(bits)) === JSON.stringify(packed), "bit round-trip");
 
+// Lipstick / McFlamingo interop — MSB-first row-major (cell 0 = bit 7 of byte 0).
+const vector = new Uint8Array(32);
+vector.set([0x50, 0x58, 0x50, 0x31, 0x3f]);
+const prefix = payloadToBinaryCells(vector)
+  .slice(0, 40)
+  .map((c) => c.toString(16).padStart(2, "0"))
+  .join("");
+assert(
+  prefix === "00ff00ff0000000000ff00ffff00000000ff00ff000000000000ffff000000ff0000ffffffffffff",
+  `bit-order prefix got ${prefix}`,
+);
+
 const pattern = await encodePayFaceMatrix(addr);
 assert(
   pattern.cells.every((c) => c === 0 || c === 255),
