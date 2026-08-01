@@ -9,7 +9,7 @@ import {
   type OpticalCaptureResult,
   type PixelRaster,
 } from "./optical-capture";
-import { decodePayFaceCapture } from "./pay-face-optical";
+import { binaryMatrixScore, decodePayFaceCapture, PAY_FACE_QUIET_INSET } from "./pay-face-optical";
 
 export type PayMatrixScanSession = {
   video: HTMLVideoElement;
@@ -190,16 +190,12 @@ function captureFromRect(
 }
 
 function magicScore(cells: number[]): number {
-  const d0 = Math.abs((cells[0] ?? 0) - 0x50);
-  const d1 = Math.abs((cells[1] ?? 0) - 0x58);
-  const d2 = Math.abs((cells[2] ?? 0) - 0x50);
-  const d3 = Math.abs((cells[3] ?? 0) - 0x31);
-  if (d0 > 48 || d1 > 48 || d2 > 48) return 0;
-  const tightness = 1 - (d0 + d1 + d2 + d3) / (48 * 4);
-  return 0.45 + 0.4 * Math.max(0, tightness);
+  // PXP1-P: heat from binary contrast (not amplitude magic bytes in cell[0..3]).
+  return binaryMatrixScore(cells);
 }
 
-const INSETS = [0.02, 0.04, 0.06, 0.08, 0, 0.1];
+// Include quiet-zone peel (1 cell ring ≈ 1/18) for PXP1-P white frame.
+const INSETS = [PAY_FACE_QUIET_INSET, 0.04, 0.06, 0.08, 0.1, 0.02, 0, 0.12];
 
 /**
  * Decode pay face from a full camera/projector raster.

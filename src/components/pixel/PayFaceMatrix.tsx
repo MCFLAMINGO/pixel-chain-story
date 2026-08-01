@@ -3,14 +3,11 @@ import { OPTICAL_GRID, type OpticalPattern } from "@/lib/pixel/optical";
 import { encodePayFaceMatrix } from "@/lib/pixel/pay-face-optical";
 
 /**
- * Projector cell colors — red channel must stay ≈ cell byte (camera decode).
- * Glow is CSS around the grid, never a remap of payload luminance.
+ * PXP1-P paint — full-on / full-off only (RGB565-safe).
+ * Glow is CSS in the quiet zone / behind the grid, never inside cells.
  */
 function projectorCssGrid(pattern: OpticalPattern): string[] {
-  return pattern.cells.map((v) => {
-    const t = Math.max(0, Math.min(255, Math.round(v)));
-    return `rgb(${t}, ${Math.min(255, Math.floor(t * 0.98))}, ${Math.min(255, Math.floor(t * 0.9))})`;
-  });
+  return pattern.cells.map((v) => ((v ?? 0) > 127 ? "#ffffff" : "#000000"));
 }
 
 function paintPayFace(canvas: HTMLCanvasElement, cells: number[], cssSize: number): void {
@@ -32,8 +29,8 @@ function paintPayFace(canvas: HTMLCanvasElement, cells: number[], cssSize: numbe
     for (let col = 0; col < grid; col++) {
       const x0 = Math.floor((col * px) / grid);
       const x1 = Math.floor(((col + 1) * px) / grid);
-      const v = Math.max(0, Math.min(255, Math.round(cells[row * grid + col] ?? 0)));
-      ctx.fillStyle = `rgb(${v}, ${Math.min(255, Math.floor(v * 0.98))}, ${Math.min(255, Math.floor(v * 0.9))})`;
+      const on = (cells[row * grid + col] ?? 0) > 127;
+      ctx.fillStyle = on ? "#ffffff" : "#000000";
       ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
     }
   }
@@ -159,18 +156,23 @@ export function PayFaceMatrix(props: {
       aria-label={`Kindling pay face for ${props.address}`}
     >
       <div className="kindling-projector-stage-wrap">
-        <div className="kindling-projector-stage" ref={stageRef}>
+        <div className="kindling-projector-stage">
           <div className="kindling-projector-bloom" aria-hidden />
           <div className="kindling-projector-halo" aria-hidden />
-          <canvas
-            ref={canvasRef}
-            className="kindling-projector-canvas"
-            role="img"
-            aria-label={`Kindling pay face for ${props.address}`}
-          />
+          {/* Quiet zone outside the grid — registration marks only here, never in cells. */}
+          <div className="kindling-projector-quiet" ref={stageRef}>
+            <canvas
+              ref={canvasRef}
+              className="kindling-projector-canvas"
+              role="img"
+              aria-label={`Kindling pay face for ${props.address}`}
+            />
+          </div>
         </div>
       </div>
-      <p className="kindling-projector-hint">Fill their camera with this square · vault sealed</p>
+      <p className="kindling-projector-hint">
+        Fill their camera with this square · PXP1-P · vault sealed
+      </p>
       <button type="button" className="kindling-projector-close" onClick={() => props.onClose?.()}>
         Hide face
       </button>

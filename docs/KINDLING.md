@@ -17,9 +17,11 @@ Remote scammers cannot stand in your light. Stolen halves expire. Gateways canno
 
 People path (not vault, not tip `settleKindling` yet):
 
-1. **Hold → Show face** — 16×16 luminance grid encodes public `pix1…` (`PXP1` magic + address body)
-2. **Send → Scan matrix** — camera samples the grid → To fills; marks optical presence
+1. **Hold → Show face** — 16×16 **PXP1-P** binary grid encodes public `pix1…` (`PXP1` magic + address body, one bit per cell)
+2. **Send → Scan matrix** — camera samples the grid → midpoint threshold → To fills; marks optical presence
 3. **Send PIX** — still tip RPC pay; receipt notes Kindling when address came from camera
+
+**Discovery (no tip API required to render):** [`/optical-profile.json`](../public/optical-profile.json) · [`/.well-known/optical-profile.json`](../public/.well-known/optical-profile.json) · [`docs/optical-profile.md`](./optical-profile.md) — physical paint is **PXP1-P** (not amplitude); ignore unknown magic.
 
 QR / Paste remain fallbacks. Full offer/accept Presence Seal → tip settle is the next invent step (`KindlingPanel` on `/lab` already proves seal locally).
 

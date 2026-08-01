@@ -43,6 +43,7 @@ export * from "./continuity-ops";
 export * from "./access";
 export * from "./kindling";
 export * from "./pay-face-optical";
+export * from "./optical-profile";
 export * from "./pay-link";
 export * from "./energy-truth";
 export * from "./uptake";
