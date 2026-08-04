@@ -363,7 +363,9 @@ scenario("PIX-14", "block timestamp far in the future / before parent", async ()
 
 // ── PIX-15 ────────────────────────────────────────────────────────────────────
 scenario("PIX-15", "reorg rollback un-burns a consumed OTS leaf", async () => {
-  const seqA = await generateLightKeypair();
+  // ML-DSA sequencer so forging candidates cannot exhaust an OTS window;
+  // the spender is OTS so a one-time leaf is actually burned.
+  const seqA = await generatePixelKeypair("PIX-ML-DSA-65");
   const spender = await generateLightKeypair();
   let state = await createGenesis(seqA);
 
@@ -391,17 +393,20 @@ scenario("PIX-15", "reorg rollback un-burns a consumed OTS leaf", async () => {
   const afterSpend = new Set(state.usedOtsLeaves);
   const spendLeafKeys = [...afterSpend].filter((k) => !burned.includes(k));
 
+  if (spendLeafKeys.length === 0) throw new Error("no OTS leaf burned (inconclusive)");
+
   // Competing pixel at the same height with a preferable (lower) hash.
+  const tipNow = state.pixels[state.pixels.length - 1]!;
   const rolled: PixelChainState = { ...state, pixels: state.pixels.slice(0, -1) };
   let candidate: LedgerPixel | null = null;
-  for (let i = 0; i < 40 && !candidate; i++) {
+  for (let i = 1; i <= 200 && !candidate; i++) {
     const c = await forgeBlock({
       state: rolled,
       sequencer: seqA,
-      transactions: [await coinbaseOf(50, seqA.address, `LIGHT-ALT-${i}`)],
-      timestamp: Date.now() + i,
+      transactions: [await coinbaseOf(50, seqA.address, "LIGHT-ALT")],
+      timestamp: tipNow.timestamp + i,
     });
-    if (c.hash < state.pixels[state.pixels.length - 1]!.hash) candidate = c;
+    if (c.hash < tipNow.hash) candidate = c;
   }
   if (!candidate) throw new Error("could not build preferable candidate (inconclusive)");
 

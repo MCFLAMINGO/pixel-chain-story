@@ -8,6 +8,7 @@ import { ABSENT_COLOR, composePixelColor, revealProximity, type PixelColor } fro
 import {
   createLightProof,
   merkleRoot,
+  POLS_MAX_FUTURE_DRIFT_MS,
   POLS_MAX_SKIP,
   POLS_STALL_MS,
   preferPixel,
@@ -452,21 +453,36 @@ export async function proposeTransfer(
   };
 }
 
+/**
+ * Canonical electable set — sorted, de-duplicated registry addresses.
+ *
+ * The lottery must not depend on local registration order, and a producer must
+ * not be able to choose the set it is elected from (PIX-04).
+ */
+export function canonicalElectable(addresses: string[]): string[] {
+  return [...new Set(addresses)].sort();
+}
+
+/** Electable set derived from consensus-visible registry state, never from a block. */
+export function derivedElectable(state: PixelChainState): string[] {
+  return canonicalElectable(state.sequencers.map((s) => s.address));
+}
+
 /** Who should sequence next — deterministic from tip hash (+ optional Gate C skip). */
 export function nextSequencerAddress(state: PixelChainState, skipCount = 0): string {
   const tip = state.pixels[state.pixels.length - 1];
-  return selectSequencerWithSkip(
-    tip.hash,
-    tip.sequence + 1,
-    state.sequencers.map((s) => s.address),
-    skipCount,
-  );
+  return selectSequencerWithSkip(tip.hash, tip.sequence + 1, derivedElectable(state), skipCount);
 }
 
-/** Stall anchor for skip justification. */
+/**
+ * Stall anchor for skip justification — the parent block's timestamp.
+ *
+ * Node-local `pendingSince` is not consensus data: two honest peers could
+ * disagree on whether a skip was legitimate (PIX-14).
+ */
 export function stallAnchorMs(state: PixelChainState): number {
   const tip = state.pixels[state.pixels.length - 1];
-  return state.pendingSince ?? tip?.timestamp ?? 0;
+  return tip?.timestamp ?? 0;
 }
 
 /** Smallest skipCount at which `address` is elected, or null if none within max. */
@@ -676,16 +692,15 @@ export async function sequenceBlock(
   const now = opts.now ?? Date.now();
   const tip = state.pixels[state.pixels.length - 1];
   const sequence = tip.sequence + 1;
-  const addresses = state.sequencers.map((s) => s.address);
+  const addresses = derivedElectable(state);
   const chosen = selectSequencerWithSkip(tip.hash, sequence, addresses, skipCount);
   if (localSequencer.address !== chosen) {
     throw new Error(`Not this node's turn to sequence (need ${chosen}, skip=${skipCount})`);
   }
-  if (skipCount > 0) {
-    const anchor = stallAnchorMs(state);
-    if (now < anchor + POLS_STALL_MS) {
-      throw new Error(`Skip not justified yet — stall ${POLS_STALL_MS}ms required (Gate C)`);
-    }
+  // Timestamps must advance so peers agree on the stall window (PIX-14).
+  const timestamp = Math.max(now, tip.timestamp + 1);
+  if (skipCount > 0 && timestamp < tip.timestamp + POLS_STALL_MS) {
+    throw new Error(`Skip not justified yet — stall ${POLS_STALL_MS}ms required (Gate C)`);
   }
 
   const nextIndex = tip.index + 1;
@@ -742,7 +757,6 @@ export async function sequenceBlock(
     merkleRoot: root,
     priorTipHashes: state.pixels.map((p) => p.hash),
   });
-  const timestamp = now;
   const beacon = await opticalBeacon(sequence, tip.hash);
   const hash = await hashBlock({
     index: nextIndex,
@@ -831,9 +845,34 @@ export async function acceptBlock(
     throw new Error("Block does not link to tip");
   }
 
+  // Timestamps: strictly increasing, bounded drift — consensus-checkable stall.
+  if (!Number.isFinite(block.timestamp)) throw new Error("Block timestamp not finite");
+  if (block.timestamp <= tip.timestamp) {
+    throw new Error(
+      `Block timestamp ${block.timestamp} must exceed parent ${tip.timestamp} (PIX-14)`,
+    );
+  }
+  if (block.timestamp > Date.now() + POLS_MAX_FUTURE_DRIFT_MS) {
+    throw new Error(
+      `Block timestamp more than ${POLS_MAX_FUTURE_DRIFT_MS}ms in the future (PIX-14)`,
+    );
+  }
+
   const skipCount = block.lightProof.skipCount ?? 0;
   const registry = new Set(state.sequencers.map((s) => s.address));
-  const electable = resolveElectable(block, state.pixels, tip.index + 1, state);
+  // The electable set comes from local registry state, never from the block
+  // under validation; the bound claim must match it exactly (PIX-04).
+  const derived = derivedElectable(state);
+  const claimed = block.lightProof.electable ?? [];
+  if (claimed.length === 0) {
+    throw new Error("Block must bind its electable set (PIX-04)");
+  }
+  if (claimed.join("|") !== derived.join("|")) {
+    throw new Error(
+      `Electable set mismatch — block claims ${claimed.length} of ${derived.length} registered sequencers (PIX-04)`,
+    );
+  }
+  const electable = derived;
   for (const addr of electable) {
     if (!registry.has(addr)) {
       throw new Error(`Electable sequencer ${addr} not in local registry`);
@@ -857,11 +896,8 @@ export async function acceptBlock(
     merkleRoot: block.merkleRoot,
     priorTipHashes: state.pixels.map((p) => p.hash),
   });
-  if (skipCount > 0) {
-    const anchor = stallAnchorMs(state);
-    if (block.timestamp < anchor + POLS_STALL_MS) {
-      throw new Error("Skip pixel rejected — stall window not elapsed");
-    }
+  if (skipCount > 0 && block.timestamp < tip.timestamp + POLS_STALL_MS) {
+    throw new Error("Skip pixel rejected — stall window not elapsed");
   }
 
   const root = await merkleRoot(block.transactions.map((t) => t.txid));
@@ -959,13 +995,16 @@ export async function replaceTipIfBetter(
       }
       return map;
     })(),
-    usedOtsLeaves: rebuildUsedOtsLeaves(rolledPixels),
-    pending: [...state.pending, ...tip.transactions.filter((t) => t.inputs.length > 0)],
-    pendingSince: state.pendingSince ?? Date.now(),
-    reservedInputs: reservationsFor([
-      ...state.pending,
-      ...tip.transactions.filter((t) => t.inputs.length > 0),
-    ]),
+    /**
+     * Consumed leaves are append-only (PIX-15). A signature for a dropped
+     * block's leaf is already public, so releasing it would re-open the Lamport
+     * reuse window. Rolled-back transactions are therefore NOT re-queued: their
+     * inputs are spendable again, but the owner must re-sign with a fresh leaf.
+     */
+    usedOtsLeaves: new Set(state.usedOtsLeaves),
+    pending: state.pending,
+    pendingSince: state.pending.length ? (state.pendingSince ?? Date.now()) : undefined,
+    reservedInputs: reservationsFor(state.pending),
   };
   void parent;
   try {
@@ -1009,7 +1048,9 @@ export function deserializeChain(
     utxos.set(utxoKey(u.txid, u.vout), u);
   }
   const pixels = data.pixels ?? data.blocks ?? [];
+  // Union with any persisted burns so a restart cannot release a spent leaf.
   const usedOtsLeaves = rebuildUsedOtsLeaves(pixels);
+  for (const key of data.usedOtsLeaves ?? []) usedOtsLeaves.add(key);
   // If snapshot omitted utxos, rebuild by replay.
   if (utxos.size === 0 && pixels.length > 0) {
     let map = new Map<string, Utxo>();
@@ -1114,6 +1155,17 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     for (const addr of electable) {
       if (!registry.has(addr)) return false;
     }
+    // The electable set may only grow: a producer cannot shrink the lottery to
+    // itself at some height and still chain to its parent (PIX-04).
+    const parentBound = i > 0 ? state.pixels[i - 1].lightProof.electable : undefined;
+    if (parentBound && parentBound.length > 0 && block.lightProof.electable) {
+      const current = new Set(block.lightProof.electable);
+      for (const addr of parentBound) {
+        if (!current.has(addr)) return false;
+      }
+    }
+    // Timestamps must strictly increase (PIX-14).
+    if (i > 0 && !(block.timestamp > state.pixels[i - 1].timestamp)) return false;
     const expectedSequencer = selectSequencerWithSkip(
       prevHash,
       block.sequence,

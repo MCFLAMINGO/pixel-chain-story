@@ -19,6 +19,14 @@ export const POLS_STALL_MS = 15_000;
 /** Max skips per height — bounds griefing; still lab, not Byzantine quorum. */
 export const POLS_MAX_SKIP = 8;
 
+/**
+ * How far ahead of local time a block timestamp may sit.
+ *
+ * Timestamps gate the skip window, so an unbounded future timestamp lets a
+ * producer manufacture a stall it is not entitled to (PIX-14).
+ */
+export const POLS_MAX_FUTURE_DRIFT_MS = 120_000;
+
 /** Sync SHA-512 for leader lottery (public inputs only — not a private VRF). */
 function lotteryScore(prevHash: Hex, sequence: number, address: string): string {
   return sha512SyncHex(`pols-lottery|${prevHash}|${sequence}|${address}`);
