@@ -88,10 +88,7 @@ async function forgeBlock(params: {
     illuminated: true,
     litNeighbors: proximity,
   });
-  const picture = await buildSpatialPicture([
-    ...state.pixels,
-    { index, illuminated: true, color },
-  ]);
+  const picture = await buildSpatialPicture([...state.pixels, { index, illuminated: true, color }]);
   const lightProof = await createLightProof({
     sequence,
     prevHash: tip.hash,
@@ -143,14 +140,42 @@ scenario("PIX-01", "spend another party's UTXO with a fresh key", async () => {
   // Attacker signs with their OWN key — never owned the coin.
   theft = await signTransaction(theft, attacker);
 
+  const forged = await forgeBlock({
+    state,
+    sequencer: victim,
+    transactions: [await coinbaseOf(50, victim.address, "LIGHT-1"), theft],
+  });
+  const next = await acceptBlock(state, forged);
+  exploited(
+    `attacker holds ${balanceOf(next, attacker.address)} PIX; victim ${balanceOf(next, victim.address)}`,
+  );
+});
+
+// ── PIX-01c ───────────────────────────────────────────────────────────────────
+scenario("PIX-01c", "honest producer includes a thief's transaction from the mempool", async () => {
+  const victim = await generateLightKeypair();
+  const attacker = await generateLightKeypair();
+  const state = await createGenesis(victim);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let theft = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: utxo.amount, address: attacker.address }],
+    metadata: { description: "PIX-01c theft", reference: "THEFT-MEMPOOL" },
+  });
+  theft = await signTransaction(theft, attacker);
+
   const withTheft: PixelChainState = { ...state, pending: [theft], pendingSince: Date.now() };
   const mined = await sequenceBlock(withTheft, victim);
-  if (balanceOf(mined, attacker.address) >= utxo.amount) {
+  if (balanceOf(mined, attacker.address) > 0) {
     exploited(
-      `attacker drained ${utxo.amount} PIX; victim balance ${balanceOf(mined, victim.address)}`,
+      `producer included the theft; attacker holds ${balanceOf(mined, attacker.address)} PIX`,
     );
   }
-  exploited("theft block sequenced without owner binding");
+  if (mined.pixels[mined.pixels.length - 1]!.transactions.some((t) => t.txid === theft.txid)) {
+    exploited("theft transaction landed in the produced block");
+  }
+  throw new Error("producer dropped the unauthorized transaction");
 });
 
 // ── PIX-02 ────────────────────────────────────────────────────────────────────
@@ -237,7 +262,11 @@ scenario("PIX-03c", "same UTXO spent twice inside one block", async () => {
   const forged = await forgeBlock({
     state,
     sequencer: seq,
-    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), await mk("DS-1"), await mk("DS-2")],
+    transactions: [
+      await coinbaseOf(50, seq.address, "LIGHT-1"),
+      await mk("DS-1"),
+      await mk("DS-2"),
+    ],
   });
   const next = await acceptBlock(state, forged);
   exploited(`double spend accepted; attacker holds ${balanceOf(next, attacker.address)} PIX`);
@@ -266,7 +295,9 @@ scenario("PIX-04", "PoLS lottery bypass via self-declared electable set", async 
     electable: [attacker.address], // one-element lottery they always win
   });
   await acceptBlock(state, forged);
-  exploited(`non-elected ${attacker.address.slice(0, 12)}… produced height 1 (rightful ${rightful.slice(0, 12)}…)`);
+  exploited(
+    `non-elected ${attacker.address.slice(0, 12)}… produced height 1 (rightful ${rightful.slice(0, 12)}…)`,
+  );
 });
 
 // ── PIX-05 ────────────────────────────────────────────────────────────────────

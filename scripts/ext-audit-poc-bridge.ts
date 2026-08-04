@@ -7,7 +7,11 @@
  */
 
 import { hashBridgeMessage, verifyAttestation } from "../src/lib/pixel/bridge";
-import { buildMldsaGateReceipt, mldsaGateCommit, labMldsaUlaChain } from "../src/lib/pixel/ula-mldsa";
+import {
+  buildMldsaGateReceipt,
+  mldsaGateCommit,
+  labMldsaUlaChain,
+} from "../src/lib/pixel/ula-mldsa";
 import { assertVaultReleaseAuthorized } from "../src/lib/pixel/bridge-custody";
 import { prepareIngress, type PreparedIngress } from "../src/lib/pixel/worldlight";
 import {

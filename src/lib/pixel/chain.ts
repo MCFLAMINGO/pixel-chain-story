@@ -31,7 +31,7 @@ import {
   finalizeTransaction,
   revealTransaction,
   signTransaction,
-  verifyTransactionSignatures,
+  verifyTransactionSignaturesForOwners,
   type ReadableMeta,
   type Transaction,
   type TxOutput,
@@ -79,6 +79,14 @@ export interface PixelChainState {
   providers?: NodeProvider[];
   /** Wall time when pending first became non-empty — Gate C stall anchor. */
   pendingSince?: number;
+  /**
+   * UTXO keys consumed by pending (unconfirmed) transactions.
+   *
+   * `utxos` stays the **confirmed** set so block validation can check input
+   * existence; spendable views subtract these so a pending spend is not
+   * selected twice.
+   */
+  reservedInputs?: Set<string>;
   /**
    * OTS one-time leaf usages: `${publicKey}:${leafIndex}`.
    * Consensus rejects reuse (Lamport forgery class). ML-DSA leaves no entry.
@@ -302,14 +310,10 @@ export async function createGenesis(
     wave: waveField.hits,
   };
 
-  const utxos = new Map<string, Utxo>();
-  revealed.outputs.forEach((out, vout) => {
-    utxos.set(utxoKey(revealed.txid, vout), {
-      txid: revealed.txid,
-      vout,
-      amount: out.amount,
-      address: out.address,
-    });
+  const { utxos } = await validateAndApplyBlockTxs({
+    utxos: new Map<string, Utxo>(),
+    txs: [revealed],
+    index: 0,
   });
 
   const usedOtsLeaves = assertAndMergeOtsLeaves(new Set(), collectOtsUsages([revealed], proof));
@@ -361,16 +365,39 @@ export function registerSequencerWithProvider(
   return setProviderRegistry(withSeq, providers);
 }
 
+/** Reservation set implied by a pending list. */
+function reservationsFor(pending: Transaction[]): Set<string> {
+  const keys = new Set<string>();
+  for (const tx of pending) {
+    for (const input of tx.inputs) keys.add(utxoKey(input.txid, input.vout));
+  }
+  return keys;
+}
+
+/** Keys reserved by pending txs — not spendable, though still confirmed. */
+function reservedKeys(state: PixelChainState): Set<string> {
+  if (state.reservedInputs && state.reservedInputs.size > 0) return state.reservedInputs;
+  const keys = new Set<string>();
+  for (const tx of state.pending ?? []) {
+    for (const input of tx.inputs) keys.add(utxoKey(input.txid, input.vout));
+  }
+  return keys;
+}
+
 export function balanceOf(state: PixelChainState, address: string): number {
+  const reserved = reservedKeys(state);
   let sum = 0;
-  for (const utxo of state.utxos.values()) {
-    if (utxo.address === address) sum += utxo.amount;
+  for (const [key, utxo] of state.utxos) {
+    if (utxo.address === address && !reserved.has(key)) sum += utxo.amount;
   }
   return sum;
 }
 
 export function utxosFor(state: PixelChainState, address: string): Utxo[] {
-  return [...state.utxos.values()].filter((u) => u.address === address);
+  const reserved = reservedKeys(state);
+  return [...state.utxos.entries()]
+    .filter(([key, u]) => u.address === address && !reserved.has(key))
+    .map(([, u]) => u);
 }
 
 export async function proposeTransfer(
@@ -408,16 +435,16 @@ export async function proposeTransfer(
   advancePastUsedOtsLeaves(from, reserved);
   tx = await signTransaction(tx, from);
 
-  // Spend locally from mempool view so double-spends fail early.
-  const nextUtxos = new Map(state.utxos);
+  // Reserve (do not delete) so the confirmed set still proves input existence.
+  const reservedInputs = new Set(reservedKeys(state));
   for (const u of selected) {
-    nextUtxos.delete(utxoKey(u.txid, u.vout));
+    reservedInputs.add(utxoKey(u.txid, u.vout));
   }
 
   return {
     state: {
       ...state,
-      utxos: nextUtxos,
+      reservedInputs,
       pending: [...state.pending, tx],
       pendingSince: state.pending.length === 0 ? Date.now() : (state.pendingSince ?? Date.now()),
     },
@@ -450,20 +477,180 @@ export function skipCountForAddress(state: PixelChainState, address: string): nu
   return null;
 }
 
+export class BlockValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BlockValidationError";
+  }
+}
+
+function creditOutputs(working: Map<string, Utxo>, tx: Transaction): void {
+  tx.outputs.forEach((out, vout) => {
+    working.set(utxoKey(tx.txid, vout), {
+      txid: tx.txid,
+      vout,
+      amount: out.amount,
+      address: out.address,
+    });
+  });
+}
+
+/** Every output must be a positive safe integer; returns the total. */
+function outputTotalOf(tx: Transaction): number {
+  let total = 0;
+  for (const out of tx.outputs) {
+    if (!Number.isSafeInteger(out.amount) || out.amount <= 0) {
+      throw new BlockValidationError(
+        `Output amount must be a positive integer (tx ${tx.txid.slice(0, 12)}…, got ${out.amount})`,
+      );
+    }
+    total += out.amount;
+  }
+  if (!Number.isSafeInteger(total)) {
+    throw new BlockValidationError(`Output total overflows safe integers (${total})`);
+  }
+  return total;
+}
+
+/**
+ * Validate one spending transaction against `working` and apply it.
+ *
+ * Enforces (PIX-01/PIX-03): the signing key owns each input, every input still
+ * exists (so a second reference anywhere in the block fails), no input is
+ * repeated inside the transaction, and value is conserved. Returns the fee.
+ * Mutates `working` only on success.
+ */
+async function applySpendTx(working: Map<string, Utxo>, tx: Transaction): Promise<number> {
+  const outputTotal = outputTotalOf(tx);
+  const seen = new Set<string>();
+  let inputTotal = 0;
+
+  for (const input of tx.inputs) {
+    const key = utxoKey(input.txid, input.vout);
+    if (seen.has(key)) {
+      throw new BlockValidationError(`Input ${key} referenced twice in ${tx.txid.slice(0, 12)}…`);
+    }
+    seen.add(key);
+    const utxo = working.get(key);
+    if (!utxo) {
+      throw new BlockValidationError(`Input ${key} does not exist or is already spent`);
+    }
+    inputTotal += utxo.amount;
+  }
+
+  const authorized = await verifyTransactionSignaturesForOwners(
+    tx,
+    (txid, vout) => working.get(utxoKey(txid, vout))?.address,
+  );
+  if (!authorized) {
+    throw new BlockValidationError(
+      `Unauthorized spend in ${tx.txid.slice(0, 12)}… — signing key is not the UTXO owner`,
+    );
+  }
+
+  if (outputTotal > inputTotal) {
+    throw new BlockValidationError(
+      `Value not conserved in ${tx.txid.slice(0, 12)}… (outputs ${outputTotal} > inputs ${inputTotal})`,
+    );
+  }
+
+  for (const key of seen) working.delete(key);
+  creditOutputs(working, tx);
+  return inputTotal - outputTotal;
+}
+
+/**
+ * Single monetary + authorization gate for a block's transaction set.
+ *
+ * Called by `sequenceBlock` (produce), `acceptBlock` (accept), `createGenesis`
+ * and `verifyChain` (replay) so the produce and accept paths cannot drift —
+ * that asymmetry was PIX-02.
+ */
+export async function validateAndApplyBlockTxs(params: {
+  utxos: Map<string, Utxo>;
+  txs: Transaction[];
+  index: number;
+}): Promise<{ utxos: Map<string, Utxo>; fees: number; coinbaseTotal: number }> {
+  const { txs, index } = params;
+  if (txs.length === 0) throw new BlockValidationError("Block carries no transactions");
+
+  const coinbaseCount = txs.filter((t) => t.inputs.length === 0).length;
+  if (coinbaseCount !== 1) {
+    throw new BlockValidationError(`Block must carry exactly one coinbase (got ${coinbaseCount})`);
+  }
+  if (txs[0]!.inputs.length !== 0) {
+    throw new BlockValidationError("Coinbase must be the first transaction in the block");
+  }
+
+  const working = new Map(params.utxos);
+  let fees = 0;
+  let coinbaseTotal = 0;
+
+  for (const tx of txs) {
+    if (tx.inputs.length === 0) {
+      coinbaseTotal = outputTotalOf(tx);
+      creditOutputs(working, tx);
+    } else {
+      fees += await applySpendTx(working, tx);
+    }
+  }
+
+  const reward = lightReward(index);
+  if (coinbaseTotal !== reward + fees) {
+    throw new BlockValidationError(
+      `Coinbase must equal light reward + fees at #${index} (got ${coinbaseTotal}, expected ${reward + fees})`,
+    );
+  }
+  assertUnderCap(mintedThrough(index), coinbaseTotal);
+
+  return { utxos: working, fees, coinbaseTotal };
+}
+
+/**
+ * Pick the pending transactions that are still spendable against `utxos`.
+ * Producers drop the rest instead of aborting, so one poisoned mempool entry
+ * cannot stall the tip.
+ */
+async function selectSpendableTxs(
+  utxos: Map<string, Utxo>,
+  txs: Transaction[],
+): Promise<{
+  accepted: Transaction[];
+  rejected: Array<{ txid: string; reason: string }>;
+  fees: number;
+}> {
+  const working = new Map(utxos);
+  const accepted: Transaction[] = [];
+  const rejected: Array<{ txid: string; reason: string }> = [];
+  let fees = 0;
+  for (const tx of txs) {
+    try {
+      fees += await applySpendTx(working, tx);
+      accepted.push(tx);
+    } catch (err) {
+      rejected.push({
+        txid: tx.txid,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return { accepted, rejected, fees };
+}
+
+/**
+ * Replay-only application for already-validated history (join / deserialize).
+ * Throws on a missing input instead of silently no-op deleting (PIX-03).
+ */
 function applyTxUtxos(utxos: Map<string, Utxo>, txs: Transaction[]): Map<string, Utxo> {
   const next = new Map(utxos);
   for (const tx of txs) {
     for (const input of tx.inputs) {
-      next.delete(utxoKey(input.txid, input.vout));
+      const key = utxoKey(input.txid, input.vout);
+      if (!next.delete(key)) {
+        throw new BlockValidationError(`Replay hit a missing input ${key}`);
+      }
     }
-    tx.outputs.forEach((out, vout) => {
-      next.set(utxoKey(tx.txid, vout), {
-        txid: tx.txid,
-        vout,
-        amount: out.amount,
-        address: out.address,
-      });
-    });
+    creditOutputs(next, tx);
   }
   return next;
 }
@@ -505,11 +692,18 @@ export async function sequenceBlock(
   const reward = lightReward(nextIndex);
   assertUnderCap(mintedThrough(nextIndex), reward);
 
+  // Drop unauthorized / unspendable mempool entries before building the block,
+  // so one poisoned entry cannot stall the tip.
+  const { accepted, rejected, fees } = await selectSpendableTxs(state.utxos, state.pending);
+  for (const drop of rejected) {
+    console.warn(`sequenceBlock dropped ${drop.txid.slice(0, 12)}…: ${drop.reason}`);
+  }
+
   const coinbase = finalizeTransaction(
     revealTransaction(
       await createTransaction({
         inputs: [],
-        outputs: [{ amount: reward, address: localSequencer.address }],
+        outputs: [{ amount: reward + fees, address: localSequencer.address }],
         metadata: {
           description:
             skipCount > 0
@@ -524,13 +718,15 @@ export async function sequenceBlock(
 
   const revealed = [
     coinbase,
-    ...state.pending.map((tx) => finalizeTransaction(revealTransaction(tx, sequence))),
+    ...accepted.map((tx) => finalizeTransaction(revealTransaction(tx, sequence))),
   ];
 
-  for (const tx of revealed) {
-    const ok = await verifyTransactionSignatures(tx);
-    if (!ok) throw new Error(`Invalid signature on ${tx.txid}`);
-  }
+  // Same gate the accept path runs — produce and accept cannot drift (PIX-02).
+  const applied = await validateAndApplyBlockTxs({
+    utxos: state.utxos,
+    txs: revealed,
+    index: nextIndex,
+  });
 
   // Reject OTS leaf reuse in pending txs before burning a sequencer leaf.
   const afterTxs = assertAndMergeOtsLeaves(state.usedOtsLeaves, collectOtsUsages(revealed));
@@ -609,9 +805,10 @@ export async function sequenceBlock(
   return {
     ...state,
     pixels: [...state.pixels, block],
-    utxos: applyTxUtxos(state.utxos, revealed),
+    utxos: applied.utxos,
     pending: [],
     pendingSince: undefined,
+    reservedInputs: new Set(),
     usedOtsLeaves,
   };
 }
@@ -703,11 +900,12 @@ export async function acceptBlock(
   const picture = await buildSpatialPicture([...state.pixels, block]);
   assertSpatialRootMatch(block.lightProof.spatialRoot, picture.spatialRoot, block.index);
 
-  for (const tx of block.transactions) {
-    if (!(await verifyTransactionSignatures(tx))) {
-      throw new Error(`Bad tx signature ${tx.txid}`);
-    }
-  }
+  // Authorization + monetary invariants (PIX-01/02/03) — same gate as produce.
+  const applied = await validateAndApplyBlockTxs({
+    utxos: state.utxos,
+    txs: block.transactions,
+    index: block.index,
+  });
 
   const usedOtsLeaves = assertAndMergeOtsLeaves(
     state.usedOtsLeaves,
@@ -727,9 +925,10 @@ export async function acceptBlock(
   return {
     ...state,
     pixels: [...state.pixels, block],
-    utxos: applyTxUtxos(state.utxos, block.transactions),
+    utxos: applied.utxos,
     pending,
     pendingSince: pending.length ? state.pendingSince : undefined,
+    reservedInputs: reservationsFor(pending),
     usedOtsLeaves,
   };
 }
@@ -763,6 +962,10 @@ export async function replaceTipIfBetter(
     usedOtsLeaves: rebuildUsedOtsLeaves(rolledPixels),
     pending: [...state.pending, ...tip.transactions.filter((t) => t.inputs.length > 0)],
     pendingSince: state.pendingSince ?? Date.now(),
+    reservedInputs: reservationsFor([
+      ...state.pending,
+      ...tip.transactions.filter((t) => t.inputs.length > 0),
+    ]),
   };
   void parent;
   try {
@@ -896,6 +1099,8 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
   if (state.pixels.length === 0) return false;
   const registry = new Set(state.sequencers.map((s) => s.address));
   let usedOts = new Set<string>();
+  let replayUtxos = new Map<string, Utxo>();
+  let replayMinted = 0;
 
   for (let i = 0; i < state.pixels.length; i++) {
     const block = state.pixels[i];
@@ -972,7 +1177,19 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
 
     for (const tx of block.transactions) {
       if (tx.state !== "final" && tx.state !== "revealed") return false;
-      if (!(await verifyTransactionSignatures(tx))) return false;
+    }
+
+    // Full state replay — ownership, supply and conservation at every height.
+    try {
+      const applied = await validateAndApplyBlockTxs({
+        utxos: replayUtxos,
+        txs: block.transactions,
+        index: block.index,
+      });
+      replayUtxos = applied.utxos;
+      replayMinted += applied.coinbaseTotal;
+    } catch {
+      return false;
     }
 
     try {
@@ -983,6 +1200,17 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     } catch {
       return false;
     }
+  }
+
+  // Issuance must match the emission schedule for the replayed height.
+  if (replayMinted !== mintedThrough(state.pixels.length)) return false;
+
+  // Nothing in the live set may be absent from the replay (no conjured coins).
+  // The replay may hold more: `proposeTransfer` debits pending spends locally.
+  for (const [key, utxo] of state.utxos) {
+    const replayed = replayUtxos.get(key);
+    if (!replayed) return false;
+    if (replayed.amount !== utxo.amount || replayed.address !== utxo.address) return false;
   }
   return true;
 }

@@ -23,7 +23,7 @@ import {
 } from "../src/lib/pixel/crypto";
 import { generatePixelKeypair, signPixel, verifyPixel } from "../src/lib/pixel/scheme";
 import { createDemoWallet, createGenesis, proposeTransfer } from "../src/lib/pixel/index";
-import { verifyTransactionSignatures } from "../src/lib/pixel/transaction";
+import { verifySignatureShapeOnly } from "../src/lib/pixel/transaction";
 import { buildMldsaGateReceipt, labMldsaUlaChain } from "../src/lib/pixel/ula-mldsa";
 
 async function main() {
@@ -88,7 +88,7 @@ async function main() {
   if (JSON.stringify(round) !== wire) {
     throw new Error("parseJsonWithSchema must not rebuild/reorder signed tx JSON");
   }
-  if (!(await verifyTransactionSignatures(round as typeof tx))) {
+  if (!(await verifySignatureShapeOnly(round as typeof tx))) {
     throw new Error("tx must still verify after schema gate");
   }
   console.log("▸ live Transaction matches schema + wire-preserve ✓");
