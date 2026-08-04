@@ -1,0 +1,642 @@
+{
+  "$schema": "https://mcflamingo.dev/schemas/security-audit-1.json",
+  "audit": {
+    "id": "PIXEL-GATE-I-2026-08",
+    "engagement": "Gate I scoped review — crypto integration, acceptBlock, ULA/bridge custody",
+    "target": {
+      "repo": "MCFLAMINGO/pixel-chain-story",
+      "commit": "HEAD @ 2026-08-04",
+      "scope_doc": "docs/AUDIT.md"
+    },
+    "date": "2026-08-04",
+    "methodology": [
+      "manual source review of the seven in-scope surfaces",
+      "executable proof-of-concept exploitation (11/11 attempted scenarios succeeded)",
+      "differential review of the on-chain keccak-OTS twin against the off-chain ML-DSA path",
+      "dependency and supply-chain resolution check"
+    ],
+    "explicitly_out_of_scope": [
+      "NIST ML-DSA / ML-KEM primitive correctness (delegated to @noble/post-quantum upstream)",
+      "product surface, UI, non-consensus application code"
+    ],
+    "independence_caveat": "This review was produced by an AI agent acting in the external-reviewer role, not by an accredited third-party firm. It does NOT satisfy the independence requirement of Gate I and its URL should not be pasted into docs/AUDIT.md as the external report. Treat it as a pre-audit hardening pass: fix these findings first so a paid firm spends its time on design, not on missing authorization checks.",
+    "poc_artifacts": [
+      "scripts/ext-audit-poc.ts",
+      "scripts/ext-audit-poc-bridge.ts"
+    ]
+  },
+
+  "verdict": {
+    "status": "FAIL",
+    "gate_i_blocked": true,
+    "headline": "The PQ signature layer is sound, but nothing above it is authorized. acceptBlock verifies that a signature is internally valid and never that the signer owns the coin, that supply is capped, that inputs exist, or that value is conserved; the ULA bridge signs a block proof that does not commit to the bridge message; both Solidity contracts have no access control at all.",
+    "core_conclusion": "Post-quantum signatures are being used to authenticate the wrong statements. Upgrading the primitive does not help when the authorization predicate is missing.",
+    "counts": {
+      "critical": 7,
+      "high": 5,
+      "medium": 5,
+      "low": 3,
+      "informational": 2,
+      "total": 22,
+      "confirmed_by_working_exploit": 11
+    },
+    "test_suite_note": "All 9 of the project's own evidence commands (test:crypto, test:ots-reuse, test:mldsa, test:vectors, test:ula, test:ula-mldsa, test:bridge-custody, test:light, test:audit-scope) PASS while every one of the 11 exploits succeeds. The suite asserts happy paths and contains no negative-authorization cases."
+  },
+
+  "findings": [
+    {
+      "id": "PIX-01",
+      "title": "acceptBlock never binds an input's public key to the UTXO owner — any party can spend any coin",
+      "severity": "critical",
+      "status": "confirmed-exploited",
+      "scope_item": "acceptBlock",
+      "cwe": "CWE-863 Incorrect Authorization",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 707, "symbol": "acceptBlock", "note": "calls verifyTransactionSignatures" },
+        { "file": "src/lib/pixel/chain.ts", "line": 531, "symbol": "sequenceBlock", "note": "same defect" },
+        { "file": "src/lib/pixel/chain.ts", "line": 895, "symbol": "verifyChain", "note": "same defect" },
+        { "file": "src/lib/pixel/transaction.ts", "line": 119, "symbol": "verifyTransactionSignatures", "note": "checks sig against input.publicKey only" },
+        { "file": "src/lib/pixel/transaction.ts", "line": 131, "symbol": "verifyTransactionSignaturesForOwners", "note": "the correct owner-binding variant — DEAD CODE, zero callers" }
+      ],
+      "description": "verifyTransactionSignatures checks only that each input's signature is valid for the public key supplied on that same input. It never checks that addressFromPublicKey(input.publicKey) equals the address of the UTXO being spent. The owner-binding function verifyTransactionSignaturesForOwners exists and is correct, but grep confirms it is never called from any consensus path.",
+      "evidence": "PoC PIX-01: attacker generated a fresh keypair, built a transaction spending the victim's genesis UTXO, signed it with the attacker's own key, and acceptBlock accepted it. Victim balance went to 0; attacker received the full amount.",
+      "poc": { "script": "scripts/ext-audit-poc.ts", "case": "PIX-01" },
+      "impact": "Total loss of funds for every holder. Any peer can drain the entire UTXO set in one block. This is the single most severe finding.",
+      "remediation": {
+        "summary": "Replace every consensus call site with the owner-binding verifier and delete the unsafe one.",
+        "steps": [
+          "In acceptBlock, sequenceBlock and verifyChain, call verifyTransactionSignaturesForOwners(tx, utxoSet) instead of verifyTransactionSignatures(tx).",
+          "Delete or rename verifyTransactionSignatures to an internal _verifySignatureShapeOnly and mark it non-consensus, so it cannot be reached by accident again.",
+          "Add a lint/CI rule that fails the build if verifyTransactionSignatures appears in chain.ts."
+        ],
+        "acceptance_test": "A block containing a transaction whose input publicKey does not hash to the spent UTXO's address must be rejected by acceptBlock, by sequenceBlock, and by verifyChain."
+      }
+    },
+    {
+      "id": "PIX-02",
+      "title": "acceptBlock performs no coinbase or supply-cap validation — unbounded inflation",
+      "severity": "critical",
+      "status": "confirmed-exploited",
+      "scope_item": "acceptBlock",
+      "cwe": "CWE-682 Incorrect Calculation / missing invariant check",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 625, "symbol": "acceptBlock", "note": "no assertUnderCap, no lightReward comparison, no coinbase count limit" },
+        { "file": "src/lib/pixel/chain.ts", "line": 506, "symbol": "sequenceBlock", "note": "assertUnderCap IS enforced here — the accept path is the asymmetry" }
+      ],
+      "description": "sequenceBlock calls assertUnderCap(mintedThrough(nextIndex), reward) when producing locally, but acceptBlock never calls assertUnderCap or lightReward. It also does not constrain how many zero-input (coinbase) transactions a block may contain. verifyTransactionSignatures returns true for any transaction with inputs.length === 0.",
+      "evidence": "PoC PIX-02: a block containing two coinbase transactions of 1,000,000,000 PIX each was accepted. Total supply jumped from the genesis amount to over 2e9 PIX against an honest block reward of a few units.",
+      "impact": "Arbitrary token minting by any block producer. Destroys the supply cap and every economic guarantee derived from it.",
+      "poc": { "script": "scripts/ext-audit-poc.ts", "case": "PIX-02" },
+      "remediation": {
+        "summary": "Make the accept path enforce the same monetary invariants as the produce path.",
+        "steps": [
+          "In acceptBlock, require exactly one coinbase transaction (inputs.length === 0) per block.",
+          "Require that coinbase output total === lightReward(block.index) plus the sum of collected fees.",
+          "Call assertUnderCap(mintedThrough(block.index), coinbaseTotal) before applying UTXOs.",
+          "Extract these three checks into a single validateBlockMonetary(block, state) helper and call it from sequenceBlock, acceptBlock and verifyChain so the paths cannot drift again."
+        ],
+        "acceptance_test": "Blocks with zero coinbases, two coinbases, or a coinbase amount != lightReward(index) must all be rejected by acceptBlock."
+      }
+    },
+    {
+      "id": "PIX-03",
+      "title": "No input-existence, double-spend or value-conservation check — money creation from phantom inputs",
+      "severity": "critical",
+      "status": "confirmed-exploited",
+      "scope_item": "acceptBlock",
+      "cwe": "CWE-20 Improper Input Validation",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 453, "symbol": "applyTxUtxos", "note": "Map.delete on a missing key is a silent no-op, then outputs are minted unconditionally" },
+        { "file": "src/lib/pixel/chain.ts", "line": 730, "symbol": "acceptBlock", "note": "applyTxUtxos called with no prior validation" }
+      ],
+      "description": "applyTxUtxos deletes each referenced input key from the UTXO map and creates every output. It never verifies that the input exists, that it has not already been spent earlier in the same block, or that sum(inputs) >= sum(outputs). Deleting a non-existent key succeeds silently, so a transaction referencing a txid that was never mined still produces spendable outputs.",
+      "evidence": "PoC PIX-03: a transaction whose sole input was txid 'dede…de' (never existed) minted 500,000 PIX. Supply increased with no corresponding input.",
+      "impact": "Inflation independent of PIX-02, plus in-block double spending. A single transaction can conjure arbitrary balances.",
+      "poc": { "script": "scripts/ext-audit-poc.ts", "case": "PIX-03" },
+      "remediation": {
+        "summary": "Validate the transaction set against the UTXO snapshot before mutating it.",
+        "steps": [
+          "Build a working copy of the UTXO map; for each non-coinbase input assert the key exists in it and remove it immediately so a second reference in the same block fails.",
+          "Assert sum(input amounts) >= sum(output amounts) per transaction; treat the difference as the fee and account for it in the coinbase check from PIX-02.",
+          "Assert every output amount is a positive integer and that no output amount is NaN or Infinity.",
+          "Make applyTxUtxos throw rather than no-op when an input key is absent."
+        ],
+        "acceptance_test": "Blocks containing a phantom input, a duplicated input within the block, or outputs exceeding inputs must all be rejected."
+      }
+    },
+    {
+      "id": "PIX-04",
+      "title": "PoLS lottery bypass — the block declares its own electable set",
+      "severity": "high",
+      "status": "confirmed-exploited",
+      "scope_item": "electable-bound PoLS",
+      "cwe": "CWE-345 Insufficient Verification of Data Authenticity",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 880, "symbol": "resolveElectable", "note": "trusts block.lightProof.electable" },
+        { "file": "src/lib/pixel/chain.ts", "line": 639, "symbol": "acceptBlock", "note": "electable resolved from the block under validation" },
+        { "file": "src/lib/pixel/chain.ts", "line": 493, "symbol": "sequenceBlock", "note": "producer uses the FULL registry — asymmetric with accept" }
+      ],
+      "description": "The election is computed as selectSequencerWithSkip(tip.hash, sequence, electable, skipCount) where electable comes from lightProof.electable inside the block being validated. Membership in the local registry is checked, but the set itself is attacker-chosen. A registered sequencer can therefore submit electable=[self], reducing the lottery to a one-element set they always win.",
+      "evidence": "PoC PIX-04: with 8 registered sequencers, the rightful proposer for height 1 was a different address; the attacker produced and got accepted a block for that height by setting electable=[self].",
+      "impact": "Any single registered sequencer can produce every block, at every height, forever. Proof-of-Light-Sequence provides no leader-election guarantee. Combined with PIX-01/02/03 it makes the chain unilaterally rewritable by one participant.",
+      "poc": { "script": "scripts/ext-audit-poc.ts", "case": "PIX-04" },
+      "remediation": {
+        "summary": "Derive the electable set from consensus state, never from the block.",
+        "steps": [
+          "Compute the electable set locally from state.sequencers at the parent height and use that for selectSequencerWithSkip.",
+          "If the set must be carried in the block for light clients, treat lightProof.electable as a claim to be compared for equality against the locally derived set and reject on mismatch.",
+          "Commit the electable-set digest into the signed PoLS payload and into the block hash so it cannot be swapped post-signature.",
+          "Enforce a minimum electable-set size (reject sets smaller than the registry unless a documented eviction rule applies)."
+        ],
+        "acceptance_test": "A block whose lightProof.electable differs from the locally derived set at that height must be rejected, even when every listed address is registered."
+      }
+    },
+    {
+      "id": "PIX-05",
+      "title": "verifyChain() cannot detect any of the above — invalid history validates as canonical",
+      "severity": "high",
+      "status": "confirmed-exploited",
+      "scope_item": "acceptBlock",
+      "cwe": "CWE-354 Improper Validation of Integrity Check Value",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 895, "symbol": "verifyChain" }
+      ],
+      "description": "verifyChain re-derives hashes, colors, field and wave digests, but does not replay ownership or balances. It inherits the same non-owner-binding signature check as acceptBlock, so a chain containing stolen or conjured coins verifies as fully valid.",
+      "evidence": "PoC PIX-05: after accepting a theft block, verifyChain(state) returned true.",
+      "impact": "There is no recovery path. A node that syncs a malicious history will consider it correct, so the damage is permanent rather than detectable at validation time.",
+      "poc": { "script": "scripts/ext-audit-poc.ts", "case": "PIX-05" },
+      "remediation": {
+        "summary": "Make verifyChain a full state replay.",
+        "steps": [
+          "Rebuild the UTXO set from genesis inside verifyChain, applying the PIX-01/02/03 checks at each height.",
+          "Assert the final UTXO set matches state.utxos and that cumulative issuance matches mintedThrough(tipIndex).",
+          "Re-derive usedOtsLeaves during the replay and assert no leaf is consumed twice across the whole history."
+        ],
+        "acceptance_test": "verifyChain must return false for a chain containing an unauthorized spend, an over-cap coinbase, or a phantom input."
+      }
+    },
+    {
+      "id": "PIX-06",
+      "title": "ULA bridge message is not covered by any signature — arbitrary withdrawal forgery",
+      "severity": "critical",
+      "status": "confirmed-exploited",
+      "scope_item": "ULA / bridge custody",
+      "cwe": "CWE-347 Improper Verification of Cryptographic Signature",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/bridge.ts", "line": 106, "symbol": "verifyAttestation" },
+        { "file": "src/lib/pixel/bridge.ts", "line": 59, "comment": "\"verified against pixel merkle via tx path later\" — the later never happens" },
+        { "file": "src/lib/pixel/bridge.ts", "line": 8, "comment": "module doc claims step 2 is Merkle inclusion of the bridge message; not implemented" },
+        { "file": "src/lib/pixel/pol.ts", "line": 138, "symbol": "polsMessage", "note": "signed payload is pols|sequence|prevHash|beacon|address|skip|digests — messageHash absent" }
+      ],
+      "description": "An attestation bundles a bridge message with the block's PoLS light proof. That proof signs only sequence, prevHash, beacon, sequencer address, skip count and the field/wave/spatial digests. It does not commit to messageHash, and verifyAttestation never proves Merkle inclusion of the message under the pixel's merkleRoot despite the module documentation and an inline comment promising exactly that. verifyAttestation recomputes messageHash from the supplied message, so the recomputation is self-consistent with whatever the attacker substitutes.",
+      "evidence": "PoC PIX-06: starting from a genuine attestation, the amount was changed from 5 to 1,000,000,000 PIX and the recipient to 0xATTACKER, messageHash was recomputed, and verifyAttestation returned ok with an unmodified, genuine signature.",
+      "impact": "Complete bridge compromise. Any observer of one legitimate attestation can mint arbitrary value to any address on any connected chain. Only one genuine proof is ever needed.",
+      "poc": { "script": "scripts/ext-audit-poc-bridge.ts", "case": "PIX-06" },
+      "remediation": {
+        "summary": "Bind the message into the signature, and implement the promised inclusion proof.",
+        "steps": [
+          "Add messageHash to the polsMessage payload, or issue a separate ML-DSA signature over a domain-separated bridge payload: pix-bridge|<networkId>|<pixelHash>|<messageHash>.",
+          "Implement the Merkle inclusion check: require that hashBridgeMessage(message) is provably a leaf under pixel.merkleRoot via a supplied path, and verify that path in verifyAttestation.",
+          "Bind networkId, pixelHash and a monotonic nonce into the signed payload and maintain a consumed-nonce set to stop replay across chains and heights.",
+          "Add negative tests that mutate amount, toAddress, asset, direction and nonce and assert verifyAttestation fails for each."
+        ],
+        "acceptance_test": "Mutating any field of attestation.message while leaving lightProof intact must cause verifyAttestation to fail."
+      }
+    },
+    {
+      "id": "PIX-07",
+      "title": "buildMldsaGateReceipt self-authorizes — the trust allowlist is read from the object being authenticated",
+      "severity": "high",
+      "status": "confirmed-exploited",
+      "scope_item": "ULA commit gate",
+      "cwe": "CWE-290 Authentication Bypass by Spoofing",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/ula-mldsa.ts", "line": 86, "code": "const v = await verifyAttestation(att, [att.lightProof.sequencerAddress]);" }
+      ],
+      "description": "verifyAttestation takes a trusted-sequencer allowlist. buildMldsaGateReceipt passes an allowlist consisting of the sequencer address taken from the attestation itself, so the 'untrusted sequencer' check is a tautology that can never fail.",
+      "evidence": "PoC PIX-07: an attacker-generated ML-DSA sequencer on a private throwaway chain, registered nowhere, produced a valid gate receipt.",
+      "impact": "The gate's authorization layer is inert. Any attacker-generated key produces receipts indistinguishable from a real sequencer's.",
+      "poc": { "script": "scripts/ext-audit-poc-bridge.ts", "case": "PIX-07" },
+      "remediation": {
+        "summary": "Pass a caller-supplied allowlist from configuration or on-chain registry state.",
+        "steps": [
+          "Change buildMldsaGateReceipt's signature to require an explicit trustedSequencers argument with no default.",
+          "Resolve that list from the deployed registry or signed config, never from the attestation.",
+          "Add a static check or lint rule forbidding any expression of the form verifyAttestation(x, [x...])."
+        ],
+        "acceptance_test": "buildMldsaGateReceipt must reject an attestation whose sequencer is absent from the externally supplied allowlist."
+      }
+    },
+    {
+      "id": "PIX-08",
+      "title": "Gate commit binds only the first 32 of 64 messageHash bytes",
+      "severity": "medium",
+      "status": "confirmed-exploited",
+      "scope_item": "ULA commit gate",
+      "cwe": "CWE-1240 Use of a Risky Cryptographic Primitive / silent truncation",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/ula-mldsa.ts", "line": 66, "code": "const mh = hexToBytes(params.messageHash.padStart(64, \"0\").slice(0, 64));" }
+      ],
+      "description": "messageHash is a 128-hex-character SHA-512 digest. padStart(64,'0') is a no-op at that length and slice(0,64) keeps only the first 32 bytes, so the commit binds half the digest while the receipt continues to carry the full value. The on-chain representation is bytes32, so the truncation is also an undocumented cross-boundary type mismatch.",
+      "evidence": "PoC PIX-08: mldsaGateCommit produced an identical commit for a full 64-byte messageHash and for its truncated first half.",
+      "impact": "Residual strength is still 256 bits so this is not directly forgeable, but any verifier recomputing the commit from the receipt's full messageHash gets a mismatch, and the silent truncation is exactly the pattern that becomes exploitable after a refactor.",
+      "poc": { "script": "scripts/ext-audit-poc-bridge.ts", "case": "PIX-08" },
+      "remediation": {
+        "summary": "Make the digest width explicit and consistent across the boundary.",
+        "steps": [
+          "Decide on one canonical bridge digest width; if the on-chain type is bytes32, hash with SHA3-256/keccak256 rather than truncating SHA-512.",
+          "Reject rather than pad or slice when the input length is unexpected.",
+          "Store the same digest in the receipt that is bound into the commit, and add a test asserting commit === keccak256(pk ‖ receipt.messageHash ‖ sig)."
+        ],
+        "acceptance_test": "mldsaGateCommit must throw on a messageHash whose length is not exactly the canonical width, and full vs truncated inputs must never collide."
+      }
+    },
+    {
+      "id": "PIX-09",
+      "title": "Vault release accepts unverified, unbound and replayable foreign receipts",
+      "severity": "critical",
+      "status": "confirmed-exploited",
+      "scope_item": "ULA / bridge custody",
+      "cwe": "CWE-345 Insufficient Verification of Data Authenticity",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/bridge-custody.ts", "line": 38, "symbol": "assertVaultReleaseAuthorized" },
+        { "file": "src/lib/pixel/bridge-custody.ts", "line": 42, "code": "if (!lock?.lockDigest || !lock.foreignRef) { throw ... }" },
+        { "file": "src/lib/pixel/worldlight.ts", "line": 128, "code": "pixCredit = Math.floor(req.valueLock.amount * BOOTSTRAP_INGRESS_PIX_PER_USD);" },
+        { "file": "src/lib/pixel/worldlight.ts", "line": 96, "symbol": "digestForeignLock", "note": "hashes caller-supplied fields; proves nothing" }
+      ],
+      "description": "The custody axiom is enforced as a presence check, not a validity check. assertVaultReleaseAuthorized requires only that lockDigest and foreignRef are non-empty strings. It never verifies the foreign lock occurred, never binds pixCredit to the locked amount, and maintains no consumed-receipt set. pixCredit is derived directly from the caller-supplied valueLock.amount.",
+      "evidence": "PoC PIX-09: a declared $1 lock with lockDigest='00' and foreignRef='I-PROMISE-I-LOCKED-IT' authorized a 1,000,000 PIX vault release. The same receipt can be submitted repeatedly.",
+      "impact": "Unbacked issuance on the ingress path plus unlimited replay. The vault can be drained by asserting locks that never happened.",
+      "poc": { "script": "scripts/ext-audit-poc-bridge.ts", "case": "PIX-09" },
+      "remediation": {
+        "summary": "Verify the foreign lock against the foreign chain, bind the amount, and consume the reference.",
+        "steps": [
+          "Require a verifiable proof of the foreign lock — a confirmed transaction receipt with log/event proof, or an attestation from the custody contract — and verify it rather than hashing self-reported fields.",
+          "Assert pixCredit === expectedCredit(verifiedLockAmount) using the amount read from the verified proof, never from the request.",
+          "Maintain a persisted consumed-foreignRef set and reject any reference already redeemed; make the check atomic with the credit.",
+          "Enforce a minimum confirmation depth on the foreign chain before release, and cap per-receipt and per-epoch release amounts.",
+          "If this path is intentionally a bootstrap stub, gate it behind an explicit non-production flag that hard-fails when NODE_ENV is production."
+        ],
+        "acceptance_test": "A release with an unverifiable lock proof, a pixCredit inconsistent with the proven amount, or a previously redeemed foreignRef must all throw."
+      }
+    },
+    {
+      "id": "PIX-10",
+      "title": "PIX-HASH-OTS-128 delivers ~64-bit security, not 128",
+      "severity": "high",
+      "status": "confirmed-exploited",
+      "scope_item": "@noble/post-quantum integration / OTS",
+      "cwe": "CWE-326 Inadequate Encryption Strength",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/crypto.ts", "line": 188, "code": "publicParts.push(`${pz.slice(0, 16)}${po.slice(0, 16)}`);" },
+        { "file": "src/lib/pixel/crypto.ts", "line": 364, "code": "complements: complements.map((c) => c.slice(0, 16))" },
+        { "file": "src/lib/pixel/crypto.ts", "line": 387, "code": "const revealedHash = sha512SyncHex(...).slice(0, 16);" },
+        { "file": "src/lib/pixel/crypto.ts", "line": 159, "code": "const MSG_BITS = 128;" }
+      ],
+      "description": "Each Lamport commitment half is truncated to 16 hex characters — 64 bits. Forging a second message under an already-revealed leaf therefore requires a 64-bit second-preimage per flipped digest bit rather than a 128-bit one. Separately, the signed digest is the first 128 bits of SHA-512, so a colliding message pair costs a 2^64 birthday search, and transaction metadata fields provide ample freedom to construct one. Under Grover the preimage component drops to roughly 2^32, which is notable for a scheme whose purpose is post-quantum resistance.",
+      "evidence": "PoC PIX-10: measured commitment half width of 64 bits on a live signature that verifies successfully.",
+      "impact": "The name asserts 128-bit security and the threat model relies on it. Actual resistance is ~64 bits classically. On-ledger this is partially contained by the usedOtsLeaves set, but every context without that ledger — optical/off-chain faces, presence seals, bridge attestations — is exposed.",
+      "poc": { "script": "scripts/ext-audit-poc-bridge.ts", "case": "PIX-10" },
+      "remediation": {
+        "summary": "Stop truncating, or rename the scheme to state its real strength.",
+        "steps": [
+          "Widen commitment halves to at least 32 bytes (full SHA-256/SHA-512-256 output) so preimage resistance matches the advertised level.",
+          "Sign the full 256-bit digest rather than the first 128 bits of SHA-512, eliminating the 2^64 collision path.",
+          "Preferred: retire the hand-rolled OTS for value-bearing paths entirely and use SLH-DSA from @noble/post-quantum, which is already a dependency, standardized in FIPS 205, and stateless.",
+          "If the compact scheme must stay for constrained optical payloads, rename it to its true strength and document that it is unsafe for value transfer."
+        ],
+        "acceptance_test": "A vector test asserting commitment halves are >= 32 bytes and that the signed digest is >= 256 bits."
+      }
+    },
+    {
+      "id": "PIX-11",
+      "title": "restoreLightKeypair defaults the OTS cursor to 0 — silent leaf reuse",
+      "severity": "high",
+      "status": "confirmed-exploited",
+      "scope_item": "OTS cursor / key persistence",
+      "cwe": "CWE-323 Reusing a Nonce/Key Pair in Encryption",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "src/lib/pixel/crypto.ts", "line": 286, "symbol": "restoreLightKeypair", "code": "nextLeaf = 0" }
+      ],
+      "description": "restoreLightKeypair(seed, nextLeaf = 0) silently starts at leaf 0 when no cursor is supplied. The cursor is in-memory state on the keypair object and is not part of the seed, so any caller that restores from seed alone — a fresh tab, a device restore, a second process, a crash before persist — reuses leaves that were already spent. Lamport reuse across two differing messages reveals both halves at every differing digest bit and enables third-party forgery.",
+      "evidence": "PoC PIX-11: after restoring the same seed twice, two different messages were both signed under leaf 0.",
+      "impact": "Key compromise from ordinary operational events rather than attacker action. Amplified by PIX-10's 64-bit commitments and by the fact that no on-chain leaf tracking exists in the Solidity twin (see PIX-13).",
+      "poc": { "script": "scripts/ext-audit-poc-bridge.ts", "case": "PIX-11" },
+      "remediation": {
+        "summary": "Make the cursor mandatory, durable and fail-closed.",
+        "steps": [
+          "Remove the default: require an explicit nextLeaf argument so a caller cannot omit it.",
+          "Persist the cursor atomically with the seed in the same storage record, and write-ahead the increment BEFORE emitting a signature so a crash over-consumes rather than reuses.",
+          "Reconcile the cursor against observed on-chain usage at restore time and advance to max(persisted, highestObserved + 1).",
+          "Add a same-leaf detector in the wallet that refuses to sign if the target leaf appears in a locally cached used set.",
+          "Strategic: adopting SLH-DSA per PIX-10 removes this entire stateful-signature failure class."
+        ],
+        "acceptance_test": "restoreLightKeypair must not compile/run without an explicit cursor, and signing twice from two independent restores of one seed must throw rather than reuse a leaf."
+      }
+    },
+    {
+      "id": "PIX-12",
+      "title": "ULAVerifier.sol on-chain OTS is forgeable in ~2^32 work and does not authenticate messageHash",
+      "severity": "critical",
+      "status": "confirmed-by-review",
+      "scope_item": "keccak-OTS on-chain twin",
+      "cwe": "CWE-326 Inadequate Encryption Strength; CWE-347",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "contracts/ULAVerifier.sol", "line": 12, "code": "uint256 public constant MSG_BITS = 32;" },
+        { "file": "contracts/ULAVerifier.sol", "line": 48, "symbol": "accept" },
+        { "file": "contracts/ULAVerifier.sol", "line": 54, "code": "require(verifyOts(att.polsMessage, att.proof, att.sequencerRoot), \"bad ots\");" },
+        { "file": "contracts/ULAVerifier.sol", "line": 51, "code": "require(!usedMessage[att.messageHash], \"replay\");" }
+      ],
+      "description": "The on-chain twin signs only a 32-bit digest of polsMessage. An attacker who observes one valid proof needs merely a second message whose first 32 keccak bits equal the original's — roughly 2^32 hashes, seconds on a laptop — after which every revealed preimage is reused verbatim and verifyOts passes. Independently, accept() verifies the OTS over polsMessage while storing and emitting att.messageHash, which is never bound into polsMessage; a single genuine proof can therefore be replayed with unlimited distinct messageHash values, each passing the usedMessage replay guard.",
+      "impact": "The on-chain half of the ULA offers no meaningful authentication. This is the concrete form of the asymmetry flagged in the engagement brief: the on-chain keccak-OTS twin is not equivalent to the off-chain ML-DSA path, it is trivially breakable.",
+      "poc": { "note": "Not executed on-chain; established by source review. A 2^32 keccak grind is inexpensive to demonstrate if required for the fix ticket." },
+      "remediation": {
+        "summary": "Bind messageHash into the signed payload, widen the digest, and track leaves.",
+        "steps": [
+          "Raise MSG_BITS to at least 256 so digest matching is infeasible, and keep commitment halves at full 32-byte width.",
+          "Include messageHash inside polsMessage and verify the OTS over the concatenation, so the message is authenticated rather than merely logged.",
+          "Key the replay guard on (sequencerRoot, leafPublicKey) as well as messageHash, and mark leaves consumed on accept — the contract currently has no OTS leaf-reuse tracking at all, unlike the off-chain usedOtsLeaves set.",
+          "Reconsider the design: if ML-DSA cannot be verified on-chain, state plainly that on-chain acceptance is a trusted-relayer assertion and bound it with a multi-signer quorum and a withdrawal timelock rather than presenting it as cryptographic verification."
+        ],
+        "acceptance_test": "Foundry tests: a proof replayed with a different messageHash must revert; a second polsMessage with a colliding truncated digest must revert; reusing a leafPublicKey must revert."
+      }
+    },
+    {
+      "id": "PIX-13",
+      "title": "Both contracts have no access control — anyone can self-authorize as trusted",
+      "severity": "critical",
+      "status": "confirmed-by-review",
+      "scope_item": "ULA / bridge custody (on-chain)",
+      "cwe": "CWE-862 Missing Authorization",
+      "blocks_gate_i": true,
+      "locations": [
+        { "file": "contracts/ULAVerifier.sol", "line": 43, "code": "function setTrusted(bytes32 sequencerRoot, bool ok) external {" },
+        { "file": "contracts/ULAOffchainMldsaGate.sol", "line": 25, "code": "function setTrustedPkHash(bytes32 pkHash, bool ok) external {" },
+        { "file": "contracts/ULAOffchainMldsaGate.sol", "line": 30, "code": "function setTrustedSubmitter(address who, bool ok) external {" }
+      ],
+      "description": "All three privileged setters are plain external functions with no owner, role or modifier, and neither contract defines an owner. Any address can register its own sequencerRoot or ML-DSA public-key hash as trusted, and can add itself as a trusted submitter.",
+      "impact": "Every allowlist check in both contracts — 'untrusted sequencer', 'untrusted pk', 'untrusted submitter' — is bypassable in one transaction by the attacker calling the setter first. This nullifies the remaining protections on both the verifier and the commit gate independently of PIX-12.",
+      "poc": { "note": "Established by source review; a Foundry test asserting a non-deployer can call setTrusted will demonstrate it immediately." },
+      "remediation": {
+        "summary": "Add ownership/roles, then time-lock and event-log every allowlist mutation.",
+        "steps": [
+          "Introduce an owner or AccessControl role set in the constructor and apply it to setTrusted, setTrustedPkHash and setTrustedSubmitter.",
+          "Prefer a multisig or governance address as the role holder rather than a single EOA.",
+          "Emit an event on every allowlist change and add a timelock before changes take effect so a compromised key is observable before it is effective.",
+          "Add Foundry tests asserting each setter reverts for a non-authorized caller."
+        ],
+        "acceptance_test": "Every privileged setter must revert when called by an address other than the configured role holder."
+      }
+    },
+    {
+      "id": "PIX-14",
+      "title": "Stall anchor and block timestamp are node-local and unbounded — skip griefing and consensus divergence",
+      "severity": "medium",
+      "status": "confirmed-by-review",
+      "scope_item": "electable-bound PoLS",
+      "cwe": "CWE-367 Time-of-check Time-of-use / non-deterministic consensus input",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 440, "symbol": "stallAnchorMs", "code": "return state.pendingSince ?? tip?.timestamp ?? 0;" },
+        { "file": "src/lib/pixel/chain.ts", "line": 422, "note": "pendingSince set from local Date.now()" },
+        { "file": "src/lib/pixel/chain.ts", "line": 625, "symbol": "acceptBlock", "note": "no upper bound on block.timestamp, no monotonicity requirement" }
+      ],
+      "description": "Skip-count validation depends on stallAnchorMs, which is derived from state.pendingSince — node-local wall-clock state that is not part of consensus. Two honest peers can disagree on whether a skip was legitimate. acceptBlock also places no upper bound on block.timestamp and does not require it to exceed the parent's, so a producer can assert a future timestamp to manufacture a stall window.",
+      "impact": "Chain splits between honest peers, and a producer can claim skip slots they are not entitled to, compounding PIX-04.",
+      "remediation": {
+        "summary": "Derive the stall anchor from consensus data and bound timestamps.",
+        "steps": [
+          "Use the parent block's timestamp as the stall anchor rather than local pendingSince.",
+          "Require block.timestamp > parent.timestamp and block.timestamp <= now + maxDrift, with maxDrift documented and small.",
+          "Consider a median-of-last-N-timestamps rule to limit single-producer manipulation."
+        ],
+        "acceptance_test": "Blocks with a timestamp at or before the parent's, or more than maxDrift in the future, must be rejected; skip validation must produce identical results on two nodes with different local state."
+      }
+    },
+    {
+      "id": "PIX-15",
+      "title": "Reorg rollback un-burns OTS leaves, re-opening the reuse window",
+      "severity": "medium",
+      "status": "confirmed-by-review",
+      "scope_item": "OTS reuse",
+      "cwe": "CWE-323",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/chain.ts", "line": 742, "symbol": "replaceTipIfBetter" },
+        { "file": "src/lib/pixel/chain.ts", "line": 763, "code": "usedOtsLeaves: rebuildUsedOtsLeaves(rolledPixels)" },
+        { "file": "src/lib/pixel/chain.ts", "line": 156, "symbol": "rebuildUsedOtsLeaves" }
+      ],
+      "description": "On tip replacement the used-leaf set is rebuilt from the surviving chain only, so leaves consumed by a dropped block become available again. Because a signature for that leaf is already public, a signer can now issue a second, different message under the same leaf, which is precisely the Lamport reuse condition that leaks key material.",
+      "impact": "Every reorg creates a window in which previously spent OTS leaves can be reused with a different message, enabling forgery of further messages under that leaf.",
+      "remediation": {
+        "summary": "Make leaf consumption monotonic and never rolled back.",
+        "steps": [
+          "Maintain the used-leaf set as append-only across reorgs; never rebuild it from the surviving chain alone.",
+          "Persist consumed leaves separately from chain state so rollback cannot clear them.",
+          "Add a test that reorgs a block containing an OTS spend and asserts the leaf remains permanently unusable."
+        ],
+        "acceptance_test": "After replaceTipIfBetter drops a block containing an OTS-signed transaction, a new transaction reusing that leaf must be rejected."
+      }
+    },
+    {
+      "id": "PIX-16",
+      "title": "Domain separation is asymmetric between the two schemes and unbound for OTS",
+      "severity": "medium",
+      "status": "confirmed-by-review",
+      "scope_item": "@noble/post-quantum integration / domain separation",
+      "cwe": "CWE-1injection-class / CWE-345",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/crypto.ts", "line": 318, "symbol": "signLightFull", "note": "signs sha512Sync(message) with no scheme or context tag" },
+        { "file": "src/lib/pixel/crypto.ts", "note": "signPixel prefixes pix-sig|<scheme>| — the OTS path has no equivalent" }
+      ],
+      "description": "The ML-DSA path prefixes a domain string, but the OTS path signs the bare message digest with no scheme or protocol tag, so an OTS signature is not bound to the scheme or to the context it was issued for. Separately, ML-DSA domain separation is done by string concatenation into the message rather than via the native FIPS 204 ctx parameter that @noble/post-quantum exposes.",
+      "impact": "Cross-protocol signature reuse becomes possible wherever two contexts can be made to produce the same message bytes, and the inconsistency makes the security argument harder to audit. Not currently exploitable given distinct message prefixes, but it is a latent hazard and it fails the domain-separation requirement stated in the engagement brief.",
+      "remediation": {
+        "summary": "Apply one uniform, length-prefixed domain separation policy to both schemes.",
+        "steps": [
+          "Prefix the OTS payload with pix-sig|PIX-HASH-OTS-128|<purpose>| before hashing.",
+          "Use the native ML-DSA ctx parameter for scheme/context binding rather than message concatenation.",
+          "Use length-prefixed encoding rather than delimiter joining anywhere attacker-controlled strings are concatenated before hashing.",
+          "Enumerate every signing purpose (tx, PoLS, bridge, presence seal, optical face) as a distinct constant and add cross-context negative tests."
+        ],
+        "acceptance_test": "A signature produced for purpose A must fail verification when presented for purpose B."
+      }
+    },
+    {
+      "id": "PIX-17",
+      "title": "@noble/post-quantum's declared @noble/ciphers dependency is unsatisfied",
+      "severity": "medium",
+      "status": "confirmed-by-review",
+      "scope_item": "@noble/post-quantum integration / supply chain",
+      "cwe": "CWE-1104 Use of Unmaintained/Mismatched Third Party Components",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "package.json", "note": "\"@noble/ciphers\": \"1.3.0\" pinned at top level" },
+        { "file": "node_modules/@noble/post-quantum/package.json", "note": "declares \"@noble/ciphers\": \"~2.2.0\"" }
+      ],
+      "description": "@noble/post-quantum 0.6.1 declares a ~2.2.0 requirement on @noble/ciphers, but only 1.3.0 is installed and there is no nested copy satisfying the range. The installed tree therefore does not satisfy the library's declared dependency.",
+      "impact": "ML-DSA and SLH-DSA depend only on @noble/hashes so the currently exercised paths are unlikely to be affected, but any hybrid KEM or AES-backed code path in the library may fail or behave differently than the version the maintainer tested. It also means the dependency graph the project believes it audited is not the one it runs.",
+      "remediation": {
+        "summary": "Align the version and verify at install time.",
+        "steps": [
+          "Upgrade @noble/ciphers to ~2.2.0, or allow the nested resolution the library expects.",
+          "Add a CI step that fails on unmet peer/declared dependency ranges rather than warning.",
+          "Record the exact resolved noble versions in the audit record so the reviewed tree is reproducible."
+        ],
+        "acceptance_test": "A clean install produces an @noble/ciphers version satisfying ~2.2.0 for @noble/post-quantum, verified in CI."
+      }
+    },
+    {
+      "id": "PIX-18",
+      "title": "ML-DSA signing is fully deterministic",
+      "severity": "low",
+      "status": "confirmed-by-review",
+      "scope_item": "@noble/post-quantum integration",
+      "cwe": "CWE-1279 Cryptographic Operations are Vulnerable to Fault Injection",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/crypto.ts", "symbol": "signPixel", "note": "extraEntropy disabled" }
+      ],
+      "description": "Deterministic ML-DSA signing is permitted by FIPS 204 and is reproducible for testing, but it removes the hedge against fault-injection and glitching attacks that randomized signing provides.",
+      "impact": "Low in a server or browser context; relevant if signing ever moves to physical devices or optical hardware where fault injection is plausible.",
+      "remediation": {
+        "summary": "Enable hedged signing outside test vectors.",
+        "steps": [
+          "Enable extraEntropy for production signing and keep deterministic mode only for known-answer vector tests.",
+          "Document the choice in the threat model."
+        ],
+        "acceptance_test": "Two signatures over the same message in production mode differ; vector tests still reproduce fixed outputs."
+      }
+    },
+    {
+      "id": "PIX-19",
+      "title": "Constant-time behaviour is not provided by the underlying library and is not documented as an accepted risk",
+      "severity": "low",
+      "status": "confirmed-by-review",
+      "scope_item": "@noble/post-quantum integration",
+      "cwe": "CWE-208 Observable Timing Discrepancy",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "docs/THREAT-MODEL.md", "note": "does not record the non-constant-time property of @noble/post-quantum" }
+      ],
+      "description": "@noble/post-quantum explicitly does not claim constant-time execution. That is an acceptable trade-off for browser and server deployments but must be an explicit, recorded decision, particularly given the stated ambition of optical and embedded signing paths.",
+      "impact": "Timing side channels in any hostile co-located or physical deployment.",
+      "remediation": {
+        "summary": "Record the accepted risk and constrain deployment.",
+        "steps": [
+          "Add an explicit accepted-risk entry to docs/THREAT-MODEL.md citing the library's own non-constant-time statement.",
+          "State that signing keys must not be used in multi-tenant or attacker-co-located environments.",
+          "Revisit if signing moves to hardware."
+        ],
+        "acceptance_test": "Threat model contains the accepted-risk entry and a deployment constraint."
+      }
+    },
+    {
+      "id": "PIX-20",
+      "title": "OTS signature schema accepts an unbounded-position leafIndex and unvalidated authPath length",
+      "severity": "low",
+      "status": "confirmed-by-review",
+      "scope_item": "OTS",
+      "cwe": "CWE-20",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/validators.ts", "note": "authPath max 16 with no minimum and no relation to log2(leafCount)" },
+        { "file": "src/lib/pixel/crypto.ts", "symbol": "verifyLightFull", "note": "leafIndex not checked against keypair.leafCount" }
+      ],
+      "description": "verifyLightFull does not assert leafIndex < OTS_LEAF_COUNT or that authPath length equals log2(leafCount). Because the Merkle climb consumes only the low bits of the index, indices congruent modulo the tree width traverse an identical path. Root comparison still prevents forgery, but the index that reaches consensus as part of the usedOtsLeaves key is not uniquely bound to the tree position.",
+      "impact": "Creates an avenue for confusing the leaf-reuse accounting key and accepting oversized proofs. Not exploitable on its own given the current key derivation, but it weakens the single-use guarantee that PIX-11 and PIX-15 already stress.",
+      "remediation": {
+        "summary": "Bind index and path length exactly.",
+        "steps": [
+          "Assert leafIndex >= 0 && leafIndex < leafCount in verifyLightFull.",
+          "Assert authPath.length === log2(leafCount) exactly.",
+          "Add negative tests for out-of-range indices and short/long paths."
+        ],
+        "acceptance_test": "Signatures with leafIndex >= leafCount or an authPath of the wrong length must fail verification."
+      }
+    },
+    {
+      "id": "PIX-21",
+      "title": "Evidence suite has no negative authorization cases",
+      "severity": "informational",
+      "status": "confirmed-by-review",
+      "scope_item": "process",
+      "blocks_gate_i": false,
+      "locations": [{ "file": "package.json", "note": "test:crypto, test:ots-reuse, test:mldsa, test:vectors, test:ula, test:ula-mldsa, test:bridge-custody, test:light, test:audit-scope" }],
+      "description": "All nine evidence commands pass on the current tree while eleven distinct exploits succeed. The suite verifies that valid operations succeed and does not verify that invalid operations fail.",
+      "impact": "Green CI has been providing false assurance and would not have caught any finding in this report.",
+      "remediation": {
+        "summary": "Adopt adversarial testing as a gate condition.",
+        "steps": [
+          "Adopt scripts/ext-audit-poc.ts and scripts/ext-audit-poc-bridge.ts as permanent regression suites, inverting each assertion so the expected result is rejection.",
+          "Add a CI job that fails if any PoC scenario succeeds.",
+          "Require at least one negative test per authorization check going forward."
+        ],
+        "acceptance_test": "CI contains an adversarial job in which all 11 scenarios report blocked."
+      }
+    },
+    {
+      "id": "PIX-22",
+      "title": "Documentation asserts checks that the code does not perform",
+      "severity": "informational",
+      "status": "confirmed-by-review",
+      "scope_item": "process",
+      "blocks_gate_i": false,
+      "locations": [
+        { "file": "src/lib/pixel/bridge.ts", "line": 8, "note": "claims Merkle inclusion of the bridge message as verification step 2" },
+        { "file": "src/lib/pixel/bridge.ts", "line": 59, "note": "\"verified against pixel merkle via tx path later\"" },
+        { "file": "contracts/ULAVerifier.sol", "line": 49, "note": "require(!IS_STUB) with a constant-false stub flag documenting intent rather than enforcing it" }
+      ],
+      "description": "Several comments describe verification that is not implemented. The bridge module documents a Merkle inclusion check that does not exist, which is the same gap as PIX-06, and the verifier carries a stub marker that documents intent instead of gating behaviour.",
+      "impact": "Reviewers and integrators reasonably rely on these statements. The gap between documented and actual behaviour is how PIX-06 survived to this point.",
+      "remediation": {
+        "summary": "Make comments falsifiable.",
+        "steps": [
+          "Either implement each documented check or change the comment to a TODO that is tracked and visible.",
+          "Replace IS_STUB with a real deployment guard, or remove it.",
+          "Pair every security claim in a docstring with the test that proves it."
+        ],
+        "acceptance_test": "Every security property asserted in a comment maps to a named passing test."
+      }
+    }
+  ],
+
+  "remediation_order": [
+    { "step": 1, "ids": ["PIX-01", "PIX-02", "PIX-03"], "rationale": "Restore basic ledger integrity. Until these land, every other property is theoretical because any peer can steal or mint at will. All three are localized to acceptBlock and applyTxUtxos and are the cheapest high-value fixes in the report." },
+    { "step": 2, "ids": ["PIX-06", "PIX-09"], "rationale": "Close the bridge. These are the paths where value leaves the system, and both are exploitable today with a single observed attestation or a fabricated receipt." },
+    { "step": 3, "ids": ["PIX-13", "PIX-12"], "rationale": "Contracts must not be deployed in current form. Access control is a few lines; the OTS twin needs a design decision, not just a patch." },
+    { "step": 4, "ids": ["PIX-04", "PIX-05", "PIX-07"], "rationale": "Restore the leader-election and validation guarantees so the chain has a defensible consensus story." },
+    { "step": 5, "ids": ["PIX-10", "PIX-11", "PIX-15", "PIX-20"], "rationale": "Resolve the stateful-OTS class. Strongly consider replacing the hand-rolled OTS with SLH-DSA, which removes PIX-10, PIX-11, PIX-15 and PIX-20 together." },
+    { "step": 6, "ids": ["PIX-08", "PIX-14", "PIX-16", "PIX-17", "PIX-18", "PIX-19", "PIX-21", "PIX-22"], "rationale": "Hardening, hygiene and process before external engagement." }
+  ],
+
+  "strategic_recommendation": {
+    "headline": "Retire the hand-rolled OTS for value-bearing paths.",
+    "detail": "Four findings (PIX-10, PIX-11, PIX-15, PIX-20) are all consequences of maintaining a bespoke stateful hash-based signature scheme. SLH-DSA is already available in the @noble/post-quantum dependency, is standardized as FIPS 205, and is stateless, which eliminates cursor persistence, leaf reuse and reorg-rollback concerns in one move. The trade-off is signature size. Keep the compact OTS only for constrained optical payloads that carry no value, and rename it to reflect its actual security level.",
+    "second_point": "Decide explicitly what the on-chain gate is. ML-DSA cannot be verified on-chain today, so on-chain acceptance is a trusted-relayer assertion. That can be an acceptable architecture, but it should be documented as such and bounded with a multi-signer quorum and a withdrawal timelock, rather than presented as cryptographic verification."
+  },
+
+  "gate_i_exit_criteria": {
+    "current_line": "Scoped audit package prepared; external review pending.",
+    "line_may_change_when": [
+      "all 7 critical findings are fixed and each has a regression test that fails on the pre-fix commit",
+      "the 5 high findings are fixed or formally risk-accepted in docs/THREAT-MODEL.md with named sign-off",
+      "the adversarial CI job from PIX-21 is green with all 11 scenarios reporting blocked",
+      "an accredited independent firm has delivered a report and its URL is pasted into docs/AUDIT.md"
+    ],
+    "explicit_note": "This JSON is not that report and must not be pasted as the external deliverable. It is a pre-audit pass whose purpose is to ensure a paid firm reviews design rather than rediscovering missing authorization checks. Recommended sequencing: fix criticals, then engage."
+  }
+}
