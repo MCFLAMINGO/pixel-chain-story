@@ -34,6 +34,8 @@ jobs:
         run: forge test
       - name: CosmWasm ULA twin
         run: cargo test --manifest-path contracts/cosmwasm/ula-verifier/Cargo.toml
+      - name: Tip anchoring (portable digest + on-chain append-only)
+        run: bun run test:anchor
       - name: Relayer Locked → shineIn (anvil)
         run: bun run test:ula-relayer
       - name: Tip EVM lock → shine-in-lock (anvil)
