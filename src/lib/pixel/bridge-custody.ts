@@ -167,10 +167,12 @@ export function assertVaultReleaseAuthorized(
         "Foreign lock digest is not hex",
       );
     }
-    if (digest.length !== 128) {
+    // At least a full 32-byte commitment: keccak256 from an EVM lock event and
+    // SHA-512 from a wire attestation both qualify; a hand-typed "00" does not.
+    if (digest.length < 64) {
       throw new BridgeCustodyError(
         "value_release_unverified_lock",
-        `Foreign lock digest must be a full SHA-512 commitment (got ${digest.length} hex chars)`,
+        `Foreign lock digest must be at least a 32-byte commitment (got ${digest.length} hex chars)`,
       );
     }
     if (lock.foreignRef.trim().length < 8) {
