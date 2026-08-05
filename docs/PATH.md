@@ -219,7 +219,8 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 ## 6. Immediate next actions (this repo)
 
 1. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
-2. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
+2. Decide the emission question — reachable supply is 20,370,000 of a 21,000,000 ceiling, and PoLS has no expensive work to subsidise ([`EMISSION.md`](./EMISSION.md))
+3. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
 3. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
 4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
 5. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence

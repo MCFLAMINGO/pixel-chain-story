@@ -17,6 +17,19 @@
  *   Credits = "electricity" (build, agent, shine messages all day)
  */
 
+/**
+ * Ceiling, not a total.
+ *
+ * Inherited from Bitcoin, where 50 BTC halving every 210,000 blocks converges
+ * on 21,000,000 because Bitcoin halves in *satoshis* and so can halve 33 times.
+ * `lightReward` halves in whole PIX, which reaches zero after six halvings, so
+ * the schedule can only ever mint PIX_SCHEDULE_TOTAL — 630,000 short of this
+ * number. The gap is real and unreachable; the constant is kept as a ceiling
+ * that `assertUnderCap` enforces, not as a claim about eventual supply.
+ *
+ * OPEN QUESTION, deliberately not answered here: whether a per-pixel emission
+ * belongs in this design at all. See docs/EMISSION.md.
+ */
 export const PIX_HARD_CAP = 21_000_000;
 /** Base units per PIX — prevents 21M from limiting micropayments / fees. */
 export const PIX_BASE_UNITS = 100_000_000;
@@ -59,11 +72,36 @@ export function lightRewardUnits(pixelIndex: number): number {
   return lightReward(pixelIndex) * PIX_BASE_UNITS;
 }
 
+/**
+ * Total minted through `pixelCount` pixels.
+ *
+ * Closed form over eras rather than a loop over pixels. This is called once per
+ * block by `validateAndApplyBlockTxs` and `verifyChain`, so the old O(n) version
+ * made validating an N-pixel chain cost N^2/2 iterations — 5x10^11 at a million
+ * pixels. Values are identical to the loop; `test:scale` asserts that.
+ */
 export function mintedThrough(pixelCount: number): number {
+  if (!Number.isFinite(pixelCount) || pixelCount <= 0) return 0;
+  const pixels = Math.floor(pixelCount);
   let total = 0;
-  for (let i = 0; i < pixelCount; i++) total += lightReward(i);
+  for (let era = 0; era < 64; era++) {
+    const reward = Math.floor(GENESIS_LIGHT_REWARD / Math.pow(2, era));
+    if (reward <= 0) break;
+    const eraStart = era * LIGHT_ERA_LENGTH;
+    if (pixels <= eraStart) break;
+    total += Math.min(pixels - eraStart, LIGHT_ERA_LENGTH) * reward;
+  }
   return total;
 }
+
+/**
+ * What the schedule can actually mint, ever: 20,370,000 PIX.
+ *
+ * Stated so the number is in the code rather than implied by a formula nobody
+ * evaluated. Bitcoin's own series also lands just under its ceiling
+ * (20,999,999.9769 BTC) — the difference is that ours is 3% short, not 0.0000001%.
+ */
+export const PIX_SCHEDULE_TOTAL = mintedThrough(64 * LIGHT_ERA_LENGTH);
 
 export function emissionInfo(nextPixelIndex: number): EmissionInfo {
   const mintedPixToDate = mintedThrough(nextPixelIndex);
@@ -128,9 +166,9 @@ export function valueThesis(): {
     baseUnits: PIX_BASE_UNITS,
     dualLayer: "PIX is scarce money/security; Light Credits are uncapped builder/agent fuel.",
     analogy:
-      "Same 21M hard-cap math as Bitcoin for PIX; 1 PIX = 1e8 units so micropayments never starve. Credits are builder fuel. 21M is scarcity — not a $21M IPO.",
+      "Bitcoin-shaped scarcity, not Bitcoin's arithmetic: the 21M ceiling is inherited, and the halving schedule can only reach 20,370,000 because it halves in whole PIX rather than base units. Credits are builder fuel. A ceiling is scarcity — not a $21M IPO. See docs/EMISSION.md.",
     issuance:
-      "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS). Day one = illuminate or shine in; no founder dump. See bootstrap.ts.",
+      "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS). Day one = illuminate or shine in; no founder dump. Whether a per-pixel emission belongs in this design at all is an open question — PoLS has no expensive work to subsidise (docs/EMISSION.md).",
     sinks: [
       "Revelation fees paid to sequencers (anti-spam + security budget)",
       "Bridge collateral — PIX locked/escrowed for shineOut, then released",
