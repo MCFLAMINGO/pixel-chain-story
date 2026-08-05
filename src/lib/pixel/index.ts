@@ -35,6 +35,7 @@ export * from "./bootstrap";
 export * from "./sovereignty";
 export * from "./bridge";
 export * from "./bridge-custody";
+export * from "./anchor";
 export * from "./ula-evm";
 export * from "./ula-mldsa";
 export * from "./transport-kem";
