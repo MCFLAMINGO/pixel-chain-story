@@ -38,6 +38,8 @@ export interface MldsaGateReceipt {
   /** keccak256(publicKey bytes) — registered as trusted on-chain */
   mldsaPkHash: Hex;
   messageHash: Hex;
+  /** bytes32 digest actually bound into `commit`. */
+  commitMessageHash32: Hex;
   /** keccak256(signature UTF-8 / hex payload) */
   sigHash: Hex;
   /** keccak256(pk ‖ messageHash ‖ sig) — what the gate stores */
@@ -56,14 +58,33 @@ export function mldsaPkHash(publicKey: Hex): Hex {
   return keccakHex(hexToBytes(publicKey));
 }
 
-/** On-chain commit = keccak256(pk ‖ messageHash ‖ sig bytes). */
+/** Canonical width of a bridge messageHash (SHA-512 hex). */
+export const BRIDGE_MESSAGE_HASH_HEX_LEN = 128;
+
+/**
+ * bytes32 form of a bridge messageHash for the on-chain gate.
+ *
+ * Truncating SHA-512 to its first 32 bytes silently bound half the digest and
+ * made a verifier recomputing from the full value mismatch (PIX-08). keccak256
+ * of the whole digest is bytes32-native and commits to every byte.
+ */
+export function gateMessageHash32(messageHash: Hex): Hex {
+  if (messageHash.length !== BRIDGE_MESSAGE_HASH_HEX_LEN) {
+    throw new Error(
+      `messageHash must be ${BRIDGE_MESSAGE_HASH_HEX_LEN} hex chars (got ${messageHash.length}) — no padding or truncation`,
+    );
+  }
+  return keccakHex(hexToBytes(messageHash));
+}
+
+/** On-chain commit = keccak256(pk ‖ gateMessageHash32(messageHash) ‖ sig bytes). */
 export function mldsaGateCommit(params: {
   publicKey: Hex;
   messageHash: Hex;
   signature: string;
 }): Hex {
   const pk = hexToBytes(params.publicKey);
-  const mh = hexToBytes(params.messageHash.padStart(64, "0").slice(0, 64));
+  const mh = hexToBytes(gateMessageHash32(params.messageHash));
   const sig = new TextEncoder().encode(params.signature);
   const buf = new Uint8Array(pk.length + mh.length + sig.length);
   buf.set(pk, 0);
@@ -79,11 +100,22 @@ export function sigHash(signature: string): Hex {
 /**
  * After verifyAttestation + verifyPixel on the PoLS sig, build a gate receipt.
  * Relayer posts `commit` to ULAOffchainMldsaGate.acceptCommit.
+ *
+ * `trustedSequencers` is REQUIRED and must come from configuration or registry
+ * state. Passing the attestation's own sequencer made the allowlist check a
+ * tautology any throwaway key satisfied (PIX-07).
  */
 export async function buildMldsaGateReceipt(
   att: UniversalLightAttestation,
+  trustedSequencers: string[],
 ): Promise<{ ok: true; receipt: MldsaGateReceipt } | { ok: false; reason: string }> {
-  const v = await verifyAttestation(att, [att.lightProof.sequencerAddress]);
+  if (!Array.isArray(trustedSequencers) || trustedSequencers.length === 0) {
+    return { ok: false, reason: "trustedSequencers allowlist is required (PIX-07)" };
+  }
+  if (trustedSequencers.includes(att.lightProof.sequencerAddress) === false) {
+    return { ok: false, reason: "sequencer not in the supplied allowlist" };
+  }
+  const v = await verifyAttestation(att, trustedSequencers);
   if (!v.ok) return { ok: false, reason: v.reason ?? "attestation failed" };
 
   const sig = att.lightProof.signature;
@@ -97,6 +129,8 @@ export async function buildMldsaGateReceipt(
     alg: ULA_MLDSA_GATE_ALG,
     mldsaPkHash: mldsaPkHash(pk),
     messageHash: att.messageHash,
+    /** Exactly the digest bound into `commit` — no silent truncation. */
+    commitMessageHash32: gateMessageHash32(att.messageHash),
     sigHash: sigHash(sig),
     commit: mldsaGateCommit({
       publicKey: pk,
@@ -131,6 +165,7 @@ export async function labMldsaUlaChain(message?: Partial<BridgeMessage>): Promis
     pixel: tip,
     networkId: state.networkId,
     sequencerAddresses: state.sequencers.map((s) => s.address),
+    sequencer: alice,
     message: {
       direction: "shineOut",
       nonce: "ula-mldsa-1",

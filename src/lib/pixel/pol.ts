@@ -291,3 +291,47 @@ export async function merkleRoot(txids: string[]): Promise<Hex> {
   }
   return layer[0];
 }
+
+/** Sibling path proving `txids[index]` is under `merkleRoot(txids)`. */
+export async function merkleProof(txids: string[], index: number): Promise<Hex[]> {
+  if (index < 0 || index >= txids.length) {
+    throw new Error(`merkleProof index ${index} out of range (${txids.length} leaves)`);
+  }
+  const path: Hex[] = [];
+  let layer = [...txids];
+  let i = index;
+  while (layer.length > 1) {
+    const sibling = i % 2 === 0 ? (layer[i + 1] ?? layer[i]) : layer[i - 1];
+    path.push(sibling);
+    const next: string[] = [];
+    for (let j = 0; j < layer.length; j += 2) {
+      const left = layer[j];
+      const right = layer[j + 1] ?? left;
+      next.push(await sha512Hex(`${left}|${right}`));
+    }
+    layer = next;
+    i = Math.floor(i / 2);
+  }
+  return path;
+}
+
+/** Recompute the root from a leaf + sibling path (inclusion check). */
+export async function verifyMerkleProof(params: {
+  leaf: string;
+  index: number;
+  path: Hex[];
+  root: Hex;
+  leafCount: number;
+}): Promise<boolean> {
+  if (params.index < 0 || params.index >= params.leafCount) return false;
+  const expectedDepth = Math.ceil(Math.log2(Math.max(1, params.leafCount)));
+  if (params.path.length !== expectedDepth) return false;
+  let hash = params.leaf;
+  let i = params.index;
+  for (const sibling of params.path) {
+    hash =
+      i % 2 === 0 ? await sha512Hex(`${hash}|${sibling}`) : await sha512Hex(`${sibling}|${hash}`);
+    i = Math.floor(i / 2);
+  }
+  return hash === params.root;
+}

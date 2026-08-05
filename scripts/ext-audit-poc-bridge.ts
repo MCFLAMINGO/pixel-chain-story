@@ -12,7 +12,7 @@ import {
   mldsaGateCommit,
   labMldsaUlaChain,
 } from "../src/lib/pixel/ula-mldsa";
-import { assertVaultReleaseAuthorized } from "../src/lib/pixel/bridge-custody";
+import { assertVaultReleaseAuthorized, consumeVaultRelease } from "../src/lib/pixel/bridge-custody";
 import { prepareIngress, type PreparedIngress } from "../src/lib/pixel/worldlight";
 import {
   OTS_LEAF_COUNT,
@@ -136,8 +136,10 @@ scenario("PIX-09b", "replay the same foreign receipt twice", async () => {
 
   const first = await mk();
   assertVaultReleaseAuthorized(first);
+  consumeVaultRelease(first);
   const second = await mk();
   assertVaultReleaseAuthorized(second);
+  consumeVaultRelease(second);
   exploited("the same foreignRef authorized a release twice (no consumed-receipt set)");
 });
 

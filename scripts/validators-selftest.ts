@@ -93,8 +93,10 @@ async function main() {
   }
   console.log("▸ live Transaction matches schema + wire-preserve ✓");
 
-  const { attestation } = await labMldsaUlaChain();
-  const gate = await buildMldsaGateReceipt(attestation);
+  const { attestation, state: ulaState } = await labMldsaUlaChain();
+  // Allowlist comes from registry state, never from the attestation (PIX-07).
+  const ulaTrusted = ulaState.sequencers.map((s) => s.address);
+  const gate = await buildMldsaGateReceipt(attestation, ulaTrusted);
   if (!gate.ok) throw new Error(gate.reason);
   console.log("▸ buildMldsaGateReceipt with schema ✓");
 
@@ -103,7 +105,7 @@ async function main() {
     ...attestation,
     lightProof: { ...attestation.lightProof, signature: '{"alg":"PIX-ML-DSA-65"}' },
   };
-  const badGate = await buildMldsaGateReceipt(badAtt);
+  const badGate = await buildMldsaGateReceipt(badAtt, ulaTrusted);
   if (badGate.ok) throw new Error("incomplete ML-DSA should fail gate");
   console.log("▸ gate rejects incomplete ML-DSA sig ✓");
 
