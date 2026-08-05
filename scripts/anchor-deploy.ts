@@ -18,6 +18,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import {
   anchorDigest,
   verifyAnchorAgainstChain,
@@ -80,6 +81,14 @@ async function main(): Promise<void> {
   const rpcUrl = flag("rpc") ?? chain.rpcUrl;
   const tipUrl = flag("tip") ?? DEFAULT_TIP;
   const dryRun = has("dry-run");
+
+  // Paths below are repo-relative; fail clearly instead of "file not found".
+  if (!existsSync("contracts/PixelAnchor.sol")) {
+    die(
+      `run this from the repository root (currently ${process.cwd()}).\n` +
+        "  cd /path/to/pixel-chain-story && bun run anchor:deploy -- --venue <id>",
+    );
+  }
 
   console.log("═══ ANCHOR DEPLOY ═══\n");
   console.log(`venue      ${venue} (chain ${chain.chainId}, sequencer ${chain.sequencer})`);
