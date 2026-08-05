@@ -117,6 +117,36 @@ const agreement = compareVenues(published);   // do the venues agree?
 const check = verifyAnchorAgainstChain(record, state); // does our history agree?
 ```
 
+## Going live
+
+```bash
+# 0. one-time: a throwaway key that only ever publishes digests
+cast wallet new                       # store as ANCHOR_PRIVATE_KEY
+
+# 1. check everything without spending
+bun run anchor:deploy -- --venue robinhood-testnet --dry-run
+
+# 2. fund it — the one step a script cannot do
+#    https://faucet.testnet.chain.robinhood.com   (wallet + human verification)
+#    or bridge Sepolia ETH via https://portal.arbitrum.io/bridge
+
+# 3. deploy + anchor + verify
+bun run anchor:deploy -- --venue robinhood-testnet
+
+# 4. a second, independent venue — one is not evidence
+bun run anchor:deploy -- --venue ethereum-sepolia --pixel <n>
+```
+
+The tip must expose `pix_getTipAnchor`. There is deliberately **no fallback**:
+`pix_getBlockByNumber` truncates the SHA-512 hash to 32 bytes for display and
+does not return `spatialRoot`, so a header cannot describe an anchor. A tip on an
+older build has to be redeployed first, and the script says so.
+
+The anchorer key holds no value — it publishes 32-byte digests and nothing else.
+Compromising it lets an attacker add a wrong digest that every other venue
+contradicts; it does not let them rewrite the past, because a height can only be
+written once.
+
 ## Evidence
 
 ```bash
