@@ -85,6 +85,17 @@ Phone /wallet → Fund tip (POST /faucet)
 
 ---
 
+## Anchoring — interop without custody
+
+Pixel publishes its tip to external append-only venues so history cannot be
+rewritten behind an anchor. No value moves, so there is nothing to steal, and no
+venue is privileged: the digest is portable across EVM chains, Bitcoin
+`OP_RETURN`, IPFS or signed tags. See [`ANCHORING.md`](./ANCHORING.md).
+
+Anchoring proves publication time and immutability-after-the-fact. It does **not**
+prove the anchored root is correct — that needs an independent archive to compare
+against, and ideally agreement across venues.
+
 ## What on-chain acceptance actually proves
 
 `ULAVerifier.accept` verifies a **relayer-projected keccak-OTS signature**, not
