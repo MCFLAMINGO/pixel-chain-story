@@ -18,6 +18,12 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Protocol selftests
         run: bun run test:all
+      - name: Adversarial suite (every audit scenario must be rejected)
+        run: bun run test:adversarial
+      - name: Ledger invariants (property tests over random histories)
+        run: bun run test:invariants
+        env:
+          PIXEL_PROPERTY_RUNS: "60"
       - name: Light-client bench (lab numbers, no claim)
         run: bun run bench:light-client
       - name: Install Foundry
