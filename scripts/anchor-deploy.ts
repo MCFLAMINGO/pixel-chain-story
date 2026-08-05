@@ -137,10 +137,13 @@ async function main(): Promise<void> {
   const pk = process.env.ANCHOR_PRIVATE_KEY;
   if (!pk) {
     die(
-      "ANCHOR_PRIVATE_KEY is not set.\n" +
-        "  Create a throwaway key:  cast wallet new\n" +
-        "  Store it as a Cloud Agent secret named ANCHOR_PRIVATE_KEY.\n" +
-        "  This key only ever publishes 32-byte digests — it holds no value.",
+      "ANCHOR_PRIVATE_KEY is not set.\n\n" +
+        "  1. cast wallet new\n" +
+        "  2. export ANCHOR_PRIVATE_KEY=0x<the private key it printed>\n" +
+        `  3. fund the address on ${venue}\n\n` +
+        "  The key only ever publishes 32-byte digests, so it holds no value — but do\n" +
+        "  not reuse a key you use anywhere else, and do not paste it into a chat.\n" +
+        "  For CI, store it as a repository or Cloud Agent secret instead of exporting.",
     );
   }
   const address = sh(cast, ["wallet", "address", "--private-key", pk]);
