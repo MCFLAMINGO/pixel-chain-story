@@ -1,6 +1,6 @@
 # Pixel Ledger benchmarks
 
-Generated: `2026-08-05T15:53:39.240Z` by `bun run test:bench`.
+Generated: `2026-08-05T15:53:39.240Z` by `bun run bench:write`.
 
 Reproducible lab numbers — not a marketing claim. Phone-capable path ≈ header + balance proof verify.
 
@@ -19,5 +19,5 @@ Reproducible lab numbers — not a marketing claim. Phone-capable path ≈ heade
 ## How to regenerate
 
 ```bash
-bun run test:bench
+bun run bench:write
 ```
