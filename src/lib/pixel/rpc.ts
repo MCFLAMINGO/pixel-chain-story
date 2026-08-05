@@ -94,6 +94,22 @@ export async function handlePixelRpc(
           canvasId: `${ctx.networkId}:${genesisHash}`,
         });
       }
+      /**
+       * Anchor record for a height (default: tip).
+       *
+       * Lets any anchorer publish a tip digest without a Pixel node — the
+       * record is exactly what `anchorDigest` in anchor.ts commits to, so a
+       * skeptic can recompute the on-chain digest from this response alone.
+       */
+      case "pix_getTipAnchor": {
+        const { buildAnchorAt, buildAnchorFromState, anchorDigest } = await import("./anchor");
+        const tag = params[0] === undefined ? "latest" : String(params[0]);
+        const record =
+          tag === "latest"
+            ? buildAnchorFromState(ctx.chain)
+            : buildAnchorAt(ctx.chain, Number.isNaN(Number(tag)) ? parseInt(tag, 16) : Number(tag));
+        return ok(id, { ...record, digest: anchorDigest(record) });
+      }
       case "pix_blockNumber":
         return ok(id, `0x${(ctx.chain.pixels.length - 1).toString(16)}`);
       case "pix_getBlockByNumber": {
