@@ -109,7 +109,7 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 
 **Build**
 
-- [x] Replace `ULAVerifier` stub with real verify of frozen ULA fixture (`PIX-HASH-OTS-128-KECCAK`)
+- [x] Replace `ULAVerifier` stub with real verify of frozen ULA fixture (`PIX-HASH-OTS-256-KECCAK`)
 - [x] Foundry tests + CosmWasm twin (`contracts/cosmwasm/ula-verifier`)
 - [x] Relayer: anvil `PixelUsdcLock` `Locked` → `LockFeeder.feed` → shineIn (`bun run test:ula-relayer`)
 - [x] Custody inversion law: foreign = receipt, Pixel = vault (`BRIDGE_CUSTODY_AXIOM`, `test:bridge-custody`)

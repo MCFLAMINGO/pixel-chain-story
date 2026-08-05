@@ -5,7 +5,7 @@
 | Layer | Scheme | Where |
 | --- | --- | --- |
 | Pixel-native ULA / PoLS | **PIX-ML-DSA-65** (default) or hash-OTS | `bridge.ts` + `verifyLightProof` → `verifyPixel` |
-| EVM / CosmWasm twin | **PIX-HASH-OTS-128-KECCAK** | `ULAVerifier.sol` / CosmWasm — full verify on-chain |
+| EVM / CosmWasm twin | **PIX-HASH-OTS-256-KECCAK** | `ULAVerifier.sol` / CosmWasm — full verify on-chain |
 | ML-DSA foreign receipt (lab) | Off-chain ML-DSA verify → on-chain **commit gate** | `ula-mldsa.ts` + `ULAOffchainMldsaGate.sol` |
 
 ## Why not full Dilithium verify in Solidity (yet)

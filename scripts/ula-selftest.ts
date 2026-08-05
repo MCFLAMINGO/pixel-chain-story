@@ -1,5 +1,5 @@
 /**
- * Gate E — TS + frozen fixture parity for PIX-HASH-OTS-128-KECCAK.
+ * Gate E — TS + frozen fixture parity for PIX-HASH-OTS-256-KECCAK.
  * bun run scripts/ula-selftest.ts
  */
 import { readFileSync } from "node:fs";

@@ -1,9 +1,15 @@
 /**
- * EVM twin of PIX-HASH-OTS-128 — keccak256 instead of SHA-512.
+ * EVM twin of Pixel's hash-OTS family — keccak256 instead of SHA-512.
  *
  * Pixel-native ULAs stay on SHA-512 / ML-DSA (`bridge.ts`).
  * Ethereum verifies this twin so we never ship a stub `lightProofValid`.
- * Same shape: 128-bit Lamport + 32-leaf Merkle window.
+ * Same shape as leanXMSS: Lamport halves under a 32-leaf Merkle window whose
+ * root is the signer's persistent public key.
+ *
+ * PIX-12: the digest is the full 256-bit keccak and commitment halves are the
+ * full 32 bytes. The old 32-bit width was forgeable with a ~2^32 grind, and it
+ * existed only because the on-chain leaf build was hex-encoded and O(n^2);
+ * the binary encoding below verifies 256 bits for less gas than 32 bits cost.
  */
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
@@ -11,8 +17,8 @@ import { bytesToHex, hexToBytes, randomBytes, type Hex } from "./crypto";
 import type { BridgeMessage, UniversalLightAttestation } from "./bridge";
 
 export const EVM_OTS_LEAF_COUNT = 32;
-export const EVM_OTS_MSG_BITS = 32;
-export const EVM_OTS_ALG = "PIX-HASH-OTS-128-KECCAK" as const;
+export const EVM_OTS_MSG_BITS = 256;
+export const EVM_OTS_ALG = "PIX-HASH-OTS-256-KECCAK" as const;
 
 export interface EvmOtsKeypair {
   scheme: typeof EVM_OTS_ALG;
@@ -28,7 +34,19 @@ export interface EvmOtsSignature {
   leafPublicKey: Hex;
   authPath: Hex[];
   revealed: Hex[]; // 32-byte secrets
-  complements: Hex[]; // 16-byte truncated hashes (32 hex chars)
+  complements: Hex[]; // 32-byte hashes (64 hex chars) — never truncated
+}
+
+/** leaf = keccak256(0x04 ‖ for each bit: lo(32) ‖ hi(32)) — matches Solidity. */
+function leafFromParts(parts: Uint8Array[]): Hex {
+  const buf = new Uint8Array(1 + parts.length * 32);
+  buf[0] = 0x04;
+  let offset = 1;
+  for (const part of parts) {
+    buf.set(part, offset);
+    offset += 32;
+  }
+  return bytesToHex(keccak_256(buf));
 }
 
 function keccakHex(data: Uint8Array | string): Hex {
@@ -53,26 +71,20 @@ async function leafMaterial(
   new DataView(idx.buffer).setUint32(0, index, false);
   const leafSeed = keccak_256(new Uint8Array([...master, 0x02, ...idx]));
   const privatePairs: Hex[][] = [];
-  const publicParts: string[] = [];
+  const publicParts: Uint8Array[] = [];
 
   for (let i = 0; i < EVM_OTS_MSG_BITS; i++) {
-    const label0 = new Uint8Array([0x03, i & 0xff, 0]);
-    const label1 = new Uint8Array([0x03, i & 0xff, 1]);
+    // Two-byte index label so bit positions past 255 stay distinct.
+    const label0 = new Uint8Array([0x03, (i >> 8) & 0xff, i & 0xff, 0]);
+    const label1 = new Uint8Array([0x03, (i >> 8) & 0xff, i & 0xff, 1]);
     const zero = keccak_256(new Uint8Array([...leafSeed, ...label0]));
     const one = keccak_256(new Uint8Array([...leafSeed, ...label1]));
-    const zHex = bytesToHex(zero);
-    const oHex = bytesToHex(one);
-    privatePairs.push([zHex, oHex]);
-    // 16-byte truncations → 32 hex chars each (matches Solidity bytes16)
-    const pz = bytesToHex(keccak_256(zero)).slice(0, 32);
-    const po = bytesToHex(keccak_256(one)).slice(0, 32);
-    publicParts.push(`${pz}${po}`);
+    privatePairs.push([bytesToHex(zero), bytesToHex(one)]);
+    // Full 32-byte commitment halves (matches Solidity bytes32).
+    publicParts.push(keccak_256(zero), keccak_256(one));
   }
 
-  // leaf = keccak(0x04 || join(publicParts as utf8))
-  const leafPublicKey = keccakHex(
-    new Uint8Array([0x04, ...new TextEncoder().encode(publicParts.join("|"))]),
-  );
+  const leafPublicKey = leafFromParts(publicParts);
   return { privatePairs, leafPublicKey };
 }
 
@@ -167,7 +179,7 @@ export async function signEvmOts(
     const bit = (byte >> (7 - (i % 8))) & 1;
     const other = 1 - bit;
     revealed.push(privatePairs[i][bit]);
-    complements.push(bytesToHex(keccak_256(hexToBytes(privatePairs[i][other]))).slice(0, 32));
+    complements.push(bytesToHex(keccak_256(hexToBytes(privatePairs[i][other]))));
   }
 
   const { layers } = merkleRootFromLeaves(keypair.leafPublicKeys);
@@ -195,18 +207,17 @@ export function verifyEvmOts(message: string, signature: EvmOtsSignature, public
     }
     const digest = keccak_256(new TextEncoder().encode(message));
     const bits = digest.slice(0, EVM_OTS_MSG_BITS / 8);
-    const publicParts: string[] = [];
+    const publicParts: Uint8Array[] = [];
     for (let i = 0; i < EVM_OTS_MSG_BITS; i++) {
       const byte = bits[Math.floor(i / 8)];
       const bit = (byte >> (7 - (i % 8))) & 1;
-      const revealedHash = bytesToHex(keccak_256(hexToBytes(signature.revealed[i]))).slice(0, 32);
-      const complement = signature.complements[i];
-      if (bit === 0) publicParts.push(`${revealedHash}${complement}`);
-      else publicParts.push(`${complement}${revealedHash}`);
+      const revealedHash = keccak_256(hexToBytes(signature.revealed[i]));
+      const complement = hexToBytes(signature.complements[i]);
+      if (complement.length !== 32) return false;
+      if (bit === 0) publicParts.push(revealedHash, complement);
+      else publicParts.push(complement, revealedHash);
     }
-    const rebuiltLeaf = keccakHex(
-      new Uint8Array([0x04, ...new TextEncoder().encode(publicParts.join("|"))]),
-    );
+    const rebuiltLeaf = leafFromParts(publicParts);
     if (rebuiltLeaf !== signature.leafPublicKey) return false;
     return (
       climbMerkle(signature.leafPublicKey, signature.leafIndex, signature.authPath) === publicKey

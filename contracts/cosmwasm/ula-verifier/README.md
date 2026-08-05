@@ -1,6 +1,6 @@
 # CosmWasm twin — ULAVerifier
 
-Second-chain verifier for **PIX-HASH-OTS-128-KECCAK** (same frozen fixture as Foundry).
+Second-chain verifier for **PIX-HASH-OTS-256-KECCAK** (same frozen fixture as Foundry).
 
 | Surface | Path |
 | --- | --- |

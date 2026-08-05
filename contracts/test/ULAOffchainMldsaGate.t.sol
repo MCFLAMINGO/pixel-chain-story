@@ -12,7 +12,7 @@ contract ULAOffchainMldsaGateTest is Test {
     bytes32 internal commit = keccak256("lab-commit");
 
     function setUp() public {
-        gate = new ULAOffchainMldsaGate();
+        gate = new ULAOffchainMldsaGate(0);
         gate.setTrustedPkHash(pkHash, true);
         gate.setTrustedSubmitter(address(this), true);
     }
@@ -47,5 +47,32 @@ contract ULAOffchainMldsaGateTest is Test {
     function test_untrustedPk() public {
         vm.expectRevert(bytes("untrusted pk"));
         gate.acceptCommit(keccak256("other"), messageHash, commit);
+    }
+
+    // ── PIX-13 access control ────────────────────────────────────────────────
+    function test_setTrustedPkHashOnlyOwner() public {
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(ULAOffchainMldsaGate.NotOwner.selector);
+        gate.setTrustedPkHash(keccak256("self"), true);
+    }
+
+    function test_setTrustedSubmitterOnlyOwner() public {
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(ULAOffchainMldsaGate.NotOwner.selector);
+        gate.setTrustedSubmitter(address(0xBEEF), true);
+    }
+
+    function test_allowlistTimelockDelaysTrust() public {
+        ULAOffchainMldsaGate delayed = new ULAOffchainMldsaGate(1 days);
+        delayed.setTrustedPkHash(pkHash, true);
+        assertFalse(delayed.trustedPkHash(pkHash));
+        vm.warp(block.timestamp + 1 days);
+        assertTrue(delayed.trustedPkHash(pkHash));
+    }
+
+    function test_revocationIsImmediate() public {
+        gate.setTrustedSubmitter(address(this), false);
+        vm.expectRevert(bytes("untrusted submitter"));
+        gate.acceptCommit(pkHash, messageHash, commit);
     }
 }

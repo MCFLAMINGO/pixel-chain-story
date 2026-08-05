@@ -62,7 +62,7 @@ async function main() {
   };
   const pkg: EvmUlaPackage = {
     version: 1,
-    scheme: "PIX-HASH-OTS-128-KECCAK",
+    scheme: "PIX-HASH-OTS-256-KECCAK",
     sequence: fixture.sequence,
     prevHash: strip0x(fixture.prevHash),
     beacon: strip0x(fixture.beacon),

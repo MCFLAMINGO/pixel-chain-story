@@ -33,15 +33,6 @@ fn parse32(hex: &str) -> [u8; 32] {
     out
 }
 
-fn parse16(hex: &str) -> [u8; 16] {
-    let clean = hex.trim_start_matches("0x");
-    let bytes = hex::decode(clean).expect("hex");
-    assert_eq!(bytes.len(), 16, "complement must be 16 bytes");
-    let mut out = [0u8; 16];
-    out.copy_from_slice(&bytes);
-    out
-}
-
 #[test]
 fn frozen_fixture_verifies() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../fixtures/ula-evm-v1.json");
@@ -60,9 +51,10 @@ fn frozen_fixture_verifies() {
     for (i, h) in f.signature.revealed.iter().enumerate() {
         revealed[i] = parse32(h);
     }
-    let mut complements = [[0u8; 16]; MSG_BITS];
+    // PIX-12: full 32-byte commitment halves, never truncated.
+    let mut complements = [[0u8; 32]; MSG_BITS];
     for (i, h) in f.signature.complements.iter().enumerate() {
-        complements[i] = parse16(h);
+        complements[i] = parse32(h);
     }
 
     let proof = OtsProof {
