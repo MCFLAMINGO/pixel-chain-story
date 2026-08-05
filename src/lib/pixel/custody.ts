@@ -19,6 +19,7 @@ import {
   generateLightKeypair,
   hexToBytes,
   randomBytes,
+  OTS_CURSOR_UNKNOWN,
   restoreLightKeypair,
   type Hex,
   type LightKeypair,
@@ -92,7 +93,7 @@ export async function forgePersonalSource(
 export async function unlockPersonalSource(
   source: PersonalSource,
   capturedCells?: number[],
-  opts?: { nextLeaf?: number },
+  opts?: { nextLeaf?: number; freshWindow?: boolean },
 ): Promise<UnlockedSource> {
   const cells = capturedCells ?? simulateCameraCapture(source.vault, 0);
   const verified = await verifyCapturedPattern(cells, source.vault.checksum);
@@ -102,7 +103,15 @@ export async function unlockPersonalSource(
       "Light vault unreadable — Source stays sealed",
     );
   }
-  const keypair = await restoreLightKeypair(verified.payload, opts?.nextLeaf ?? 0);
+  /**
+   * The optical vault carries the seed, never the leaf cursor (PIX-11).
+   *
+   * A caller holding a persisted cursor must pass it. `freshWindow` is the only
+   * way to assert "nothing has been signed under this Source yet"; without
+   * either, restore fails closed rather than silently reusing leaf 0.
+   */
+  const cursor = opts?.nextLeaf ?? (opts?.freshWindow === true ? 0 : OTS_CURSOR_UNKNOWN);
+  const keypair = await restoreLightKeypair(verified.payload, cursor);
   if (keypair.address !== source.address) {
     throw new CustodyError("address_mismatch", "Vault light does not match this Source");
   }

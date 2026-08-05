@@ -156,8 +156,36 @@ export interface LightKeypair {
   secretKey?: Hex;
 }
 
-const MSG_BITS = 128;
+/**
+ * Signed digest width (PIX-10).
+ *
+ * Was 128, which meant a colliding message pair cost a 2^64 birthday search.
+ * At 256 bits the collision bound is 2^128 — the security level the scheme
+ * name asserts. `PIX-HASH-OTS-128` names the 128-bit *security level*, the way
+ * AES-128 does, not the digest width.
+ */
+const MSG_BITS = 256;
 const CHUNK = 32;
+
+/**
+ * Domain tag for OTS payloads (PIX-16).
+ *
+ * Mirrors `signPixel`'s `pix-sig|<scheme>|` prefix so an OTS signature is bound
+ * to its scheme instead of covering a bare message digest.
+ */
+export const OTS_SIG_DOMAIN = "pix-sig|PIX-HASH-OTS-128|";
+
+/**
+ * Exact bytes an OTS signature covers. Length-prefixed so an attacker cannot
+ * shift a delimiter between fields to make two contexts hash alike.
+ */
+export function otsSignedPayload(message: string): string {
+  return `${OTS_SIG_DOMAIN}${message.length}:${message}`;
+}
+
+function otsPayload(message: string): string {
+  return otsSignedPayload(message);
+}
 
 function hashChainSync(seed: Uint8Array, label: string): Uint8Array {
   return sha512Sync(concatBytes(seed, textEncoder.encode(label)));
@@ -183,9 +211,11 @@ function leafMaterialSync(
     const zero = hashChainSync(s, `sk|${i}|0`);
     const one = hashChainSync(s, `sk|${i}|1`);
     privatePairs.push([bytesToHex(zero.slice(0, CHUNK)), bytesToHex(one.slice(0, CHUNK))]);
+    // Full 64-hex-char halves. Truncating to 16 left a 64-bit second-preimage
+    // target under an already-revealed leaf (PIX-10).
     const pz = sha512SyncHex(zero.slice(0, CHUNK));
     const po = sha512SyncHex(one.slice(0, CHUNK));
-    publicParts.push(`${pz.slice(0, 16)}${po.slice(0, 16)}`);
+    publicParts.push(`${pz.slice(0, 64)}${po.slice(0, 64)}`);
   }
 
   const leafPublicKey = sha512SyncHex(publicParts.join("|"));
@@ -280,17 +310,37 @@ export async function generateLightKeypair(seed?: Uint8Array): Promise<LightKeyp
 }
 
 /**
+ * Sentinel for "the persisted cursor is missing or unreadable".
+ *
+ * Restoring with this fails closed: the window is treated as exhausted so
+ * signing throws instead of silently reusing leaf 0 (PIX-11). Reconcile with
+ * `advancePastUsedOtsLeaves` against observed on-chain usage, then restore
+ * with the reconciled value.
+ */
+export const OTS_CURSOR_UNKNOWN = -1;
+
+/**
  * Restore a keypair from seed and a persisted leaf cursor.
- * Always pass `nextLeaf` from wallet storage after prior signs.
+ *
+ * `nextLeaf` is REQUIRED. It used to default to 0, so any caller that lost the
+ * cursor — fresh tab, device restore, crash before persist — silently reused
+ * spent leaves, which leaks Lamport halves at every differing digest bit.
  */
 export async function restoreLightKeypair(
   seed: Uint8Array | Hex,
-  nextLeaf = 0,
+  nextLeaf: number,
 ): Promise<LightKeypair> {
   const bytes = typeof seed === "string" ? hexToBytes(seed) : seed;
   const kp = await generateLightKeypair(bytes);
-  if (nextLeaf < 0 || nextLeaf > kp.leafCount) {
-    throw new Error(`Invalid nextLeaf ${nextLeaf}`);
+  if (nextLeaf === OTS_CURSOR_UNKNOWN) {
+    // Fail closed: reads and balances still work, signing refuses.
+    kp.nextLeaf = kp.leafCount;
+    return kp;
+  }
+  if (!Number.isInteger(nextLeaf) || nextLeaf < 0 || nextLeaf > kp.leafCount) {
+    throw new Error(
+      `restoreLightKeypair requires an explicit leaf cursor (got ${String(nextLeaf)}); use OTS_CURSOR_UNKNOWN to fail closed`,
+    );
   }
   kp.nextLeaf = nextLeaf;
   if (nextLeaf < kp.leafCount) {
@@ -333,7 +383,7 @@ export async function signLightFull(message: string, keypair: LightKeypair): Pro
     throw new Error("OTS leaf mismatch — corrupt key material");
   }
 
-  const digest = sha512Sync(message);
+  const digest = sha512Sync(otsPayload(message));
   const bits = digest.slice(0, MSG_BITS / 8);
   const revealed: string[] = [];
   const complements: string[] = [];
@@ -343,7 +393,7 @@ export async function signLightFull(message: string, keypair: LightKeypair): Pro
     const bit = (byte >> (7 - (i % 8))) & 1;
     const other = 1 - bit;
     revealed.push(privatePairs[i]![bit]!);
-    complements.push(sha512SyncHex(hexToBytes(privatePairs[i]![other]!)));
+    complements.push(sha512SyncHex(hexToBytes(privatePairs[i]![other]!)).slice(0, 64));
   }
 
   const { layers } = merkleRootFromLeavesSync(keypair.leafPublicKeys);
@@ -361,7 +411,7 @@ export async function signLightFull(message: string, keypair: LightKeypair): Pro
     leafPublicKey,
     authPath,
     revealed,
-    complements: complements.map((c) => c.slice(0, 16)),
+    complements,
   });
 }
 
@@ -377,14 +427,14 @@ export async function verifyLightFull(
     // Reject the old forgeable format that only carried pubCommit.
     if (sig.pubCommit && !sig.complements) return false;
 
-    const digest = sha512Sync(message);
+    const digest = sha512Sync(otsPayload(message));
     const bits = digest.slice(0, MSG_BITS / 8);
     const publicParts: string[] = [];
 
     for (let i = 0; i < MSG_BITS; i++) {
       const byte = bits[Math.floor(i / 8)]!;
       const bit = (byte >> (7 - (i % 8))) & 1;
-      const revealedHash = sha512SyncHex(hexToBytes(sig.revealed[i]!)).slice(0, 16);
+      const revealedHash = sha512SyncHex(hexToBytes(sig.revealed[i]!)).slice(0, 64);
       const complement = sig.complements[i]!;
       if (bit === 0) {
         publicParts.push(`${revealedHash}${complement}`);
@@ -392,6 +442,14 @@ export async function verifyLightFull(
         publicParts.push(`${complement}${revealedHash}`);
       }
     }
+
+    // Bind index and path length exactly — indices congruent modulo the tree
+    // width otherwise traverse an identical path (PIX-20).
+    const expectedDepth = Math.log2(OTS_LEAF_COUNT);
+    if (!Number.isInteger(sig.leafIndex) || sig.leafIndex < 0) return false;
+    if (sig.leafIndex >= OTS_LEAF_COUNT) return false;
+    if (sig.authPath.length !== expectedDepth) return false;
+    if (sig.revealed.length !== MSG_BITS || sig.complements.length !== MSG_BITS) return false;
 
     const rebuiltLeaf = sha512SyncHex(publicParts.join("|"));
     if (rebuiltLeaf !== sig.leafPublicKey) return false;

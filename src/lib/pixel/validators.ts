@@ -8,14 +8,16 @@
 
 import { z } from "zod";
 
-/** Keep in sync with crypto.OTS_LEAF_COUNT — duplicated to avoid import cycles. */
+/** Keep in sync with crypto.ts — duplicated to avoid import cycles. */
 const OTS_LEAF_COUNT = 32;
+const OTS_AUTH_DEPTH = 5; // log2(OTS_LEAF_COUNT)
+const OTS_MSG_BITS = 256;
 
-/** Max bytes for a single signature JSON envelope (OTS ≈12KB; ML-DSA ≈7KB). */
-export const MAX_SIGNATURE_JSON_BYTES = 24_576; // 24 KiB
+/** Max bytes for a signature JSON envelope (OTS ≈35KB at 256 bits; ML-DSA ≈7KB). */
+export const MAX_SIGNATURE_JSON_BYTES = 65_536; // 64 KiB
 
 /** Max bytes for POST /tx or POST /rpc request bodies. */
-export const MAX_RPC_BODY_BYTES = 262_144; // 256 KiB
+export const MAX_RPC_BODY_BYTES = 1_048_576; // 1 MiB (wider OTS envelopes)
 
 /** Max hex length for a public key / digest field (ML-DSA pk is large). */
 const MAX_HEX_FIELD = 16_384;
@@ -37,9 +39,11 @@ export const otsSignatureSchema = z
       .min(0)
       .max(OTS_LEAF_COUNT - 1),
     leafPublicKey: hexString,
-    authPath: z.array(hexString).max(16),
-    revealed: z.array(z.string().min(1).max(128)).length(128),
-    complements: z.array(z.string().min(1).max(64)).length(128),
+    // PIX-20: path length is exactly log2(OTS_LEAF_COUNT), never merely bounded.
+    authPath: z.array(hexString).length(OTS_AUTH_DEPTH),
+    // PIX-10: 256 signed bits, full 64-hex-char commitment halves.
+    revealed: z.array(z.string().min(1).max(128)).length(OTS_MSG_BITS),
+    complements: z.array(z.string().length(64)).length(OTS_MSG_BITS),
     /** Legacy weak field — presence alone does not validate. */
     pubCommit: z.string().optional(),
   })

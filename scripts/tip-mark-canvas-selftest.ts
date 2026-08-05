@@ -103,7 +103,7 @@ async function main() {
   // Kindling tip mark
   const dale = await forgePersonalSource("dale");
   const joe = await forgePersonalSource("joe");
-  const unlocked = await unlockPersonalSource(dale.source);
+  const unlocked = await unlockPersonalSource(dale.source, undefined, { freshWindow: true });
   const intent = { fromLocal: "dale", toLocal: "joe", amount: 1, note: "tip mark" };
   const offer = await kindleOffer(intent);
   const accept = await kindleAccept(intent);

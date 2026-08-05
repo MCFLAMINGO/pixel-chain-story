@@ -14,15 +14,18 @@ import {
 } from "../src/lib/pixel/ula-mldsa";
 import { assertVaultReleaseAuthorized, consumeVaultRelease } from "../src/lib/pixel/bridge-custody";
 import { prepareIngress, type PreparedIngress } from "../src/lib/pixel/worldlight";
+import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
 import {
   OTS_LEAF_COUNT,
+  OTS_SIG_DOMAIN,
+  otsSignedPayload,
   generateLightKeypair,
   restoreLightKeypair,
   signLightFull,
   verifyLightFull,
   hexToBytes,
 } from "../src/lib/pixel/crypto";
-import { signPixel, verifyPixel } from "../src/lib/pixel/scheme";
+import { generatePixelKeypair, signPixel, verifyPixel } from "../src/lib/pixel/scheme";
 import { runSuite, exploited, scenario } from "./ext-audit-harness";
 
 // ── PIX-06 ────────────────────────────────────────────────────────────────────
@@ -183,24 +186,43 @@ scenario("PIX-11", "restore from seed twice and reuse OTS leaf 0", async () => {
 });
 
 // ── PIX-16 ────────────────────────────────────────────────────────────────────
-scenario("PIX-16", "OTS signature is not bound to its scheme / purpose", async () => {
+scenario("PIX-16", "signatures are not bound to their scheme / purpose", async () => {
   const kp = await generateLightKeypair();
   const message = "pix-cross-context-probe";
-  const raw = await signLightFull(message, kp);
 
-  // signLightFull must domain-separate exactly like signPixel does for ML-DSA.
-  // If the raw digest is signed bare, a signature over the same bytes in a
-  // different protocol context verifies here too.
-  const bareVerifies = await verifyLightFull(message, raw, kp.publicKey);
-  const taggedVerifies = await verifyLightFull(
-    `pix-sig|PIX-HASH-OTS-128|${message}`,
-    raw,
-    kp.publicKey,
-  );
-  if (bareVerifies && !taggedVerifies) {
-    exploited("OTS signs the bare message digest — no scheme/purpose tag in the signed payload");
+  // OTS payload must carry the scheme tag and a length prefix.
+  const payload = otsSignedPayload(message);
+  if (!payload.startsWith(OTS_SIG_DOMAIN)) {
+    exploited("OTS signs the bare message digest — no scheme tag in the signed payload");
   }
-  throw new Error("OTS payload carries a domain tag");
+  if (!payload.includes(`|${message.length}:`)) {
+    exploited("OTS payload is delimiter-joined, not length-prefixed");
+  }
+  const sig = await signLightFull(message, kp);
+  if (!(await verifyLightFull(message, sig, kp.publicKey))) {
+    throw new Error("baseline OTS signature invalid — inconclusive");
+  }
+
+  // ML-DSA must bind its context natively, not by concatenation.
+  const ml = await generatePixelKeypair("PIX-ML-DSA-65");
+  const mlSig = await signPixel(message, ml);
+  const parsed = JSON.parse(mlSig) as { sig: string };
+  const enc = new TextEncoder();
+  const crossContext = ml_dsa65.verify(
+    hexToBytes(parsed.sig),
+    enc.encode(message),
+    hexToBytes(ml.publicKey),
+    { context: enc.encode("pix-sig|SOME-OTHER-SCHEME") },
+  );
+  const noContext = ml_dsa65.verify(
+    hexToBytes(parsed.sig),
+    enc.encode(message),
+    hexToBytes(ml.publicKey),
+  );
+  if (crossContext || noContext) {
+    exploited("ML-DSA signature verifies outside its declared context");
+  }
+  throw new Error("both schemes are domain-separated and length-bound");
 });
 
 // ── PIX-20 ────────────────────────────────────────────────────────────────────

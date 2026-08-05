@@ -98,8 +98,24 @@ export async function generatePixelKeypair(
   };
 }
 
-function domainSeparatedMessage(message: string, scheme: SchemeId): Uint8Array {
-  return new TextEncoder().encode(`pix-sig|${scheme}|${message}`);
+/**
+ * FIPS-204 native context string (PIX-16).
+ *
+ * Domain separation belongs in the `ctx` parameter, not concatenated into the
+ * message, so an attacker cannot manufacture a colliding message in another
+ * protocol context by absorbing a delimiter.
+ */
+function mldsaContext(scheme: SchemeId): Uint8Array {
+  return new TextEncoder().encode(`pix-sig|${scheme}`);
+}
+
+function messageBytes(message: string): Uint8Array {
+  return new TextEncoder().encode(message);
+}
+
+/** Deterministic signing is for frozen vectors only, never production. */
+export function deterministicSigning(): boolean {
+  return typeof process !== "undefined" && process.env?.PIXEL_DETERMINISTIC_SIG === "1";
 }
 
 export async function signPixel(message: string, keypair: LightKeypair): Promise<string> {
@@ -110,8 +126,12 @@ export async function signPixel(message: string, keypair: LightKeypair): Promise
   if (!keypair.secretKey) {
     throw new Error("ML-DSA keypair missing secretKey");
   }
-  const msg = domainSeparatedMessage(message, "PIX-ML-DSA-65");
-  const sig = ml_dsa65.sign(msg, hexToBytes(keypair.secretKey), { extraEntropy: false });
+  // Hedged by default (PIX-18): `extraEntropy: undefined` randomizes, `false`
+  // is deterministic. Known-answer vectors set PIXEL_DETERMINISTIC_SIG=1.
+  const sig = ml_dsa65.sign(messageBytes(message), hexToBytes(keypair.secretKey), {
+    context: mldsaContext("PIX-ML-DSA-65"),
+    extraEntropy: deterministicSigning() ? false : undefined,
+  });
   return JSON.stringify({
     alg: "PIX-ML-DSA-65",
     sig: bytesToHex(sig),
@@ -127,8 +147,9 @@ export async function verifyPixel(
     const parsed = parseSignatureEnvelope(signatureJson);
     if (!parsed) return false;
     if (parsed.alg === "PIX-ML-DSA-65") {
-      const msg = domainSeparatedMessage(message, "PIX-ML-DSA-65");
-      return ml_dsa65.verify(hexToBytes(parsed.sig), msg, hexToBytes(publicKey));
+      return ml_dsa65.verify(hexToBytes(parsed.sig), messageBytes(message), hexToBytes(publicKey), {
+        context: mldsaContext("PIX-ML-DSA-65"),
+      });
     }
     if (parsed.alg === "PIX-HASH-OTS-128") {
       return verifyLightFull(message, signatureJson, publicKey);

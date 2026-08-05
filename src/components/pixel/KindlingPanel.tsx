@@ -109,7 +109,7 @@ export function KindlingPanel() {
     setBusy(true);
     try {
       // Unlock Dale's Source from *his* vault light — pillar never holds the seed.
-      const unlocked = await unlockPersonalSource(dale.source);
+      const unlocked = await unlockPersonalSource(dale.source, undefined, { freshWindow: true });
       const genesis = await createGenesis(unlocked.keypair);
       // Fund dale via genesis sequencer reward path: use dale as genesis sequencer
       // then kindle a small send to joe from dale's own UTXOs (genesis coinbase to dale).
