@@ -2,7 +2,7 @@
 name = "ula-verifier"
 version = "0.1.0"
 edition = "2021"
-description = "Second-chain twin of ULAVerifier — PIX-HASH-OTS-128-KECCAK (CosmWasm-shaped)"
+description = "Second-chain twin of ULAVerifier — PIX-HASH-OTS-256-KECCAK (CosmWasm-shaped)"
 license = "MIT"
 rust-version = "1.75"
 

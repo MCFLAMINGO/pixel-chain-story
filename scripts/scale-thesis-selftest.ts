@@ -129,6 +129,7 @@ async function main() {
     pixel,
     networkId: chain.networkId,
     sequencerAddresses: chain.sequencers.map((s) => s.address),
+    sequencer: alice,
     message: {
       direction: "shineOut",
       nonce: "n1",

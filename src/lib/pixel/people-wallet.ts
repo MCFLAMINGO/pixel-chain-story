@@ -7,7 +7,7 @@
  */
 
 import { forgePersonalSource, type PersonalSource, type UnlockedSource } from "./custody";
-import { hexToBytes, restoreLightKeypair, type Hex } from "./crypto";
+import { hexToBytes, OTS_CURSOR_UNKNOWN, restoreLightKeypair, type Hex } from "./crypto";
 import type { OpticalPattern } from "./optical";
 import { idbClear, idbReadRaw, idbWriteRaw } from "./people-wallet-idb";
 import {
@@ -231,7 +231,7 @@ export async function unlockStoredPeopleWallet(
   }
   const p = assertPin(pin);
   const seed = await unwrapSeedWithPin(blob.wrapped, p);
-  const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? 0);
+  const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? OTS_CURSOR_UNKNOWN);
   if (keypair.address !== blob.address) {
     throw new Error("Unwrapped Source does not match pay face");
   }
@@ -268,7 +268,7 @@ export async function unlockStoredPeopleWalletWithDevice(): Promise<{
     throw new Error("Device unlock not enabled — unlock with PIN, then enable Face ID / Touch ID");
   }
   const seed = await unlockSeedWithWebAuthn(blob.webauthn);
-  const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? 0);
+  const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? OTS_CURSOR_UNKNOWN);
   if (keypair.address !== blob.address) {
     throw new Error("Device unlock Source mismatch");
   }
@@ -297,7 +297,7 @@ export async function importPeopleWalletBackup(json: string, pin: string): Promi
     throw new Error("Not a Pixel PIN-sealed backup");
   }
   const seed = await unwrapSeedWithPin(wallet.wrapped, pin);
-  const keypair = await restoreLightKeypair(seed, wallet.nextLeaf ?? 0);
+  const keypair = await restoreLightKeypair(seed, wallet.nextLeaf ?? OTS_CURSOR_UNKNOWN);
   if (keypair.address !== wallet.address) throw new Error("Backup PIN/address mismatch");
   await savePeopleWalletBlobAsync(wallet);
   return {

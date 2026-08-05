@@ -23,7 +23,7 @@ import {
 } from "../src/lib/pixel/crypto";
 import { generatePixelKeypair, signPixel, verifyPixel } from "../src/lib/pixel/scheme";
 import { createDemoWallet, createGenesis, proposeTransfer } from "../src/lib/pixel/index";
-import { verifyTransactionSignatures } from "../src/lib/pixel/transaction";
+import { verifySignatureShapeOnly } from "../src/lib/pixel/transaction";
 import { buildMldsaGateReceipt, labMldsaUlaChain } from "../src/lib/pixel/ula-mldsa";
 
 async function main() {
@@ -88,13 +88,15 @@ async function main() {
   if (JSON.stringify(round) !== wire) {
     throw new Error("parseJsonWithSchema must not rebuild/reorder signed tx JSON");
   }
-  if (!(await verifyTransactionSignatures(round as typeof tx))) {
+  if (!(await verifySignatureShapeOnly(round as typeof tx))) {
     throw new Error("tx must still verify after schema gate");
   }
   console.log("▸ live Transaction matches schema + wire-preserve ✓");
 
-  const { attestation } = await labMldsaUlaChain();
-  const gate = await buildMldsaGateReceipt(attestation);
+  const { attestation, state: ulaState } = await labMldsaUlaChain();
+  // Allowlist comes from registry state, never from the attestation (PIX-07).
+  const ulaTrusted = ulaState.sequencers.map((s) => s.address);
+  const gate = await buildMldsaGateReceipt(attestation, ulaTrusted);
   if (!gate.ok) throw new Error(gate.reason);
   console.log("▸ buildMldsaGateReceipt with schema ✓");
 
@@ -103,7 +105,7 @@ async function main() {
     ...attestation,
     lightProof: { ...attestation.lightProof, signature: '{"alg":"PIX-ML-DSA-65"}' },
   };
-  const badGate = await buildMldsaGateReceipt(badAtt);
+  const badGate = await buildMldsaGateReceipt(badAtt, ulaTrusted);
   if (badGate.ok) throw new Error("incomplete ML-DSA should fail gate");
   console.log("▸ gate rejects incomplete ML-DSA sig ✓");
 

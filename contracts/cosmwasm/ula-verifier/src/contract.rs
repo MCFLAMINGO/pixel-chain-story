@@ -58,17 +58,6 @@ fn parse32(hex: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
-fn parse16(hex: &str) -> Option<[u8; 16]> {
-    let clean = hex.trim_start_matches("0x");
-    let bytes = hex::decode(clean).ok()?;
-    if bytes.len() != 16 {
-        return None;
-    }
-    let mut out = [0u8; 16];
-    out.copy_from_slice(&bytes);
-    Some(out)
-}
-
 fn to_proof(msg: &OtsProofMsg) -> Option<OtsProof> {
     if msg.auth_path.len() != AUTH_DEPTH
         || msg.revealed.len() != MSG_BITS
@@ -84,9 +73,9 @@ fn to_proof(msg: &OtsProofMsg) -> Option<OtsProof> {
     for (i, h) in msg.revealed.iter().enumerate() {
         revealed[i] = parse32(h)?;
     }
-    let mut complements = [[0u8; 16]; MSG_BITS];
+    let mut complements = [[0u8; 32]; MSG_BITS];
     for (i, h) in msg.complements.iter().enumerate() {
-        complements[i] = parse16(h)?;
+        complements[i] = parse32(h)?;
     }
     Some(OtsProof {
         leaf_index: msg.leaf_index,

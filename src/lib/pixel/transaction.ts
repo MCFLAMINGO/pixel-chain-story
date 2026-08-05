@@ -8,6 +8,7 @@ import { lightDigest } from "./light-digest";
 import {
   addressForScheme,
   generatePixelKeypair,
+  schemeFromSignature,
   signPixel,
   verifyPixel,
   type SchemeId,
@@ -116,7 +117,16 @@ export async function signTransaction(
   };
 }
 
-export async function verifyTransactionSignatures(tx: Transaction): Promise<boolean> {
+/**
+ * Shape-only check: each input's signature is valid for the public key carried
+ * on that same input.
+ *
+ * NOT AN AUTHORIZATION CHECK — it never proves the key owns the coin. Consensus
+ * must call `verifyTransactionSignaturesForOwners`; PIX-01 was exactly this
+ * function reaching `acceptBlock`. A CI guard (`test:audit-scope`) fails the
+ * build if this symbol appears in `chain.ts`.
+ */
+export async function verifySignatureShapeOnly(tx: Transaction): Promise<boolean> {
   if (tx.inputs.length === 0) return true; // coinbase / genesis mint
   const message = `${tx.commitment}|${canonicalTxBody(tx)}`;
   for (const input of tx.inputs) {
@@ -127,22 +137,21 @@ export async function verifyTransactionSignatures(tx: Transaction): Promise<bool
   return true;
 }
 
-/** Verify sigs and that each input's public key commits to the UTXO owner address. */
+/**
+ * Consensus verifier: signatures valid AND each input's public key commits to
+ * the address that owns the UTXO being spent.
+ */
 export async function verifyTransactionSignaturesForOwners(
   tx: Transaction,
   ownerByUtxo: (txid: string, vout: number) => string | undefined,
 ): Promise<boolean> {
-  if (!(await verifyTransactionSignatures(tx))) return false;
+  if (!(await verifySignatureShapeOnly(tx))) return false;
   if (tx.inputs.length === 0) return true;
   for (const input of tx.inputs) {
     if (!input.publicKey || !input.signature) return false;
-    let scheme: SchemeId = "PIX-HASH-OTS-128";
-    try {
-      const alg = (JSON.parse(input.signature) as { alg?: string }).alg;
-      if (alg === "PIX-ML-DSA-65") scheme = "PIX-ML-DSA-65";
-    } catch {
-      return false;
-    }
+    const alg = schemeFromSignature(input.signature);
+    if (!alg) return false;
+    const scheme: SchemeId = alg;
     const owner = ownerByUtxo(input.txid, input.vout);
     if (!owner) return false;
     if ((await addressForScheme(input.publicKey, scheme)) !== owner) return false;

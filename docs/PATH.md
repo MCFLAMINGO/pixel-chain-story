@@ -109,7 +109,7 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 
 **Build**
 
-- [x] Replace `ULAVerifier` stub with real verify of frozen ULA fixture (`PIX-HASH-OTS-128-KECCAK`)
+- [x] Replace `ULAVerifier` stub with real verify of frozen ULA fixture (`PIX-HASH-OTS-256-KECCAK`)
 - [x] Foundry tests + CosmWasm twin (`contracts/cosmwasm/ula-verifier`)
 - [x] Relayer: anvil `PixelUsdcLock` `Locked` → `LockFeeder.feed` → shineIn (`bun run test:ula-relayer`)
 - [x] Custody inversion law: foreign = receipt, Pixel = vault (`BRIDGE_CUSTODY_AXIOM`, `test:bridge-custody`)
@@ -170,9 +170,11 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Threat model **v1.1** frozen; scope for audit (crypto + `acceptBlock` + ULA) — [`THREAT-MODEL.md`](./THREAT-MODEL.md)
 - [x] Audit package + self-review checklist — [`AUDIT.md`](./AUDIT.md) status **PREPARING**
 - [x] `bun run test:audit-scope` invariants
+- [x] Pre-audit pass: 22 findings from [`audit/EXTERNAL-AUDIT-GATE-I.json`](./audit/EXTERNAL-AUDIT-GATE-I.json) fixed, each with a regression test that fails on the pre-fix commit
+- [x] Adversarial + invariant suites gate CI (`test:adversarial`, `test:invariants`) — green CI now means invalid operations fail, not just that valid ones succeed
 - [ ] External firm engaged; criticals fixed; report link published
 
-**Evidence:** [`docs/AUDIT.md`](./AUDIT.md) (PREPARING until report link)  
+**Evidence:** [`docs/AUDIT.md`](./AUDIT.md) (PREPARING until report link) + `bun run test:adversarial` + `bun run test:invariants`  
 **Claim unlock (now):** _“Scoped audit package prepared; external review pending.”_  
 **Claim unlock (after report + fixes):** _“Audited components (scoped).”_ Full “trusted L1” only after broader ops maturity.
 

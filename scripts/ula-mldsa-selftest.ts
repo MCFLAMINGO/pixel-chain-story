@@ -22,10 +22,10 @@ async function main() {
   console.log("▸ native ULA verifies under PIX-ML-DSA-65 sequencer ✓");
 
   const { pkg } = await projectMldsaUlaToEvmTwin(attestation);
-  if (pkg.scheme !== "PIX-HASH-OTS-128-KECCAK") throw new Error("twin scheme drift");
+  if (pkg.scheme !== "PIX-HASH-OTS-256-KECCAK") throw new Error("twin scheme drift");
   console.log("▸ projected to keccak-OTS EVM twin ✓");
 
-  const gate = await buildMldsaGateReceipt(attestation);
+  const gate = await buildMldsaGateReceipt(attestation, trusted);
   if (!gate.ok) throw new Error(gate.reason);
   if (gate.receipt.commit.length !== 64) throw new Error("commit len");
   if (gate.receipt.mldsaPkHash.length !== 64) throw new Error("pkHash len");

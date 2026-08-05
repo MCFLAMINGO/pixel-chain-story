@@ -1,6 +1,6 @@
 # Bridge status (Gate E)
 
-**Claim unlock (lab):** Universal Light Attestation verify is real on the EVM twin — `ULAVerifier.IS_STUB == false`. CosmWasm twin verifies the same frozen fixture. Relayer path proven on local anvil. **Phone wallet** can Bridge USDC/ETH/wire → tip when `PIXEL_BRIDGE_LAB=1`.
+**Claim unlock (lab):** Universal Light Attestation verify is real on the EVM twin — `ULAVerifier.IS_STUB == false`, now at `MSG_BITS = 256` (the prior 32-bit width was forgeable with a ~2^32 keccak grind; audit PIX-12). CosmWasm twin verifies the same frozen fixture. Relayer path proven on local anvil. **Phone wallet** can Bridge USDC/ETH/wire → tip when `PIXEL_BRIDGE_LAB=1`.
 
 **Custody law:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX. Enforced in `illuminateIngress` + `bun run test:bridge-custody`.
 
@@ -84,6 +84,21 @@ Phone /wallet → Fund tip (POST /faucet)
 | Evidence | `bun run test:wallet-bridge` · `curl …/health` shows `bridgeLab` + `faucet` |
 
 ---
+
+## What on-chain acceptance actually proves
+
+`ULAVerifier.accept` verifies a **relayer-projected keccak-OTS signature**, not
+Pixel's native PIX-ML-DSA-65 proof. A relayer re-projects the native attestation
+onto the EVM twin and signs it with an EVM-side key, so acceptance trusts that
+relayer to project honestly. `IS_NATIVE_MLDSA_VERIFY == false` states this
+on-chain. No signature width changes it.
+
+Bounds on that trust: allowlists are owner-gated and timelocked, additions are
+delayed while revocation is immediate, leaves are consumed once, replay is keyed
+on `(sequencerRoot, messageHash)`, and `isMatured` lets a consumer impose its own
+withdrawal delay.
+
+**Do not describe this as cryptographic verification of the Pixel ledger.**
 
 ## Evidence (protocol)
 

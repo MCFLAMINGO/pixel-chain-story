@@ -36,7 +36,7 @@ async function main() {
 
   const dale = await forgePersonalSource("dale");
   const joe = await forgePersonalSource("joe");
-  const unlocked = await unlockPersonalSource(dale.source);
+  const unlocked = await unlockPersonalSource(dale.source, undefined, { freshWindow: true });
   if (unlocked.keypair.address !== dale.source.address) throw new Error("unlock address");
 
   // Forbidden: gateway admits it holds seed

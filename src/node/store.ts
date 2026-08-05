@@ -9,6 +9,7 @@ import {
   generatePixelKeypair,
   hexToBytes,
   resolveSchemeId,
+  OTS_CURSOR_UNKNOWN,
   restoreLightKeypair,
   serializeChain,
   type LightKeypair,
@@ -84,7 +85,10 @@ export async function loadOrCreateIdentity(
       keypair = await generatePixelKeypair("PIX-ML-DSA-65", hexToBytes(identity.seed));
       if (identity.secretKey) keypair.secretKey = identity.secretKey;
     } else {
-      keypair = await restoreLightKeypair(hexToBytes(identity.seed), identity.nextLeaf ?? 0);
+      keypair = await restoreLightKeypair(
+        hexToBytes(identity.seed),
+        identity.nextLeaf ?? OTS_CURSOR_UNKNOWN,
+      );
     }
   } else {
     const scheme = resolveSchemeId();
@@ -152,7 +156,7 @@ export async function loadWallet(datadir: string, name: string): Promise<LightKe
       if (data.secretKey) kp.secretKey = data.secretKey;
       return kp;
     }
-    return restoreLightKeypair(hexToBytes(data.seed), data.nextLeaf ?? 0);
+    return restoreLightKeypair(hexToBytes(data.seed), data.nextLeaf ?? OTS_CURSOR_UNKNOWN);
   } catch {
     return null;
   }

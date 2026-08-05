@@ -23,9 +23,13 @@ async function main() {
   }
   console.log("▸ DEFAULT_SCHEME = PIX-ML-DSA-65 ✓");
 
+  // Frozen vectors are known-answer tests; production signing is hedged.
+  process.env.PIXEL_DETERMINISTIC_SIG = "1";
+
   const raw = JSON.parse(readFileSync(VECTORS_PATH, "utf8")) as {
     version: number;
     message: string;
+    "PIX-HASH-OTS-128": { signedDigestBits: number; commitmentHalfHexChars: number };
     "PIX-ML-DSA-65": {
       seed: string;
       publicKey: string;
@@ -40,7 +44,8 @@ async function main() {
       nextLeafAfterSign: number;
     };
   };
-  if (raw.version !== 1) throw new Error("vector version");
+  if (raw.version !== 2)
+    throw new Error(`vector version ${raw.version} — expected 2 (PIX-10/16/18)`);
   const msg = raw.message;
 
   // ML-DSA
@@ -73,7 +78,18 @@ async function main() {
   if (ots.nextLeaf !== raw["PIX-HASH-OTS-128"].nextLeafAfterSign) {
     throw new Error("OTS nextLeaf drift");
   }
-  console.log("▸ PIX-HASH-OTS-128 frozen vectors ✓");
+  // PIX-10: the advertised strength must be in the vector, not just the name.
+  const otsVec = raw["PIX-HASH-OTS-128"] as unknown as {
+    signedDigestBits: number;
+    commitmentHalfHexChars: number;
+    signature: string;
+  };
+  if (otsVec.signedDigestBits < 256) throw new Error("OTS digest under 256 bits");
+  if (otsVec.commitmentHalfHexChars !== 64) throw new Error("OTS commitment half truncated");
+  const parsedOts = JSON.parse(otsVec.signature) as { revealed: string[]; complements: string[] };
+  if (parsedOts.revealed.length !== 256) throw new Error("OTS revealed count");
+  if (parsedOts.complements.some((c) => c.length !== 64)) throw new Error("OTS complement width");
+  console.log("▸ PIX-HASH-OTS-128 frozen vectors ✓ (256-bit digest, 32-byte halves)");
 
   // Default birth without args is ML-DSA
   const born = await generatePixelKeypair();

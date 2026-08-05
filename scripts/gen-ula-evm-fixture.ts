@@ -80,7 +80,7 @@ const fixture = {
   scheme: EVM_OTS_ALG,
   version: 1,
   notes:
-    "EVM twin of Pixel ULA. MSG_BITS=32 (first 32 bits of keccak(polsMessage)). Pixel-native OTS remains 128-bit SHA-512. Not production-strength — Gate E bridge proof.",
+    "EVM twin of Pixel ULA. MSG_BITS=256 over keccak(polsMessage) with full 32-byte commitment halves (audit PIX-12; the prior 32-bit width was forgeable in ~2^32). Acceptance on-chain still trusts the projecting relayer — see docs/BRIDGE-STATUS.md.",
   seedNote: "deterministic seed = 32 bytes of 0x07",
   sequencerRoot: with0x(pkg.sequencerRoot),
   beacon: with0x(pkg.beacon),
@@ -97,8 +97,8 @@ const fixture = {
     leafPublicKey: with0x(pkg.signature.leafPublicKey),
     authPath: pkg.signature.authPath.map(with0x),
     revealed: pkg.signature.revealed.map(with0x),
-    // bare 32 hex chars (16 bytes) — Foundry test parses to bytes16
-    complements: pkg.signature.complements.map((c) => c.replace(/^0x/, "")),
+    // full 32-byte halves — Foundry test parses to bytes32
+    complements: pkg.signature.complements.map(with0x),
   },
 };
 

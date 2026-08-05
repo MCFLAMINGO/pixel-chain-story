@@ -5,7 +5,13 @@
  * Universal Light Attestations (ULAs): compact, hash-based packages any
  * chain can verify with:
  *   1) SHA-512 / hash-OTS verify of the PoLS light proof
- *   2) Merkle inclusion of the bridge message under the pixel’s merkle root
+ *   2) Merkle inclusion of the anchor transaction under the pixel's merkle root
+ *      (`verifyMerkleProof`, proven by `test:bridge-binding`)
+ *   3) Sequencer signature over `bridgePayload(...)`, which commits to
+ *      networkId, pixelHash, merkleRoot, anchor txid, messageHash and nonce
+ *
+ * Step 3 exists because the PoLS message does not carry `messageHash`: without
+ * it a genuine light proof could be paired with a rewritten payload (PIX-06).
  *
  * Foreign chains implement a thin verifier (Solidity, Move, CosmWasm, Bitcoin
  * script+covenant, etc.). Pixel never depends on their VM.
@@ -18,11 +24,11 @@
  * no parallel rewrite / second Facebook.
  */
 
-import { sha512Hex, type Hex } from "./crypto";
+import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
 import type { LightProof } from "./pol";
 import type { LedgerPixel } from "./chain";
-import { verifyLightProof } from "./pol";
-import { merkleRoot } from "./pol";
+import { merkleProof, merkleRoot, verifyLightProof, verifyMerkleProof } from "./pol";
+import { signPixel, verifyPixel } from "./scheme";
 
 export type ForeignChain =
   | "ethereum"
@@ -53,15 +59,51 @@ export interface UniversalLightAttestation {
   prevHash: Hex;
   merkleRoot: Hex;
   lightProof: LightProof;
-  /** Commitment to BridgeMessage */
+  /** Commitment to BridgeMessage (SHA-512 of its canonical JSON). */
   messageHash: Hex;
   message: BridgeMessage;
-  /** Merkle-friendly leaf = hash(message) — verified against pixel merkle via tx path later */
+  /** Transaction this bridge message is anchored to (proved under merkleRoot). */
+  anchorTxid: string;
+  anchorIndex: number;
+  anchorPath: Hex[];
+  anchorLeafCount: number;
+  /**
+   * Sequencer signature over `bridgePayload(...)`.
+   *
+   * The PoLS light proof does NOT commit to messageHash, so without this the
+   * payload could be rewritten under a genuine signature (PIX-06).
+   */
+  bridgeSignature: string;
   createdAt: number;
 }
 
 export async function hashBridgeMessage(msg: BridgeMessage): Promise<Hex> {
   return sha512Hex(JSON.stringify(msg));
+}
+
+/**
+ * Domain-separated payload binding the bridge message to one pixel and one
+ * anchor transaction. Length-prefixed so no field can absorb a delimiter.
+ */
+export function bridgePayload(params: {
+  networkId: number;
+  pixelIndex: number;
+  pixelHash: Hex;
+  merkleRoot: Hex;
+  anchorTxid: string;
+  messageHash: Hex;
+  nonce: string;
+}): string {
+  const parts = [
+    String(params.networkId),
+    String(params.pixelIndex),
+    params.pixelHash,
+    params.merkleRoot,
+    params.anchorTxid,
+    params.messageHash,
+    params.nonce,
+  ];
+  return `pix-bridge|v1|${parts.map((p) => `${p.length}:${p}`).join("|")}`;
 }
 
 /** Build an attestation anchored to an illuminated pixel. */
@@ -70,9 +112,14 @@ export async function createAttestation(params: {
   networkId: number;
   message: BridgeMessage;
   sequencerAddresses: string[];
+  /** Key that signs the bridge payload — must be the pixel's sequencer. */
+  sequencer: LightKeypair;
+  /** Transaction to anchor to (defaults to the pixel's first transaction). */
+  anchorTxid?: string;
 }): Promise<UniversalLightAttestation> {
   const messageHash = await hashBridgeMessage(params.message);
-  const expected = await merkleRoot(params.pixel.transactions.map((t) => t.txid));
+  const txids = params.pixel.transactions.map((t) => t.txid);
+  const expected = await merkleRoot(txids);
   if (expected !== params.pixel.merkleRoot) {
     throw new Error("Pixel merkle root inconsistent");
   }
@@ -83,6 +130,30 @@ export async function createAttestation(params: {
   if (!params.sequencerAddresses.includes(elected)) {
     throw new Error("Sequencer not in known set");
   }
+  if (params.sequencer.address !== elected) {
+    throw new Error("Bridge payload must be signed by the pixel's sequencer");
+  }
+  if (params.sequencer.publicKey !== params.pixel.lightProof.sequencerPublicKey) {
+    throw new Error("Sequencer public key does not match the light proof");
+  }
+
+  const anchorTxid = params.anchorTxid ?? txids[0];
+  const anchorIndex = txids.indexOf(anchorTxid);
+  if (anchorIndex < 0) throw new Error("Anchor transaction is not in this pixel");
+  const anchorPath = await merkleProof(txids, anchorIndex);
+
+  const bridgeSignature = await signPixel(
+    bridgePayload({
+      networkId: params.networkId,
+      pixelIndex: params.pixel.index,
+      pixelHash: params.pixel.hash,
+      merkleRoot: params.pixel.merkleRoot,
+      anchorTxid,
+      messageHash,
+      nonce: params.message.nonce,
+    }),
+    params.sequencer,
+  );
 
   return {
     version: 1,
@@ -95,8 +166,19 @@ export async function createAttestation(params: {
     lightProof: params.pixel.lightProof,
     messageHash,
     message: params.message,
+    anchorTxid,
+    anchorIndex,
+    anchorPath,
+    anchorLeafCount: txids.length,
+    bridgeSignature,
     createdAt: Date.now(),
   };
+}
+
+/** Replay guard store — callers persist this across restarts. */
+export interface ConsumedBridgeMessages {
+  has: (key: string) => boolean;
+  add: (key: string) => void;
 }
 
 /**
@@ -106,6 +188,7 @@ export async function createAttestation(params: {
 export async function verifyAttestation(
   att: UniversalLightAttestation,
   trustedSequencers: string[],
+  opts: { consumed?: ConsumedBridgeMessages } = {},
 ): Promise<{ ok: boolean; reason?: string }> {
   if (att.version !== 1 || att.source !== "pixel-ledger") {
     return { ok: false, reason: "bad attestation envelope" };
@@ -123,6 +206,48 @@ export async function verifyAttestation(
   if (att.lightProof.prevHash !== att.prevHash) {
     return { ok: false, reason: "prevHash mismatch" };
   }
+
+  // Inclusion: the anchor transaction is provably under this pixel's root.
+  if (!att.anchorTxid || !Array.isArray(att.anchorPath)) {
+    return { ok: false, reason: "missing anchor inclusion proof" };
+  }
+  const included = await verifyMerkleProof({
+    leaf: att.anchorTxid,
+    index: att.anchorIndex,
+    path: att.anchorPath,
+    root: att.merkleRoot,
+    leafCount: att.anchorLeafCount,
+  });
+  if (!included) {
+    return { ok: false, reason: "anchor transaction not included under merkle root" };
+  }
+
+  // Binding: the message itself is signed, not merely carried alongside a proof.
+  if (!att.bridgeSignature) {
+    return { ok: false, reason: "missing bridge signature" };
+  }
+  const payload = bridgePayload({
+    networkId: att.networkId,
+    pixelIndex: att.pixelIndex,
+    pixelHash: att.pixelHash,
+    merkleRoot: att.merkleRoot,
+    anchorTxid: att.anchorTxid,
+    messageHash: att.messageHash,
+    nonce: att.message.nonce,
+  });
+  const bound = await verifyPixel(payload, att.bridgeSignature, att.lightProof.sequencerPublicKey);
+  if (!bound) {
+    return { ok: false, reason: "bridge signature does not cover this message" };
+  }
+
+  if (opts.consumed) {
+    const key = `${att.networkId}|${att.messageHash}`;
+    if (opts.consumed.has(key)) {
+      return { ok: false, reason: "bridge message already consumed (replay)" };
+    }
+    opts.consumed.add(key);
+  }
+
   return { ok: true };
 }
 
@@ -137,7 +262,7 @@ export function bridgeThesis(): {
 } {
   return {
     status:
-      "LAB — ULAVerifier.sol verifies PIX-HASH-OTS-128-KECCAK (IS_STUB=false); native ULAs verify ML-DSA off-chain; ULAOffchainMldsaGate commits PQ receipts (not full on-chain Dilithium); CosmWasm twin + frozen fixture; public testnet links still pending (see docs/BRIDGE-STATUS.md, docs/ULA-MLDSA.md).",
+      "LAB — ULAVerifier.sol verifies PIX-HASH-OTS-256-KECCAK (IS_STUB=false); native ULAs verify ML-DSA off-chain; ULAOffchainMldsaGate commits PQ receipts (not full on-chain Dilithium); CosmWasm twin + frozen fixture; public testnet links still pending (see docs/BRIDGE-STATUS.md, docs/ULA-MLDSA.md).",
     principle:
       "Pixel Ledger shines Universal Light Attestations; every other chain only verifies light — never runs Pixel’s VM.",
     custody:

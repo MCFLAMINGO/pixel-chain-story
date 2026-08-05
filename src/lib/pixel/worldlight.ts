@@ -25,7 +25,11 @@ import {
   type LightArtifact,
 } from "./siso";
 import { createAttestation, type BridgeMessage, type ForeignChain } from "./bridge";
-import { assertVaultReleaseAuthorized } from "./bridge-custody";
+import {
+  assertVaultReleaseAuthorized,
+  consumeVaultRelease,
+  type VaultReleasePolicy,
+} from "./bridge-custody";
 import { proposeTransfer, sequenceBlock, type LedgerPixel, type PixelChainState } from "./chain";
 import { BOOTSTRAP_INGRESS_PIX_PER_USD } from "./bootstrap";
 
@@ -194,12 +198,16 @@ export async function illuminateIngress(params: {
   /** Escrow key that holds PIX for shine-in releases */
   bridgeVault: LightKeypair;
   sequencer: LightKeypair;
+  /** Foreign lock verifier + replay store; bootstrap rail when omitted. */
+  releasePolicy?: VaultReleasePolicy;
 }): Promise<IlluminatedIngress> {
   const { prepared } = params;
   let state = params.state;
 
-  // Custody inversion: foreign receipt bound + Pixel vault release only.
-  assertVaultReleaseAuthorized(prepared);
+  // Custody inversion: foreign receipt verified + amount bound + ref burned
+  // before any PIX moves (PIX-09).
+  assertVaultReleaseAuthorized(prepared, params.releasePolicy);
+  consumeVaultRelease(prepared, params.releasePolicy);
 
   let pixCredited = 0;
   if (prepared.pixCredit > 0 && prepared.bridgeMessage) {
@@ -250,6 +258,7 @@ export async function illuminateIngress(params: {
       networkId: state.networkId,
       message: prepared.bridgeMessage,
       sequencerAddresses: state.sequencers.map((s) => s.address),
+      sequencer: params.sequencer,
     });
     attestationJson = JSON.stringify(att);
   }

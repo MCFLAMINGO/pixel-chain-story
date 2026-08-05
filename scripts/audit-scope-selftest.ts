@@ -36,6 +36,28 @@ async function main() {
   if (!ula.includes("IS_STUB = false")) throw new Error("ULAVerifier stubbed");
   console.log("▸ ULAVerifier IS_STUB=false ✓");
 
+  // PIX-01: the non-authorizing verifier must never reach a consensus path.
+  const chain = readFileSync(join(root, "src/lib/pixel/chain.ts"), "utf8");
+  if (chain.includes("verifySignatureShapeOnly")) {
+    throw new Error(
+      "chain.ts must not call verifySignatureShapeOnly — use the owner-binding verifier",
+    );
+  }
+  if (!chain.includes("verifyTransactionSignaturesForOwners")) {
+    throw new Error("chain.ts must bind input public keys to UTXO owners (PIX-01)");
+  }
+  console.log("\u25b8 acceptBlock uses the owner-binding verifier (PIX-01) \u2713");
+
+  // PIX-12/22: the twin must not imply it verifies Pixel's native ML-DSA proofs.
+  const verifier = readFileSync(join(root, "contracts/ULAVerifier.sol"), "utf8");
+  if (!verifier.includes("IS_NATIVE_MLDSA_VERIFY = false")) {
+    throw new Error("ULAVerifier must declare IS_NATIVE_MLDSA_VERIFY = false (PIX-12)");
+  }
+  if (!/MSG_BITS = 256/.test(verifier)) {
+    throw new Error("ULAVerifier MSG_BITS must be 256 (PIX-12)");
+  }
+  console.log("\u25b8 on-chain twin: 256-bit OTS, relayer trust labelled (PIX-12) \u2713");
+
   const gate = readFileSync(join(root, "contracts/ULAOffchainMldsaGate.sol"), "utf8");
   if (!gate.includes("IS_FULL_MLDSA_VERIFY = false")) throw new Error("gate overclaims");
   if (!gate.includes("ML_DSA_ONCHAIN_PENDING")) throw new Error("missing pending revert");

@@ -55,7 +55,7 @@ async function main() {
     console.log("▸ tip canvas ✓", canvas.networkId, canvas.genesisHash.slice(0, 12) + "…");
 
     const person = await forgePersonalSource("erik");
-    const unlocked = await unlockPersonalSource(person.source);
+    const unlocked = await unlockPersonalSource(person.source, undefined, { freshWindow: true });
 
     // Fund pay face from tip sequencer (operator faucet — lab).
     await node.send(node.keypair, [{ address: person.source.address, amount: 40 }], {
