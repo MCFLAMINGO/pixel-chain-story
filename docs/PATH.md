@@ -206,6 +206,13 @@ Coders pick a stream via [`CONTRIBUTING.md`](./CONTRIBUTING.md). Non-coders: fie
 
 ---
 
+### Forbidden claim — RWA continuity
+
+A post-quantum attestation of an ECDSA-secured position does **not** make that
+position quantum-safe. Never claim "quantum-safe RWA", "PQ-protected holdings",
+or that ML-DSA secures assets held on a foreign chain. The honest claim is
+provenance that outlives the venue — see [`RWA-CONTINUITY.md`](./RWA-CONTINUITY.md).
+
 ## 5. Communication doctrine (so “non-coder toy” never sticks)
 
 1. **Lead with the runnable artifact** — CLI, tests, SPEC — then name the invention.
