@@ -147,6 +147,32 @@ Compromising it lets an attacker add a wrong digest that every other venue
 contradicts; it does not let them rewrite the past, because a height can only be
 written once.
 
+## Verifying — the half that matters
+
+Publishing is what the operator does. **Verifying is what a stranger does**, and
+it needs no account, no key, and no trust in the operator:
+
+```bash
+bun run anchor:verify -- --pixel 12 \
+  --anchors robinhood-testnet=0xABC…,ethereum-sepolia=0xDEF…
+```
+
+```
+✓ robinhood-testnet   matches      anchored 2026-08-05T17:41:43.000Z by 0xf39f…
+✓ ethereum-sepolia    matches      anchored 2026-08-05T17:44:02.000Z by 0xf39f…
+
+2/2 venues agree with the tip
+```
+
+Every read is `eth_call`. It exits non-zero when a venue diverges, holds nothing,
+or cannot be read, so it works as a scheduled divergence alarm rather than a
+manual ritual. Add `@rpcUrl` after a contract address to check a private or local
+endpoint without editing the registry.
+
+Divergence means one of two things, and both matter: the tip's history was
+rewritten, or a venue was handed a false digest. Neither can be quietly repaired,
+because heights are write-once.
+
 ## Evidence
 
 ```bash

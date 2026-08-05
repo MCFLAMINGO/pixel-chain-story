@@ -66,6 +66,7 @@
     "test:anchor": "bun scripts/anchor-selftest.ts",
     "test:anchor-evm": "bun scripts/anchor-evm-selftest.ts",
     "anchor:deploy": "bun scripts/anchor-deploy.ts",
+    "anchor:verify": "bun scripts/anchor-verify.ts",
     "test:lit-cell": "bun scripts/lit-cell-selftest.ts",
     "test:adversarial": "bun scripts/ext-audit-poc.ts && bun scripts/ext-audit-poc-bridge.ts",
     "test:wallet-bridge": "bun scripts/wallet-bridge-selftest.ts",
