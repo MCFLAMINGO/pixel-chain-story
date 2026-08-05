@@ -5,6 +5,7 @@
 
 import {
   PIX_HARD_CAP,
+  PIX_SCHEDULE_TOTAL,
   LIGHT_ERA_LENGTH,
   GENESIS_LIGHT_REWARD,
   lightReward,
@@ -26,17 +27,40 @@ import {
 async function main() {
   console.log("═══ SCALE / VALUE / BRIDGE THESIS ═══\n");
 
-  // 1) Bitcoin-grade scarcity math
+  // 1) Scarcity math — assert what the schedule MINTS, not a closed form we believe.
+  //    This test used to assert 50 * 210000 * 2 === 21_000_000, the sum of an
+  //    *infinite* halving series. The code halves in whole PIX, dies after six
+  //    halvings, and can only reach 20,370,000. Believing the formula is exactly
+  //    how a 630,000 PIX phantom stayed invisible. See docs/EMISSION.md.
   const thesis = valueThesis();
   if (thesis.cap !== 21_000_000) throw new Error("cap");
   if (lightReward(0) !== GENESIS_LIGHT_REWARD) throw new Error("genesis reward");
   if (lightReward(LIGHT_ERA_LENGTH) !== Math.floor(GENESIS_LIGHT_REWARD / 2)) {
     throw new Error("halving");
   }
-  // Sum of infinite halvings: 50 * 210000 * 2 = 21_000_000
-  const theoretical = GENESIS_LIGHT_REWARD * LIGHT_ERA_LENGTH * 2;
-  if (theoretical !== PIX_HARD_CAP) throw new Error(`schedule ${theoretical}`);
-  console.log("▸ 21M PIX hard cap + light eras ✓");
+
+  // The reachable total, stated rather than assumed.
+  if (PIX_SCHEDULE_TOTAL !== 20_370_000) {
+    throw new Error(`schedule total ${PIX_SCHEDULE_TOTAL}, expected 20,370,000`);
+  }
+  if (PIX_SCHEDULE_TOTAL >= PIX_HARD_CAP) throw new Error("cap must remain a ceiling");
+
+  // Closed-form mintedThrough must equal the per-pixel loop it replaced.
+  let loopTotal = 0;
+  for (let i = 0; i < 5_000; i++) {
+    loopTotal += lightReward(i);
+    if (mintedThrough(i + 1) !== loopTotal) {
+      throw new Error(`mintedThrough diverged from the loop at pixel ${i}`);
+    }
+  }
+  for (const n of [0, 209_999, 210_000, 210_001, 630_000, 1_890_000, 13_440_000]) {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += lightReward(i);
+    if (mintedThrough(n) !== s) throw new Error(`mintedThrough(${n}) diverged`);
+  }
+  console.log(
+    `▸ reachable supply ${PIX_SCHEDULE_TOTAL.toLocaleString()} of a ${PIX_HARD_CAP.toLocaleString()} ceiling ✓`,
+  );
   console.log(" ", thesis.analogy);
 
   // 2) Sovereignty diversity enforcement

@@ -41,6 +41,7 @@
     "test:audit-scope": "bun scripts/audit-scope-selftest.ts",
     "test:light": "bun scripts/light-client-selftest.ts",
     "test:bench": "bun scripts/bench-selftest.ts",
+    "bench:write": "PIXEL_WRITE_BENCH=1 bun scripts/bench-selftest.ts",
     "test:continuity-ops": "bun scripts/continuity-ops-selftest.ts",
     "test:chaos-drill": "bun scripts/chaos-drill-selftest.ts",
     "test:mcflamingo": "bun scripts/mcflamingo-continuity-demo.ts",

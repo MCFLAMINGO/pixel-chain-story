@@ -71,9 +71,21 @@ async function main() {
   lines.push("```");
   lines.push("");
 
+  /**
+   * Only rewrite the committed artifact on request.
+   *
+   * `test:bench` runs inside `test:all`, so writing unconditionally dirtied
+   * docs/BENCH.md on every full-suite run. The numbers are machine-specific and
+   * timestamped, so every parallel branch then conflicted on pure noise — three
+   * times in one afternoon. Refresh deliberately with `bun run bench:write`.
+   */
   const out = resolve("docs/BENCH.md");
-  writeFileSync(out, lines.join("\n"));
-  console.log("wrote", out);
+  if (process.env.PIXEL_WRITE_BENCH === "1") {
+    writeFileSync(out, lines.join("\n"));
+    console.log("wrote", out);
+  } else {
+    console.log(`(not writing ${out} — run \`bun run bench:write\` to refresh)`);
+  }
   for (const r of rows) {
     console.log(`  ${r.op}: avg=${r.avgMs}ms p95=${r.p95Ms}ms`);
   }
