@@ -191,6 +191,96 @@ present. One person with two screens defeats it. Until that gap closes, a
 presence-pegged supply is a design resting on an unsolved problem — which is
 worth stating plainly rather than discovering after issuance.
 
+### Decaying the earning rate instead of the stock
+
+The obvious humane amendment: let already-minted light be permanent, so illness or
+absence never erases a moment, and let only the _ability to mint_ lapse.
+
+Worked out, it abandons the peg. If minted light is permanent, supply is cumulative
+person-time — it rises linearly with time and never contracts, because deaths
+remove nothing already issued:
+
+| Horizon at a fixed population | Supply      |
+| ----------------------------- | ----------- |
+| 100 years                     | 2.99 × 10¹⁴ |
+| 200 years                     | 5.99 × 10¹⁴ |
+
+The population never changed, and supply doubled. "The light goes out" disappears
+entirely — the one property that made the census idea worth having.
+
+So the amendment is not free. One quantity cannot both track the living and
+preserve the dead.
+
+### Absence and fakery share one dial
+
+Worse, the half-life cannot be tuned to be gentle on people and harsh on farms,
+because decay cannot tell them apart. The rate at which it forgives an absent
+person is exactly the rate at which it charges a farm to stand still:
+
+| Half-life | 6 months absent | 1 year absent | Farm re-earns per year |
+| --------- | --------------- | ------------- | ---------------------- |
+| 1 year    | −29.29%         | −50.00%       | 50.00%                 |
+| 5 years   | −6.70%          | −12.94%       | 12.94%                 |
+| 20 years  | −1.72%          | −3.41%        | 3.41%                  |
+| 73 years  | −0.47%          | −0.95%        | 0.95%                  |
+
+Those last two columns are the same number, necessarily. Pick forgiveness and you
+have picked cheapness for hoarded fakes.
+
+Note the middle of that table is milder than the word "demurrage" suggests. At a
+five-year half-life, half a year away costs 6.7% — comparable to a couple of years
+of ordinary inflation, not confiscation.
+
+### What decay does not do
+
+An earlier framing of this — that decay turns Sybil from a one-time setup fee into
+a subscription — overstates it, and the correction matters because it changes where
+the defence has to come from.
+
+Decay bounds how much a farm can _accumulate_. It does nothing to the
+profitability of the marginal fake, which is set by reward against cost at any
+half-life. If faking one presence earns more than it costs, farming pays.
+
+|                          |                                      |
+| ------------------------ | ------------------------------------ |
+| $100 device over 3 years | **9.1¢ per identity-day**            |
+| reward above that        | farming pays, at any farm size       |
+| reward below that        | farming never pays, at any farm size |
+
+The sign is independent of scale, so "they would need thousands of phones" is not
+by itself a defence — thousands of phones is a purchase order, not a barrier.
+
+This is where the 24-hour fact earns its place. It is not only a supply bound: it
+is the cap that stops one device from serving many identities. Lift it and let a
+device fake a hundred presences a day, and the cost per identity collapses from
+9.1¢ to **0.09¢**, taking the whole security argument with it.
+
+So the design constraint is concrete: **the value of a day's emission per identity
+must sit below the daily cost of the cheapest device that can fake one.**
+
+### The split that keeps both properties
+
+The trap is treating record and money as one object. Only Bitcoin's design forces
+that, where a UTXO is simultaneously the history and the cash.
+
+Two quantities:
+
+- **Moments** — witnessed presence. Cumulative, permanent, non-transferable. It
+  grows forever, which is correct for a record and cheap to hold, since an unlit
+  pixel needs no power to keep its information. This repo already derives them in
+  `lit-cell.ts`.
+- **PIX** — the fungible claim. Decays, tracks living presence, rations the right
+  to write.
+
+Both properties then hold at once, which the selftest asserts: halving the
+population halves PIX, while the record of who was present is untouched by who is
+still here.
+
+What it buys is that absence costs **future income rather than memory**. Six months
+in hospital costs some PIX and not one moment you were actually present for. What
+it does not buy is exemption: the money side is still taxed at the rate that keeps
+hoarded fakes expensive. The dial is shared. Only its blast radius shrinks.
+
 ### Checking the arithmetic
 
 ```bash

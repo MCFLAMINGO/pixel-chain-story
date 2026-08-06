@@ -18,7 +18,14 @@
  * finding a design that never has to read them.
  */
 
-import { presencePegModel, presencePegThesis } from "../src/lib/pixel/presence-peg";
+import {
+  cumulativePresence,
+  decayDial,
+  presencePegModel,
+  presencePegThesis,
+  splitDesignThesis,
+  sybilEconomics,
+} from "../src/lib/pixel/presence-peg";
 
 function assert(cond: unknown, msg: string): void {
   if (!cond) {
@@ -116,6 +123,130 @@ console.log(
   `▸ +${(m.birthRate * 100).toFixed(2)}% births, −${(m.deathRate * 100).toFixed(2)}% deaths, ` +
     `net +${(m.netIssuance * 100).toFixed(2)}%/yr, negative after the peak ✓`,
 );
+
+// ── The follow-up question: decay the earning rate instead of the stock? ──
+//
+// The appeal is that memory should not evaporate because someone got sick. The
+// cost is that it abandons the property that made a census peg attractive.
+console.log("\n── permanent stock, lapsing earning rate ──");
+
+const cum100 = cumulativePresence({ years: 100 });
+const cum200 = cumulativePresence({ years: 200 });
+near(cum200 / cum100, 2, 1e-9, "cumulative supply must be linear in time");
+assert(
+  cumulativePresence({ years: 100, population: 2 * m.population }) === 2 * cum100,
+  "cumulative supply scales with people too, but that is not a peg",
+);
+// A peg means the supply follows the population *down*. Cumulative supply cannot:
+// at a fixed population it keeps rising, so time alone breaks the relationship.
+assert(
+  cum200 > cum100,
+  "with the population unchanged, supply still grows — so it is not pegged to it",
+);
+console.log(
+  `▸ 100y → ${cum100.toExponential(2)}, 200y → ${cum200.toExponential(2)} at fixed population ✓`,
+);
+console.log("▸ so a permanent stock is NOT a population peg: deaths remove nothing ✓");
+
+// ── One dial, pulling both ways ──
+console.log("\n── the half-life dial ──");
+for (const halfLifeYears of [1, 5, 20, 73]) {
+  const d = decayDial(halfLifeYears);
+  // Decay cannot distinguish an absent person from a farm standing still, so the
+  // rate it forgives one at is the rate it charges the other.
+  near(
+    d.sybilCarryPerYear,
+    d.annualDecay,
+    1e-9,
+    `half-life ${halfLifeYears}y: absence penalty must equal the carrying cost`,
+  );
+  near(
+    d.absencePenalty(12),
+    d.annualDecay,
+    1e-9,
+    `half-life ${halfLifeYears}y: 12 months absent must equal one year of decay`,
+  );
+  console.log(
+    `  ${String(halfLifeYears).padStart(2)}y half-life: 6mo absent −${(d.absencePenalty(6) * 100).toFixed(2)}%, ` +
+      `1y absent −${(d.annualDecay * 100).toFixed(2)}%, farm re-earns ${(d.sybilCarryPerYear * 100).toFixed(2)}%/yr`,
+  );
+}
+assert(
+  decayDial(1).annualDecay > decayDial(73).annualDecay,
+  "a shorter half-life must tax absence harder",
+);
+assert(
+  decayDial(1).sybilCarryPerYear > decayDial(73).sybilCarryPerYear,
+  "and must also make hoarded fakes more expensive — the same dial, both directions",
+);
+console.log("▸ forgiving absence and taxing fakes are one dial, not two ✓");
+
+// ── What decay does NOT do ──
+//
+// Correcting an overstatement: decay bounds what a farm can accumulate, but the
+// marginal fake's profitability is set by reward against cost, at any half-life.
+console.log("\n── does decay make faking unprofitable? ──");
+const econ = sybilEconomics({ deviceCost: 100, deviceLifetimeYears: 3 });
+near(econ.costPerIdentityPerDay, 0.0913, 0.02, "a $100 phone over 3 years costs ~9c/day");
+
+// Scale-invariant: the sign of the profit does not depend on farm size, so
+// "they'd need thousands of phones" is not by itself a defence.
+for (const identities of [1, 1_000, 1_000_000]) {
+  assert(
+    econ.farmProfitPerDay({ identities, rewardValuePerIdentityDay: 0.5 }) > 0,
+    `a reward above cost pays a farm of ${identities}`,
+  );
+  assert(
+    econ.farmProfitPerDay({ identities, rewardValuePerIdentityDay: 0.01 }) < 0,
+    `a reward below cost never pays, at any size`,
+  );
+}
+console.log(
+  `▸ breakeven is ${(econ.breakevenRewardPerIdentityDay * 100).toFixed(1)}c per identity-day, ` +
+    "and the sign is independent of farm size ✓",
+);
+
+// The 24-hour cap is what keeps that cost from collapsing: without it one device
+// serves many identities and the cost per presence goes to nothing.
+const uncapped = sybilEconomics({
+  deviceCost: 100,
+  deviceLifetimeYears: 3,
+  presencesPerDevicePerDay: 100,
+});
+assert(
+  uncapped.costPerIdentityPerDay < econ.costPerIdentityPerDay / 50,
+  "without a per-identity daily cap the cost of faking collapses",
+);
+console.log(
+  `▸ lift the daily cap and faking falls to ${(uncapped.costPerIdentityPerDay * 100).toFixed(2)}c — ` +
+    "the 24-hour bound is what gives cost its floor ✓",
+);
+
+// ── The split that keeps both properties ──
+console.log("\n── record and money as separate quantities ──");
+const momentsAt = (years: number) => cumulativePresence({ years });
+assert(momentsAt(50) > momentsAt(10), "moments accumulate and are never destroyed");
+const pixNow = m.steadySupply({ halfLifeYears: 5, renewalsPerPersonPerDay: 1 });
+const pixHalfGone = m.steadySupply({
+  halfLifeYears: 5,
+  renewalsPerPersonPerDay: 1,
+  population: m.population / 2,
+});
+near(pixHalfGone / pixNow, 0.5, 1e-9, "the fungible side must halve when the people halve");
+assert(
+  momentsAt(50) === cumulativePresence({ years: 50 }),
+  "while the record is untouched by who is still here",
+);
+console.log("▸ moments permanent and PIX population-pegged, simultaneously ✓");
+console.log("▸ absence costs future income; it never erases a witnessed moment ✓");
+
+const split = splitDesignThesis();
+console.log(`\nproblem:      ${split.problem}`);
+console.log(`split:        ${split.split}`);
+console.log(`moments:      ${split.moments}`);
+console.log(`pix:          ${split.pix}`);
+console.log(`keeps:        ${split.keeps}`);
+console.log(`still costs:  ${split.stillCosts}`);
 
 const t = presencePegThesis();
 console.log(`\nbuildable:    ${t.buildable}`);
