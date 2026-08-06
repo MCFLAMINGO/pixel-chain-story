@@ -46,6 +46,18 @@ async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T
   return body.result;
 }
 
+function assertAddress(value: string, label: string): string {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
+    die(
+      `${label} is not an address: "${value}"\n` +
+        "  Expected 0x followed by 40 hex characters.\n" +
+        "  If that looks like a placeholder, deploy to the venue first:\n" +
+        "    bun run anchor:deploy -- --venue <id> --pixel <n>",
+    );
+  }
+  return value;
+}
+
 type Row = {
   venue: VenueId;
   contract: string;
@@ -76,6 +88,7 @@ async function main(): Promise<void> {
     if (!VENUE_CHAINS[venue as VenueId]) {
       die(`unknown venue "${venue}" — one of ${Object.keys(VENUE_CHAINS).join(", ")}`);
     }
+    assertAddress(contract, `contract for ${venue}`);
     return { venue: venue as VenueId, contract, rpcUrl: perVenueRpc ?? rpcOverride };
   });
 

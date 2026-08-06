@@ -170,6 +170,9 @@ async function main(): Promise<void> {
 
   // 5. Deploy or reuse.
   let contract = flag("contract");
+  if (contract && !/^0x[0-9a-fA-F]{40}$/.test(contract)) {
+    die(`--contract is not an address: "${contract}" (expected 0x + 40 hex chars)`);
+  }
   if (!contract) {
     const out = sh(`${FOUNDRY}/forge`, [
       "create",
