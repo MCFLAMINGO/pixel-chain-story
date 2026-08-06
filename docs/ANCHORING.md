@@ -58,13 +58,13 @@ export interface AnchorVenue {
 Verified 2026-08-05. Every entry is **witness-only**: the venue stores a 32-byte
 digest and a timestamp, cannot forge an anchor, and holds nothing to seize.
 
-| Venue | Chain ID | Sequencer | Note |
-| --- | --- | --- | --- |
-| `robinhood-testnet` | 46630 | centralized | Arbitrum Orbit L2 for tokenized equities |
-| `robinhood-mainnet` | 4663 | centralized | operator can reorder or censor; cannot forge |
-| `base-sepolia` | 84532 | centralized | OP Stack testnet |
-| `base-mainnet` | 8453 | centralized | OP Stack L2 |
-| `ethereum-sepolia` | 11155111 | decentralized | slowest, cheapest independence check |
+| Venue               | Chain ID | Sequencer     | Note                                         |
+| ------------------- | -------- | ------------- | -------------------------------------------- |
+| `robinhood-testnet` | 46630    | centralized   | Arbitrum Orbit L2 for tokenized equities     |
+| `robinhood-mainnet` | 4663     | centralized   | operator can reorder or censor; cannot forge |
+| `base-sepolia`      | 84532    | centralized   | OP Stack testnet                             |
+| `base-mainnet`      | 8453     | centralized   | OP Stack L2                                  |
+| `ethereum-sepolia`  | 11155111 | decentralized | slowest, cheapest independence check         |
 
 A centralized sequencer is acceptable **for witnessing** — the worst it can do is
 refuse or delay a hash everyone can see is missing. It is not acceptable as a
@@ -89,13 +89,13 @@ critical path of a project that just finished removing hand-rolled crypto.
 
 `PixelAnchor.sol` is deliberately small:
 
-| Property | Mechanism |
-| --- | --- |
-| Append-only | A height is written once; re-anchoring reverts `AlreadyAnchored` |
-| Permissioned writes | `setAnchorer` is owner-only, additions timelocked, revocation immediate |
-| Two-step ownership | `transferOwnership` → `acceptOwnership` |
-| Self-consistent | The digest is computed on-chain from the submitted values, so storage and event cannot disagree |
-| Cheap | ~98k gas for the first anchor at a height |
+| Property            | Mechanism                                                                                       |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| Append-only         | A height is written once; re-anchoring reverts `AlreadyAnchored`                                |
+| Permissioned writes | `setAnchorer` is owner-only, additions timelocked, revocation immediate                         |
+| Two-step ownership  | `transferOwnership` → `acceptOwnership`                                                         |
+| Self-consistent     | The digest is computed on-chain from the submitted values, so storage and event cannot disagree |
+| Cheap               | ~98k gas for the first anchor at a height                                                       |
 
 Append-only matters most: a stolen anchorer key cannot revise the past, only
 add to the future — and the future is comparable against every other venue.
@@ -113,7 +113,7 @@ import {
 const record = buildAnchorFromState(state);
 const { published, failures } = await publishToAll(record, venues);
 
-const agreement = compareVenues(published);   // do the venues agree?
+const agreement = compareVenues(published); // do the venues agree?
 const check = verifyAnchorAgainstChain(record, state); // does our history agree?
 ```
 
@@ -157,6 +157,12 @@ bun run anchor:verify -- --pixel 12 \
   --anchors robinhood-testnet=0xABC…,ethereum-sepolia=0xDEF…
 ```
 
+Or, using the addresses committed in `anchors.json`:
+
+```bash
+bun run anchor:verify
+```
+
 ```
 ✓ robinhood-testnet   matches      anchored 2026-08-05T17:41:43.000Z by 0xf39f…
 ✓ ethereum-sepolia    matches      anchored 2026-08-05T17:44:02.000Z by 0xf39f…
@@ -173,13 +179,45 @@ Divergence means one of two things, and both matter: the tip's history was
 rewritten, or a venue was handed a false digest. Neither can be quietly repaired,
 because heights are write-once.
 
+## Staying anchored
+
+The deployed addresses live in `anchors.json`, so verification needs no
+arguments at all:
+
+```bash
+bun run anchor:verify
+```
+
+Anchoring one height proves that height and nothing after it. `.github/workflows/anchor.yml`
+runs every six hours, anchors the current tip to every venue in `anchors.json`,
+and then runs the keyless verify. Publishing needs the `ANCHOR_PRIVATE_KEY`
+repository secret; the verify step runs regardless, because the whole point is
+that checking requires no permission.
+
+A height has exactly three outcomes, decided by `anchorAction()`:
+
+| Outcome            | Meaning                          | Run                              |
+| ------------------ | -------------------------------- | -------------------------------- |
+| `publish`          | height is empty                  | anchors, then verifies keylessly |
+| `already-anchored` | venue holds the same digest      | no-op, exits clean               |
+| `divergence`       | venue holds a _different_ digest | halts and reports both digests   |
+
+Two consequences follow. A repeated run is a no-op rather than a failure, so the
+schedule is safe and the already-anchored check runs before the key and balance
+checks — a run with nothing to publish needs no funded key. And divergence stops
+the run instead of retrying, because a write-once height cannot be corrected by
+publishing again.
+
 ## Evidence
 
 ```bash
 bun run test:anchor      # portable digest, append-only, rewrite + disagreement detection
+bun run test:anchor-evm  # venue adapter on anvil, including a real divergence
 forge test --match-contract PixelAnchorTest
 ```
 
 The selftest deploys `PixelAnchor` on anvil and asserts that Solidity and
 TypeScript compute the identical digest, then that the contract accepts the real
-tip and rejects a rewritten one.
+tip and rejects a rewritten one. `test:anchor-evm` goes further and publishes a
+false digest to a live anvil height, confirming the alarm fires there rather than
+only in an abstract assertion.

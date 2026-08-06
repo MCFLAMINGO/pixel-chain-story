@@ -28,7 +28,12 @@ import {
   venueConfig,
   venueSetWarnings,
 } from "../src/lib/pixel/anchor-venues";
-import { anchorDigest, buildAnchorFromState, compareVenues } from "../src/lib/pixel/anchor";
+import {
+  anchorAction,
+  anchorDigest,
+  buildAnchorFromState,
+  compareVenues,
+} from "../src/lib/pixel/anchor";
 import { createGenesis, proposeTransfer, sequenceBlock } from "../src/lib/pixel/chain";
 import { generatePixelKeypair } from "../src/lib/pixel/scheme";
 
@@ -186,6 +191,19 @@ async function main(): Promise<void> {
     const agreement = compareVenues([published, { ...published, venueId: "second-reader" }]);
     assert(agreement.agreed, "identical digests must agree");
     console.log("▸ independent readers agree on the same digest ✓");
+
+    // A venue holding someone else's digest at our height is the case that
+    // cannot be fixed by publishing again. Create it for real and confirm the
+    // alarm fires rather than a silent re-anchor attempt.
+    const falseHeight = live.pixelIndex + 1;
+    const falseRecord = { ...live, pixelIndex: falseHeight, tipHash: "ab".repeat(64) };
+    await evmAnchorVenue(config).publish(falseRecord);
+    const stale = await readAnchor(readOnly, live.networkId, falseHeight);
+    const alarm = anchorAction(stale, anchorDigest({ ...falseRecord, tipHash: "cd".repeat(64) }));
+    assert(alarm.action === "divergence", `expected divergence, got ${alarm.action}`);
+    const benign = anchorAction(stale, anchorDigest(falseRecord));
+    assert(benign.action === "already-anchored", "the honest re-run must stay a no-op");
+    console.log("▸ live divergence detected; an honest re-run is still a no-op ✓");
   } finally {
     if (anvil?.pid) {
       try {

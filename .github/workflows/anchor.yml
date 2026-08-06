@@ -1,0 +1,58 @@
+name: anchor
+
+# Anchoring once is a demo; anchoring on a schedule is the mechanism. A single
+# pinned height only proves that height. This keeps the crowned tip continuously
+# published to independent venues and fails loudly if any of them disagree.
+on:
+  schedule:
+    # Every 6 hours. The tip advances slowly, and re-runs are no-ops.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      pixel:
+        description: "Height to anchor (blank = current tip)"
+        required: false
+
+concurrency:
+  # Never race two anchor runs: heights are write-once.
+  group: anchor
+  cancel-in-progress: false
+
+jobs:
+  anchor:
+    runs-on: ubuntu-latest
+    env:
+      # A step's `if` is evaluated before its own `env`, so the presence of the
+      # secret has to be resolved at job level.
+      HAS_ANCHOR_KEY: ${{ secrets.ANCHOR_PRIVATE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      # Publishing needs the key. Verification deliberately does not.
+      - name: Anchor the tip
+        if: env.HAS_ANCHOR_KEY == 'true'
+        env:
+          ANCHOR_PRIVATE_KEY: ${{ secrets.ANCHOR_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          PIXEL_ARG=""
+          if [ -n "${{ github.event.inputs.pixel }}" ]; then
+            PIXEL_ARG="--pixel ${{ github.event.inputs.pixel }}"
+          fi
+          for VENUE in $(bun -e 'console.log(Object.keys(require("./anchors.json").venues).join(" "))'); do
+            echo "── $VENUE ──"
+            bun run anchor:deploy -- --venue "$VENUE" $PIXEL_ARG
+          done
+
+      # Runs even without the secret: anyone can verify, which is the point.
+      - name: Verify every venue agrees
+        run: bun run anchor:verify

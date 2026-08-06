@@ -25,6 +25,7 @@ import {
   publishToAll,
   verifyAnchorAgainstChain,
   type PublishedAnchor,
+  anchorAction,
 } from "../src/lib/pixel/anchor";
 import {
   createGenesis,
@@ -84,6 +85,34 @@ async function main(): Promise<void> {
   }
   assert(widthRejected, "short digest must be rejected, never padded");
   console.log("▸ non-canonical digest width rejected ✓");
+
+  // A scheduled run has exactly three options at a height, and one of them is
+  // an alarm that publishing again cannot fix.
+  const D1 = "aa".repeat(32);
+  const D2 = "bb".repeat(32);
+  assert(
+    anchorAction({ empty: true, digest: "00".repeat(32), anchoredAtSec: 0 }, D1).action ===
+      "publish",
+    "an empty height must be publishable",
+  );
+  const same = anchorAction({ empty: false, digest: D1, anchoredAtSec: 1_700_000_000 }, D1);
+  assert(same.action === "already-anchored", "a matching digest must be a no-op");
+  assert(
+    same.action === "already-anchored" && same.anchoredAtSec === 1_700_000_000,
+    "the no-op must carry the original timestamp",
+  );
+  assert(
+    anchorAction({ empty: false, digest: D1.toUpperCase(), anchoredAtSec: 1 }, D1).action ===
+      "already-anchored",
+    "digest comparison must not depend on hex case",
+  );
+  const diverged = anchorAction({ empty: false, digest: D2, anchoredAtSec: 1 }, D1);
+  assert(diverged.action === "divergence", "a different digest at one height must be an alarm");
+  assert(
+    diverged.action === "divergence" && diverged.onVenue === D2 && diverged.local === D1,
+    "the alarm must name both digests",
+  );
+  console.log("▸ publish / no-op / divergence are the only three outcomes ✓");
 
   // 2. Anchor a real chain to several venues.
   const state = await labChain();

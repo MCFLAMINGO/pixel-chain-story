@@ -13,6 +13,7 @@
  * run on a schedule as a divergence alarm rather than a manual ritual.
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import { anchorDigest, type PixelAnchorRecord } from "../src/lib/pixel/anchor";
 import { readAnchor, verifyOnChain } from "../src/lib/pixel/anchor-evm";
 import {
@@ -22,6 +23,7 @@ import {
   type VenueId,
 } from "../src/lib/pixel/anchor-venues";
 
+const ANCHORS_FILE = "anchors.json";
 const DEFAULT_TIP = "https://pixel-tip-production.up.railway.app";
 
 function flag(name: string): string | undefined {
@@ -66,12 +68,24 @@ type Row = {
 };
 
 async function main(): Promise<void> {
-  const anchorsArg = flag("anchors");
+  // Default to anchors.json. Pasting addresses on the command line is how a
+  // placeholder ends up being sent to an RPC as if it were an address.
+  let anchorsArg = flag("anchors");
   if (!anchorsArg) {
-    die(
-      "--anchors is required.\n" +
-        "  bun run anchor:verify -- --pixel 12 --anchors robinhood-testnet=0xABC,ethereum-sepolia=0xDEF",
-    );
+    if (!existsSync(ANCHORS_FILE)) {
+      die(
+        `no --anchors given and ${ANCHORS_FILE} not found.\n` +
+          "  Either commit the deployed addresses to anchors.json, or pass\n" +
+          "  --anchors venue=0xADDRESS[,venue=0xADDRESS]",
+      );
+    }
+    const cfg = JSON.parse(readFileSync(ANCHORS_FILE, "utf8")) as {
+      venues?: Record<string, string>;
+    };
+    const entries = Object.entries(cfg.venues ?? {});
+    if (entries.length === 0) die(`${ANCHORS_FILE} lists no venues`);
+    anchorsArg = entries.map(([v, c]) => `${v}=${c}`).join(",");
+    console.log(`anchors ${ANCHORS_FILE} (${entries.length} venues)`);
   }
   const pairs = anchorsArg
     .split(",")
