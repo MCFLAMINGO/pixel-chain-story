@@ -281,6 +281,95 @@ in hospital costs some PIX and not one moment you were actually present for. Wha
 it does not buy is exemption: the money side is still taxed at the rate that keeps
 hoarded fakes expensive. The dial is shared. Only its blast radius shrinks.
 
+### Retiring the half-life
+
+Everything above about decay was solving a problem that death already solves.
+
+When someone dies their keys go silent and their coins stop moving. The supply
+goes dark on its own. The ledger simply never says so — Bitcoin's stated supply
+counts millions of coins nobody can reach, and that number is a polite fiction
+rather than a measurement.
+
+Demurrage reports the same fact by destroying value. Measuring reports it for
+free. So the honest form of "the light goes out" is a **statistic, not a rule**:
+
+```bash
+bun run test:lit-supply
+```
+
+An output's age is the time since it last moved, because spending an output
+creates new ones. `litSupplyReport()` splits the supply into what is still moving
+and what has gone quiet, in age bands that partition it exactly. Nothing is taxed,
+no balance changes, and the same chain read two years later reports 0% lit with its
+nominal supply untouched — the measurement is a view, not a mechanism.
+
+That removes the whole absence/fakery dial. Nobody is punished for being away,
+because nothing is taken from anyone.
+
+**Honest limit:** unreachable and merely patient are indistinguishable. A
+long-term holder reads as dark. This is a liveness statistic, not a claim about
+who is alive.
+
+### The Sybil problem was created by emission, not by presence
+
+The earlier worry — that presence gating issuance means manufacturing identities
+manufactures money — has emission as its load-bearing assumption.
+
+A thousand phones producing transactions that nobody wanted is not farming. It is
+paying fees to write noise into a record nobody reads. It only becomes farming if
+the protocol pays more for a transaction than the transaction costs.
+
+Which gives a single rule that removes the problem rather than defending against
+it:
+
+> **The protocol must never pay more for a transaction than the transaction costs.**
+
+Under that rule the presence seal does not have to be unforgeable, because forging
+it buys nothing. That matters, because the seal currently checks a self-declared
+string field and cannot be made unforgeable in software anyway.
+
+### Brightness is the honest reading
+
+Real transactions are what a business wants regardless. A shop with a hundred
+transactions a day lights a hundred moments, and burns brighter than a large
+dormant balance — `addressBrightness()` counts what moved, not what is held.
+
+This cannot be faked cheaply, and not because identity is verified. Every
+transaction counted had to be paid for. Looking busy costs exactly what being busy
+costs, which is the same reason proof of work is credible, without the electricity.
+
+### Money and existence are the same object
+
+The earlier proposal to split the record from the money is unnecessary, and the
+reason is the lifecycle rather than the cryptography.
+
+A coin is money while its owner can spend it, and a record once they cannot.
+Nobody needs money when they are dead, and nobody needs to prove they exist every
+day in monetary form. The role changes on its own, with no mechanism, no oracle,
+and no decay — a UTXO is spendable value now and a monument afterwards. Bitcoin's
+genesis 50 BTC is already exactly this: unspendable, and therefore purely a record.
+
+So: **one object, two roles, and the transition is death.** That is what the
+supply measurement above is reading when it separates lit from dark.
+
+### What is left to decide
+
+| Decided                  |                                                                       |
+| ------------------------ | --------------------------------------------------------------------- |
+| Record vs money          | one object; the role changes at death, no split needed                |
+| Tracking living presence | measured (`litSupplyReport`), never enforced                          |
+| Demurrage / half-life    | **rejected** — punishes absence to report what dormancy already shows |
+| Sybil defence            | emission ≤ transaction cost, so forging presence buys nothing         |
+
+| Still open           |                                                                          |
+| -------------------- | ------------------------------------------------------------------------ |
+| Emission schedule    | still the inherited halving, still 20,370,000 of a stated 21,000,000     |
+| Initial distribution | with emission capped at cost, how does a new person get their first PIX? |
+
+That second one is the live problem this analysis creates. Capping emission at the
+cost of a transaction removes the farming incentive and, with it, the mechanism by
+which anyone acquires PIX without buying it from someone who already has some.
+
 ### Checking the arithmetic
 
 ```bash
