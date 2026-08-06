@@ -187,6 +187,34 @@ export async function readAnchor(
   return decodeAnchorAt(data);
 }
 
+/**
+ * The newest height this venue holds, or null when it holds nothing.
+ *
+ * Anchoring is periodic, so most heights are never anchored and asking "is the
+ * current tip anchored?" is normally answered "no" on a perfectly healthy venue.
+ * The answerable question is what the venue's latest claim is.
+ */
+export async function readHighestAnchored(
+  config: EvmVenueConfig,
+  networkId: number,
+): Promise<number | null> {
+  const data = await rpc<string>(config.rpcUrl, "eth_call", [
+    {
+      to: config.contract,
+      data: `0x${bytesToHex(concat([selector("highestAnchored(uint64)"), word(networkId)]))}`,
+    },
+    "latest",
+  ]);
+  const height = Number(BigInt(data));
+  // Height 0 is genesis and indistinguishable from "unset" in a uint64 mapping,
+  // so confirm with the anchor itself rather than guessing from the number.
+  if (height === 0) {
+    const genesis = await readAnchor(config, networkId, 0);
+    return genesis.empty ? null : 0;
+  }
+  return height;
+}
+
 /** Ask the chain whether this exact record is what was published. */
 export async function verifyOnChain(
   config: EvmVenueConfig,

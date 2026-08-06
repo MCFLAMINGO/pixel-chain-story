@@ -188,6 +188,31 @@ arguments at all:
 bun run anchor:verify
 ```
 
+### What verify asks
+
+Anchoring is periodic, so **most heights are never anchored** — that is the design,
+not a fault. Asking "is the current tip anchored?" is therefore normally answered
+"no" on a perfectly healthy venue, and a monitor that failed on it would be red
+almost always, which trains you to ignore it.
+
+So with no arguments, verify holds each venue to _its own newest claim_: the
+latest height it anchored, checked against local history. It then states how far
+the tip has advanced past that, because that is where the guarantee stops.
+
+| Reported      | Meaning                                                                               |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `matches`     | the venue's newest anchor still agrees with local history                             |
+| `diverges`    | the venue holds a different digest — alarm, unfixable                                 |
+| `absent`      | the venue holds nothing at all, or nothing at a height you named                      |
+| `stale`       | everything agrees, but the newest anchor is older than `--max-age-hours` (default 48) |
+| `unreachable` | the RPC could not be read                                                             |
+
+`stale` exists because agreement alone is not health. A publisher that runs out
+of gas leaves perfectly matching anchors behind it, and every venue keeps saying
+`matches` forever while nothing new is witnessed. Age is what catches that.
+
+Pass `--pixel N` to ask about one specific height instead.
+
 Anchoring one height proves that height and nothing after it. `.github/workflows/anchor.yml`
 runs every six hours, anchors the current tip to every venue in `anchors.json`,
 and then runs the keyless verify. Publishing needs the `ANCHOR_PRIVATE_KEY`
