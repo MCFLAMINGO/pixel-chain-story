@@ -22,7 +22,9 @@ import {
   DAY_MS,
   litSupplyReport,
   litSupplyThesis,
+  type LitSupplyReport,
 } from "../src/lib/pixel/lit-supply";
+import { handlePixelRpc } from "../src/lib/pixel/rpc";
 import { generatePixelKeypair } from "../src/lib/pixel/scheme";
 
 function assert(cond: unknown, msg: string): void {
@@ -128,6 +130,38 @@ assert(
   "bob's balance must be untouched by any measurement",
 );
 console.log("▸ no balance altered — the light goes out without anything being taken ✓");
+
+// 6. Reachable over JSON-RPC, so a stranger can read the dark without running a
+//    node or trusting our summary of it.
+console.log("\n── over RPC ──");
+const ctx = { chain: state, networkId: state.networkId, clientVersion: "selftest" };
+const call = async (method: string, params: unknown[] = []) =>
+  handlePixelRpc(ctx, { jsonrpc: "2.0", id: 1, method, params });
+
+const litRes = (await call("pix_getLitSupply")) as { result?: LitSupplyReport };
+assert(litRes.result, "pix_getLitSupply must return a result");
+assert(
+  litRes.result!.nominalSupply === relit.nominalSupply,
+  "RPC must report the same supply as the library",
+);
+assert(litRes.result!.bands.length > 0, "RPC must include the age bands");
+
+const windowed = (await call("pix_getLitSupply", [7])) as { result?: LitSupplyReport };
+assert(windowed.result!.windowDays === 7, "the window must be settable over RPC");
+
+const brightRes = (await call("pix_getBrightness", [bob.address])) as {
+  result?: { moments: number };
+};
+assert(brightRes.result!.moments === bobBright.moments, "RPC brightness must match the library");
+
+// Bad input must be refused rather than silently coerced.
+for (const bad of [[0], [-5], ["nonsense"]]) {
+  const res = (await call("pix_getLitSupply", bad)) as { error?: { code: number } };
+  assert(res.error?.code === -32602, `windowDays ${JSON.stringify(bad[0])} must be rejected`);
+}
+const noAddress = (await call("pix_getBrightness", [""])) as { error?: { code: number } };
+assert(noAddress.error?.code === -32602, "brightness without an address must be rejected");
+console.log("▸ pix_getLitSupply and pix_getBrightness serve it, and refuse bad input ✓");
 
 const t = litSupplyThesis();
 console.log(`\ninstead of:   ${t.instead}`);

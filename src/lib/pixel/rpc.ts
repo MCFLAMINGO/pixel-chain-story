@@ -229,6 +229,30 @@ export async function handlePixelRpc(
         const { emissionInfo } = await import("./economics");
         return ok(id, emissionInfo(ctx.chain.pixels.length));
       }
+      case "pix_getLitSupply": {
+        // How much of the supply is still moving. Reported, never enforced —
+        // see docs/EMISSION.md on why this replaces a decay rule.
+        const { litSupplyReport, litSupplyThesis } = await import("./lit-supply");
+        const windowDays = params[0] === undefined ? undefined : Number(params[0]);
+        if (windowDays !== undefined && (!Number.isFinite(windowDays) || windowDays <= 0)) {
+          throw rpcError(-32602, "windowDays must be a positive number");
+        }
+        return ok(id, {
+          ...litSupplyReport(ctx.chain, { windowDays }),
+          thesis: litSupplyThesis(),
+        });
+      }
+      case "pix_getBrightness": {
+        // What an address moved, not what it holds.
+        const { addressBrightness } = await import("./lit-supply");
+        const address = String(params[0] ?? "");
+        if (!address) throw rpcError(-32602, "address required");
+        const windowDays = params[1] === undefined ? undefined : Number(params[1]);
+        if (windowDays !== undefined && (!Number.isFinite(windowDays) || windowDays <= 0)) {
+          throw rpcError(-32602, "windowDays must be a positive number");
+        }
+        return ok(id, { address, ...addressBrightness(ctx.chain, address, { windowDays }) });
+      }
       case "pix_getSovereigntyPolicy": {
         const { SOVEREIGNTY_POLICY, sovereigntyThesis } = await import("./sovereignty");
         return ok(id, { policy: SOVEREIGNTY_POLICY, thesis: sovereigntyThesis() });
