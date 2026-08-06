@@ -20,6 +20,7 @@ import {
   encodeMatchesCall,
   evmAnchorVenue,
   readAnchor,
+  readHighestAnchored,
   verifyOnChain,
 } from "../src/lib/pixel/anchor-evm";
 import {
@@ -192,6 +193,18 @@ async function main(): Promise<void> {
     assert(agreement.agreed, "identical digests must agree");
     console.log("▸ independent readers agree on the same digest ✓");
 
+    // Anchoring is periodic, so the answerable question is "what is your newest
+    // claim?" — not "is my current tip anchored?", which is normally no.
+    assert(
+      (await readHighestAnchored(readOnly, live.networkId)) === live.pixelIndex,
+      "the newest anchored height must be readable",
+    );
+    assert(
+      (await readHighestAnchored(readOnly, live.networkId + 999)) === null,
+      "a network with no anchors must report null, not height 0",
+    );
+    console.log("▸ newest anchored height reads back; an unanchored network reads null ✓");
+
     // A venue holding someone else's digest at our height is the case that
     // cannot be fixed by publishing again. Create it for real and confirm the
     // alarm fires rather than a silent re-anchor attempt.
@@ -203,6 +216,10 @@ async function main(): Promise<void> {
     assert(alarm.action === "divergence", `expected divergence, got ${alarm.action}`);
     const benign = anchorAction(stale, anchorDigest(falseRecord));
     assert(benign.action === "already-anchored", "the honest re-run must stay a no-op");
+    assert(
+      (await readHighestAnchored(readOnly, live.networkId)) === falseHeight,
+      "the newest claim must follow the highest anchored height",
+    );
     console.log("▸ live divergence detected; an honest re-run is still a no-op ✓");
   } finally {
     if (anvil?.pid) {

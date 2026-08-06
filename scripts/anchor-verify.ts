@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { anchorDigest, type PixelAnchorRecord } from "../src/lib/pixel/anchor";
-import { readAnchor, verifyOnChain } from "../src/lib/pixel/anchor-evm";
+import { readAnchor, readHighestAnchored, verifyOnChain } from "../src/lib/pixel/anchor-evm";
 import {
   VENUE_CHAINS,
   venueConfig,
@@ -24,6 +24,8 @@ import {
 } from "../src/lib/pixel/anchor-venues";
 
 const ANCHORS_FILE = "anchors.json";
+/** Generous next to a 6h schedule: only a properly stopped publisher trips it. */
+const DEFAULT_MAX_AGE_HOURS = 48;
 const DEFAULT_TIP = "https://pixel-tip-production.up.railway.app";
 
 function flag(name: string): string | undefined {
@@ -63,7 +65,9 @@ function assertAddress(value: string, label: string): string {
 type Row = {
   venue: VenueId;
   contract: string;
-  status: "matches" | "diverges" | "absent" | "unreachable";
+  status: "matches" | "diverges" | "absent" | "stale" | "unreachable";
+  /** Heights the tip has advanced past this venue's newest claim. */
+  behind?: number;
   detail: string;
 };
 
@@ -107,6 +111,7 @@ async function main(): Promise<void> {
   });
 
   const tipUrl = flag("tip") ?? DEFAULT_TIP;
+  const maxAgeHours = Number(flag("max-age-hours") ?? DEFAULT_MAX_AGE_HOURS);
   console.log("═══ ANCHOR VERIFY ═══\n");
   console.log(`tip     ${tipUrl}`);
 
@@ -126,33 +131,65 @@ async function main(): Promise<void> {
   for (const { venue, contract, rpcUrl } of targets) {
     const config = venueConfig({ venue, contract, rpcUrl });
     try {
-      const onChain = await readAnchor(config, record.networkId, record.pixelIndex);
+      // Which height to hold this venue to. Anchoring is periodic, so an
+      // unanchored height is the normal case rather than a fault; when no height
+      // is named, hold the venue to its own newest claim instead.
+      let height = record.pixelIndex;
+      let target = record;
+      if (pixel === undefined) {
+        const newest = await readHighestAnchored(config, record.networkId);
+        if (newest === null) {
+          rows.push({ venue, contract, status: "absent", detail: "venue holds no anchors at all" });
+          continue;
+        }
+        height = newest;
+        target =
+          newest === record.pixelIndex
+            ? record
+            : await rpc<PixelAnchorRecord>(tipUrl, "pix_getTipAnchor", [newest]);
+      }
+
+      const onChain = await readAnchor(config, record.networkId, height);
       if (onChain.empty) {
-        rows.push({
-          venue,
-          contract,
-          status: "absent",
-          detail: `nothing anchored at #${record.pixelIndex}`,
-        });
+        rows.push({ venue, contract, status: "absent", detail: `nothing anchored at #${height}` });
         continue;
       }
+
       // Ask the contract itself, so the comparison is not ours to get wrong.
-      const ok = await verifyOnChain(config, record);
+      const want = anchorDigest(target);
+      const ok = (await verifyOnChain(config, target)) && onChain.digest === want;
+      if (!ok) {
+        rows.push({ venue, contract, status: "diverges", detail: `venue holds ${onChain.digest}` });
+        continue;
+      }
+
+      const behind = record.pixelIndex - height;
+      const ageHours = (Date.now() / 1000 - onChain.anchoredAtSec) / 3600;
+      const when = new Date(onChain.anchoredAtSec * 1000).toISOString();
       rows.push({
         venue,
         contract,
-        status: ok && onChain.digest === expected ? "matches" : "diverges",
+        behind,
+        // A publisher that quietly stopped leaves matching anchors behind, so
+        // agreement alone is not health. Age is what catches a stalled job.
+        status: ageHours > maxAgeHours ? "stale" : "matches",
         detail:
-          ok && onChain.digest === expected
-            ? `anchored ${new Date(onChain.anchoredAtSec * 1000).toISOString()} by ${onChain.anchorer}`
-            : `venue holds ${onChain.digest}`,
+          `#${height} anchored ${when} by ${onChain.anchorer}` +
+          (behind > 0 ? ` — tip is ${behind} ahead` : "") +
+          (ageHours > maxAgeHours ? ` — ${Math.floor(ageHours)}h old` : ""),
       });
     } catch (e) {
       rows.push({ venue, contract, status: "unreachable", detail: (e as Error).message });
     }
   }
 
-  const mark = { matches: "✓", diverges: "✗", absent: "·", unreachable: "?" } as const;
+  const mark = {
+    matches: "✓",
+    diverges: "✗",
+    absent: "·",
+    stale: "⌛",
+    unreachable: "?",
+  } as const;
   for (const r of rows) {
     console.log(`${mark[r.status]} ${r.venue.padEnd(20)} ${r.status.padEnd(12)} ${r.detail}`);
     const chain = VENUE_CHAINS[r.venue]!;
@@ -160,7 +197,16 @@ async function main(): Promise<void> {
   }
 
   const agreed = rows.filter((r) => r.status === "matches").length;
-  console.log(`\n${agreed}/${rows.length} venues agree with the tip`);
+  const label = pixel === undefined ? "on their newest anchor" : `at #${record.pixelIndex}`;
+  console.log(`\n${agreed}/${rows.length} venues agree with local history ${label}`);
+  // Say plainly where the guarantee stops. Everything past it is unwitnessed.
+  const behind = rows.filter((r) => r.behind !== undefined).map((r) => r.behind!);
+  if (behind.length > 0 && Math.max(...behind) > 0) {
+    console.log(
+      `⚠  the tip is #${record.pixelIndex}; nothing after ` +
+        `#${record.pixelIndex - Math.min(...behind)} is anchored anywhere yet`,
+    );
+  }
   for (const w of venueSetWarnings(targets.map((t) => t.venue))) console.log(`⚠  ${w}`);
 
   const diverged = rows.filter((r) => r.status === "diverges");
@@ -169,6 +215,14 @@ async function main(): Promise<void> {
       "\nDIVERGENCE. Either the tip's history was rewritten, or a venue was given a\n" +
         "false digest. Both are worth investigating immediately; a venue cannot be\n" +
         "corrected, because heights are write-once.",
+    );
+    process.exit(1);
+  }
+  const stale = rows.filter((r) => r.status === "stale");
+  if (stale.length > 0) {
+    console.log(
+      `\nSTALE. Every venue still agrees, but the newest anchor is over ${maxAgeHours}h old,\n` +
+        "so publishing has stopped. Check the anchorer's gas and the scheduled run.",
     );
     process.exit(1);
   }
