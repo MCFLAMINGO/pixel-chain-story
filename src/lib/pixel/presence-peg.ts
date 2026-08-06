@@ -82,6 +82,127 @@ export function presencePegModel(population = WORLD_POPULATION): PresencePegMode
   };
 }
 
+/**
+ * The three supply regimes available, and why you cannot have all of them.
+ *
+ * A supply either converges to a fixed number, tracks the living population, or
+ * accumulates forever. Each is reachable; no design reaches two at once, because
+ * the second requires the stock to shrink when people leave and the third
+ * requires it not to.
+ */
+export type SupplyRegime = "fixed-cap" | "population-pegged" | "cumulative";
+
+export interface DecayDial {
+  halfLifeYears: number;
+  /** Fraction of an untouched balance lost per year. */
+  annualDecay: number;
+  /** What an honest person loses by being absent this long. */
+  absencePenalty(months: number): number;
+  /**
+   * Fraction of holdings a farm must re-earn each year merely to stand still.
+   * Equal to `annualDecay` — decay cannot tell absence from fakery, so the
+   * forgiveness of one sets the cost of the other. This is the whole tradeoff.
+   */
+  sybilCarryPerYear: number;
+}
+
+export function decayDial(halfLifeYears: number): DecayDial {
+  const halfLifeDays = halfLifeYears * 365;
+  const annualDecay = 1 - Math.pow(2, -365 / halfLifeDays);
+  return {
+    halfLifeYears,
+    annualDecay,
+    absencePenalty: (months) => 1 - Math.pow(2, (-months * 365) / 12 / halfLifeDays),
+    sybilCarryPerYear: annualDecay,
+  };
+}
+
+/**
+ * Supply when minted light is permanent and only the earning rate lapses.
+ *
+ * This is cumulative person-time: it rises without bound and never contracts,
+ * because deaths remove no already-minted light. It is the right shape for a
+ * *record* and the wrong shape for money — it cannot be a population peg.
+ */
+export function cumulativePresence(params: {
+  years: number;
+  population?: number;
+  renewalsPerPersonPerDay?: number;
+}): number {
+  const { years, population = WORLD_POPULATION, renewalsPerPersonPerDay = 1 } = params;
+  return population * renewalsPerPersonPerDay * 365 * years;
+}
+
+export interface SybilEconomics {
+  /** Amortized cost of holding one fake identity for a day. */
+  costPerIdentityPerDay: number;
+  /** Reward value per identity-day at which faking stops paying. */
+  breakevenRewardPerIdentityDay: number;
+  /** Daily profit of a farm. Negative means farming does not pay. */
+  farmProfitPerDay(params: { identities: number; rewardValuePerIdentityDay: number }): number;
+}
+
+/**
+ * Whether faking presence pays, which decay does not decide.
+ *
+ * Decay bounds how much a farm can accumulate, but the profitability of the
+ * marginal fake is set only by reward against cost. If one fake presence earns
+ * more than it costs, farming pays at any half-life.
+ *
+ * The per-identity daily cap — the 24-hour fact — is what makes the cost real:
+ * without it one device fakes unlimited presences and the cost per presence goes
+ * to nothing.
+ */
+export function sybilEconomics(params: {
+  deviceCost: number;
+  deviceLifetimeYears: number;
+  /** The 24-hour cap. Above 1, one device serves several identities per day. */
+  presencesPerDevicePerDay?: number;
+}): SybilEconomics {
+  const { deviceCost, deviceLifetimeYears, presencesPerDevicePerDay = 1 } = params;
+  const perDay = deviceCost / (deviceLifetimeYears * 365);
+  const costPerIdentityPerDay = perDay / presencesPerDevicePerDay;
+  return {
+    costPerIdentityPerDay,
+    breakevenRewardPerIdentityDay: costPerIdentityPerDay,
+    farmProfitPerDay: ({ identities, rewardValuePerIdentityDay }) =>
+      identities * (rewardValuePerIdentityDay - costPerIdentityPerDay),
+  };
+}
+
+export function splitDesignThesis(): {
+  problem: string;
+  split: string;
+  moments: string;
+  pix: string;
+  keeps: string;
+  stillCosts: string;
+} {
+  return {
+    problem:
+      "Decaying the stock tracks the population but taxes absence. Keeping the " +
+      "stock permanent forgives absence but abandons the peg. One quantity cannot " +
+      "do both.",
+    split:
+      "Two quantities. The record is not the money, and only Bitcoin's design " +
+      "forces them to be the same object.",
+    moments:
+      "Witnessed presence: cumulative, permanent, non-transferable. Grows forever, " +
+      "which is correct for a record and cheap to hold, since an unlit pixel needs " +
+      "no power. Getting sick never erases a moment you were present for.",
+    pix:
+      "The fungible claim: decays, tracks living presence, rations the right to " +
+      "write. Absence costs future income, not memory.",
+    keeps:
+      "Supply still falls when people stop showing up, so 'the light goes out' " +
+      "survives, and no oracle is consulted.",
+    stillCosts:
+      "Absence is still taxed on the money side at exactly the rate that makes " +
+      "hoarded fakes expensive to maintain. The dial is shared; only its blast " +
+      "radius shrinks.",
+  };
+}
+
 export function presencePegThesis(): {
   buildable: string;
   notBuildable: string;
