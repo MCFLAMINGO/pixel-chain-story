@@ -18,8 +18,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
+  anchorAction,
   anchorDigest,
   verifyAnchorAgainstChain,
   type PixelAnchorRecord,
@@ -38,6 +39,7 @@ import {
   type VenueId,
 } from "../src/lib/pixel/anchor-venues";
 
+const ANCHORS_FILE = "anchors.json";
 const DEFAULT_TIP = "https://pixel-tip-production.up.railway.app";
 const FOUNDRY = `${process.env.HOME}/.foundry/bin`;
 
@@ -124,7 +126,46 @@ async function main(): Promise<void> {
   }
   console.log(`▸ tip #${record.pixelIndex} digest ${local.slice(0, 16)}… recomputes ✓`);
 
-  // 3. Foundry present (used for deploy + signing).
+  // 3. Resolve the deployment and check whether there is anything to do.
+  //    Read-only, so a scheduled run with nothing to publish needs no key.
+  let contract = flag("contract");
+  // Reuse the committed deployment unless told otherwise, so a scheduled run
+  // anchors to the existing contract instead of deploying a new one each time.
+  if (!contract && existsSync(ANCHORS_FILE)) {
+    const cfg = JSON.parse(readFileSync(ANCHORS_FILE, "utf8")) as {
+      venues?: Record<string, string>;
+    };
+    const known = cfg.venues?.[venue];
+    if (known) {
+      contract = known;
+      console.log(`▸ using ${ANCHORS_FILE} deployment ${contract}`);
+    }
+  }
+
+  if (contract) {
+    const readOnlyPre = venueConfig({ venue, contract, rpcUrl });
+    const existing = await readAnchor(readOnlyPre, record.networkId, record.pixelIndex);
+    const decision = anchorAction(existing, local);
+    if (decision.action === "already-anchored") {
+      console.log(
+        `▸ #${record.pixelIndex} already anchored at ` +
+          `${new Date(decision.anchoredAtSec * 1000).toISOString()} — nothing to do ✓`,
+      );
+      return;
+    }
+    if (decision.action === "divergence") {
+      die(
+        `DIVERGENCE at #${record.pixelIndex} on ${venue}.\n` +
+          `  venue holds ${decision.onVenue}\n` +
+          `  tip reports ${decision.local}\n` +
+          "  Heights are write-once, so this cannot be overwritten. Either the tip's\n" +
+          "  history was rewritten or a false digest was published. Investigate before\n" +
+          "  anchoring anything further.",
+      );
+    }
+  }
+
+  // 4. Foundry present (used for deploy + signing).
   const cast = `${FOUNDRY}/cast`;
   try {
     sh(cast, ["--version"]);
@@ -149,7 +190,7 @@ async function main(): Promise<void> {
   const address = sh(cast, ["wallet", "address", "--private-key", pk]);
   console.log(`▸ anchorer ${address}`);
 
-  // 4. Funded? This is the step a script cannot do for you.
+  // 5. Funded? This is the step a script cannot do for you.
   const balanceWei = BigInt(sh(cast, ["balance", address, "--rpc-url", rpcUrl]));
   if (balanceWei === 0n) {
     die(
@@ -168,8 +209,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  // 5. Deploy or reuse.
-  let contract = flag("contract");
+  // 6. Deploy when there is no existing deployment.
   if (contract && !/^0x[0-9a-fA-F]{40}$/.test(contract)) {
     die(`--contract is not an address: "${contract}" (expected 0x + 40 hex chars)`);
   }
@@ -205,7 +245,7 @@ async function main(): Promise<void> {
     console.log(`▸ reusing ${contract}`);
   }
 
-  // 6. Publish through the venue adapter.
+  // 7. Publish through the venue adapter.
   const config = venueConfig({
     venue,
     contract,
@@ -215,7 +255,7 @@ async function main(): Promise<void> {
   const published = await evmAnchorVenue(config).publish(record);
   console.log(`▸ anchored #${record.pixelIndex} → ${published.reference}`);
 
-  // 7. Verify the way a stranger would: no keys.
+  // 8. Verify the way a stranger would: no keys.
   const readOnly = venueConfig({ venue, contract, rpcUrl });
   if (!(await verifyOnChain(readOnly, record))) die("published anchor does not verify on-chain");
   const onChain = await readAnchor(readOnly, record.networkId, record.pixelIndex);

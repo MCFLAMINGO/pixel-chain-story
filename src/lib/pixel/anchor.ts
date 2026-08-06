@@ -260,6 +260,29 @@ export function memoryAnchorVenue(id = "memory", kind: AnchorVenueKind = "file")
   };
 }
 
+/**
+ * What a scheduled anchor run should do at a given height.
+ *
+ * Heights are write-once, so there are only three possibilities, and the third
+ * one cannot be repaired by publishing again. Keeping this decision here rather
+ * than inside the CLI means CI can prove the divergence branch is reachable.
+ */
+export type AnchorAction =
+  | { action: "publish" }
+  | { action: "already-anchored"; anchoredAtSec: number }
+  | { action: "divergence"; onVenue: Hex; local: Hex };
+
+export function anchorAction(
+  existing: { empty: boolean; digest: Hex; anchoredAtSec: number },
+  localDigest: Hex,
+): AnchorAction {
+  if (existing.empty) return { action: "publish" };
+  if (existing.digest.toLowerCase() === localDigest.toLowerCase()) {
+    return { action: "already-anchored", anchoredAtSec: existing.anchoredAtSec };
+  }
+  return { action: "divergence", onVenue: existing.digest, local: localDigest };
+}
+
 export function anchorThesis(): {
   proves: string;
   doesNotProve: string;
