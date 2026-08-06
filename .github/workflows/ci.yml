@@ -36,6 +36,8 @@ jobs:
         run: cargo test --manifest-path contracts/cosmwasm/ula-verifier/Cargo.toml
       - name: Tip anchoring (portable digest + on-chain append-only)
         run: bun run test:anchor
+      - name: Anchor venue adapter + divergence alarm (anvil)
+        run: bun run test:anchor-evm
       - name: Relayer Locked → shineIn (anvil)
         run: bun run test:ula-relayer
       - name: Tip EVM lock → shine-in-lock (anvil)
