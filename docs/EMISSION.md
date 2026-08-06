@@ -310,6 +310,25 @@ because nothing is taken from anyone.
 long-term holder reads as dark. This is a liveness statistic, not a claim about
 who is alive.
 
+Both readings are served over JSON-RPC, so a stranger can ask the public tip how
+much of it has gone dark without running a node or taking our word for it:
+
+| Method              | Params                   | Returns                                                                        |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `pix_getLitSupply`  | `[windowDays?]`          | nominal, lit and dark supply, plus age bands that partition the supply exactly |
+| `pix_getBrightness` | `[address, windowDays?]` | what that address moved, not what it holds                                     |
+
+```console
+$ curl -s -X POST $TIP -d '{"jsonrpc":"2.0","id":1,"method":"pix_getLitSupply","params":[]}'
+{"nominalSupply":50,"litSupply":50,"darkSupply":0,"windowDays":365,"litShare":1,"litAddresses":1,...}
+
+$ curl -s -X POST $TIP -d '{"jsonrpc":"2.0","id":1,"method":"pix_getBrightness","params":["pix18d00…"]}'
+{"address":"pix18d00…","moments":1,"movedAmount":50,"windowDays":30}
+```
+
+Both are reads with no consensus effect. Neither can alter a balance, which is
+the entire distinction between measuring the dark and enforcing it.
+
 ### The Sybil problem was created by emission, not by presence
 
 The earlier worry — that presence gating issuance means manufacturing identities
