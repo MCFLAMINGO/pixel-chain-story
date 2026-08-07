@@ -37,6 +37,21 @@ jobs:
         with:
           version: stable
 
+      # Say which mode this run is in. A silently skipped anchor step still
+      # produces a green job, which is the worst possible way to report that
+      # publishing has stopped.
+      - name: Report mode
+        run: |
+          if [ "${HAS_ANCHOR_KEY}" = "true" ]; then
+            echo "publishing enabled — ANCHOR_PRIVATE_KEY is visible to this run"
+          else
+            echo "VERIFY ONLY — ANCHOR_PRIVATE_KEY is not visible to this run."
+            echo "The tip will not be anchored. Check that a *repository* secret"
+            echo "named exactly ANCHOR_PRIVATE_KEY exists (Settings → Secrets and"
+            echo "variables → Actions). Environment-scoped secrets are not visible"
+            echo "unless the job declares that environment."
+          fi
+
       # Publishing needs the key. Verification deliberately does not.
       - name: Anchor the tip
         if: env.HAS_ANCHOR_KEY == 'true'
@@ -56,3 +71,11 @@ jobs:
       # Runs even without the secret: anyone can verify, which is the point.
       - name: Verify every venue agrees
         run: bun run anchor:verify
+
+      # A scheduled run that cannot publish is not doing its job, however green
+      # the verify step looks. Manual and PR runs are allowed to be verify-only.
+      - name: Fail a scheduled run that could not publish
+        if: github.event_name == 'schedule' && env.HAS_ANCHOR_KEY != 'true'
+        run: |
+          echo "::error::Scheduled anchoring ran without ANCHOR_PRIVATE_KEY, so nothing was published."
+          exit 1
