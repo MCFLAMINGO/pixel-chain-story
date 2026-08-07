@@ -82,6 +82,34 @@ export async function litCellsOf(pixel: LedgerPixel): Promise<LitCell[]> {
   return cells;
 }
 
+/**
+ * How many moments a pixel holds — everything but the sequencer's wage.
+ *
+ * Synchronous, because rendering needs it every frame and the distinction needs
+ * no hashing: a coinbase is the only transaction with no inputs.
+ */
+export function momentCount(pixel: LedgerPixel): number {
+  return pixel.transactions.filter((tx) => tx.inputs.length > 0).length;
+}
+
+/**
+ * A pixel's brightness, from 0 (wage only) toward 1 (busy).
+ *
+ * Brightness is what happened in a pixel, not what it is worth or who sequenced
+ * it. A shop transacting all day outshines a block that only paid its sequencer.
+ *
+ * Logarithmic, so the first few moments are visible and a large sender cannot
+ * black out the rest of the picture by transacting more.
+ */
+export function pixelBrightness(pixel: LedgerPixel): number {
+  const moments = momentCount(pixel);
+  if (moments <= 0) return 0;
+  return Math.min(1, Math.log2(moments + 1) / Math.log2(BRIGHTNESS_FULL + 1));
+}
+
+/** Moments at which a pixel is considered fully lit. */
+export const BRIGHTNESS_FULL = 16;
+
 /** The cells in a pixel that are somebody's moment rather than a wage. */
 export async function momentsOf(pixel: LedgerPixel): Promise<LitCell[]> {
   return (await litCellsOf(pixel)).filter((c) => c.kind === "moment");
