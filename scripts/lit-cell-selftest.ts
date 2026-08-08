@@ -17,6 +17,8 @@ import {
   momentsOf,
   ownerOfCell,
   pixelAuthorshipRoot,
+  momentCount,
+  pixelBrightness,
 } from "../src/lib/pixel/lit-cell";
 import { createGenesis, proposeTransfer, sequenceBlock } from "../src/lib/pixel/chain";
 import { generatePixelKeypair } from "../src/lib/pixel/scheme";
@@ -129,6 +131,32 @@ async function main(): Promise<void> {
   console.log(`\nrecords:        ${thesis.records}`);
   console.log(`distinguishes:  ${thesis.distinguishes}`);
   console.log(`NOT committed:  ${thesis.notCommitted}`);
+
+  // Brightness is what happened, not what it is worth. A wage-only pixel is dark;
+  // moments light it, and no single busy sender can black out the picture.
+  {
+    const wageOnly = { transactions: [{ inputs: [] }] } as unknown as LedgerPixel;
+    assert(momentCount(wageOnly) === 0, "a coinbase alone is not a moment");
+    assert(pixelBrightness(wageOnly) === 0, "a wage-only pixel must not glow");
+
+    const withMoments = (n: number) =>
+      ({
+        transactions: [{ inputs: [] }, ...Array.from({ length: n }, () => ({ inputs: [{}] }))],
+      }) as unknown as LedgerPixel;
+
+    assert(momentCount(withMoments(3)) === 3, "moments are the non-coinbase transactions");
+    assert(pixelBrightness(withMoments(1)) > 0, "one moment must be visible");
+    assert(
+      pixelBrightness(withMoments(8)) > pixelBrightness(withMoments(2)),
+      "a busier pixel must burn brighter",
+    );
+    // Logarithmic, so brightness cannot be bought linearly by transacting more.
+    const a = pixelBrightness(withMoments(2)) - pixelBrightness(withMoments(1));
+    const b = pixelBrightness(withMoments(16)) - pixelBrightness(withMoments(15));
+    assert(a > b, "the first moments must matter more than the hundredth");
+    assert(pixelBrightness(withMoments(1000)) <= 1, "brightness must saturate at 1");
+    console.log("▸ brightness tracks moments, saturates, and cannot be bought linearly ✓");
+  }
 
   console.log("\n═══ PASS — a pixel can name whose moment it was ═══");
 }

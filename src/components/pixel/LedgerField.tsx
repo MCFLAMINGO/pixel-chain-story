@@ -5,6 +5,8 @@ import {
   proximityLinks,
   type ObserverMode,
   type LedgerPixel,
+  momentCount,
+  pixelBrightness,
 } from "@/lib/pixel";
 
 /**
@@ -74,6 +76,10 @@ export function LedgerField({
           const absent = !pixel.illuminated || isColorAbsent(pixel.color);
           const isFocus = focus === pixel.index;
           const isNear = linked.has(pixel.index);
+          // What happened here, not what it is worth. A pixel carrying only the
+          // sequencer's wage sits at 0; one full of moments burns.
+          const moments = momentCount(pixel);
+          const heat = pixelBrightness(pixel);
           return (
             <button
               key={pixel.hash}
@@ -82,7 +88,7 @@ export function LedgerField({
               title={
                 absent
                   ? `#${pixel.index} — no light, color absent`
-                  : `#${pixel.index} lit · proximity ${pixel.proximity.length} · ${observer}`
+                  : `#${pixel.index} lit · ${moments} moment${moments === 1 ? "" : "s"} · proximity ${pixel.proximity.length} · ${observer}`
               }
               onClick={() =>
                 interactive && setFocus((f) => (f === pixel.index ? null : pixel.index))
@@ -96,14 +102,18 @@ export function LedgerField({
                   !absent && (isFocus || isNear)
                     ? `0 0 18px ${cssRgb(pixel.color, 0.55)}`
                     : !absent && interactive
-                      ? `0 0 10px ${cssRgb(pixel.color, 0.25)}`
+                      ? `0 0 ${10 + heat * 22}px ${cssRgb(pixel.color, 0.25 + heat * 0.5)}`
                       : !absent && fit === "cinema"
                         ? // Genesis (and sparse cinema) must read as lit, not crushed into the void
                           pixels.length <= 4
                           ? `0 0 64px ${cssRgb(pixel.color, 0.55)}, 0 0 140px ${cssRgb(pixel.color, 0.28)}, inset 0 0 40px ${cssRgb(pixel.color, 0.2)}`
-                          : `0 0 40px ${cssRgb(pixel.color, 0.35)}`
+                          : `0 0 ${40 + heat * 40}px ${cssRgb(pixel.color, 0.35 + heat * 0.4)}`
                         : undefined,
-                opacity: absent ? 0.15 : isNear || isFocus || focus === null ? 1 : 0.35,
+                opacity: absent
+                  ? 0.15
+                  : isNear || isFocus || focus === null
+                    ? 0.72 + heat * 0.28
+                    : 0.35,
               }}
             />
           );
