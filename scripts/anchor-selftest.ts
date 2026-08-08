@@ -114,6 +114,31 @@ async function main(): Promise<void> {
   );
   console.log("▸ publish / no-op / divergence are the only three outcomes ✓");
 
+  // Stale and diverged must never be conflated. A venue holding the right digest
+  // agrees whether or not it is old; only a *different* digest means history
+  // changed. Reporting "0/2 agree" for staleness reads as the divergence alarm
+  // and would train a reader to ignore the real one.
+  type Row = { status: "matches" | "diverges" | "absent" | "stale" | "unreachable" };
+  const agreeing = (rows: Row[]) =>
+    rows.filter((r) => r.status === "matches" || r.status === "stale").length;
+  assert(
+    agreeing([{ status: "stale" }, { status: "stale" }]) === 2,
+    "two stale venues still agree on content — they are old, not wrong",
+  );
+  assert(
+    agreeing([{ status: "matches" }, { status: "stale" }]) === 2,
+    "a fresh and a stale venue both agree",
+  );
+  assert(
+    agreeing([{ status: "diverges" }, { status: "matches" }]) === 1,
+    "a diverged venue does not agree",
+  );
+  assert(
+    agreeing([{ status: "absent" }, { status: "unreachable" }]) === 0,
+    "a venue holding nothing, or unreadable, cannot be counted as agreeing",
+  );
+  console.log("▸ stale counts as agreement; only a different digest is divergence ✓");
+
   // 2. Anchor a real chain to several venues.
   const state = await labChain();
   const record = buildAnchorFromState(state);
