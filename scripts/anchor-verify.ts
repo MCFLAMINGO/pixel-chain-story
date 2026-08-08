@@ -68,6 +68,8 @@ type Row = {
   status: "matches" | "diverges" | "absent" | "stale" | "unreachable";
   /** Heights the tip has advanced past this venue's newest claim. */
   behind?: number;
+  /** Age of this venue's newest anchor, for reporting how far behind it is. */
+  ageHours?: number;
   detail: string;
 };
 
@@ -170,6 +172,7 @@ async function main(): Promise<void> {
         venue,
         contract,
         behind,
+        ageHours,
         // A publisher that quietly stopped leaves matching anchors behind, so
         // agreement alone is not health. Age is what catches a stalled job.
         status: ageHours > maxAgeHours ? "stale" : "matches",
@@ -196,7 +199,11 @@ async function main(): Promise<void> {
     if (chain.explorer) console.log(`  ${chain.explorer}/address/${r.contract}`);
   }
 
-  const agreed = rows.filter((r) => r.status === "matches").length;
+  // A stale venue still agrees — its digest matches, it is merely old. Counting
+  // only `matches` printed "0/2 venues agree" directly above "every venue still
+  // agrees", which reads like divergence: the one alarm that means history was
+  // rewritten. Agreement and freshness are separate facts and are reported so.
+  const agreed = rows.filter((r) => r.status === "matches" || r.status === "stale").length;
   const label = pixel === undefined ? "on their newest anchor" : `at #${record.pixelIndex}`;
   console.log(`\n${agreed}/${rows.length} venues agree with local history ${label}`);
   // Say plainly where the guarantee stops. Everything past it is unwitnessed.
@@ -220,9 +227,12 @@ async function main(): Promise<void> {
   }
   const stale = rows.filter((r) => r.status === "stale");
   if (stale.length > 0) {
+    const oldest = Math.max(...stale.map((r) => r.ageHours ?? 0));
     console.log(
-      `\nSTALE. Every venue still agrees, but the newest anchor is over ${maxAgeHours}h old,\n` +
-        "so publishing has stopped. Check the anchorer's gas and the scheduled run.",
+      `\nSTALE, not diverged. Every venue still holds the right digest — the newest\n` +
+        `is ${Math.floor(oldest)}h old against a ${maxAgeHours}h limit, so publishing has stopped\n` +
+        "rather than history having changed. Check the anchorer's gas and the\n" +
+        "scheduled run; nothing already anchored is at risk.",
     );
     process.exit(1);
   }
