@@ -66,6 +66,8 @@
     "test:anchor": "bun scripts/anchor-selftest.ts",
     "test:anchor-evm": "bun scripts/anchor-evm-selftest.ts",
     "test:lit-supply": "bun scripts/lit-supply-selftest.ts",
+    "typecheck": "bun scripts/typecheck-ratchet.ts",
+    "typecheck:accept": "bun scripts/typecheck-ratchet.ts --accept",
     "test:presence-peg": "bun scripts/presence-peg-selftest.ts",
     "anchor:deploy": "bun scripts/anchor-deploy.ts",
     "anchor:verify": "bun scripts/anchor-verify.ts",
