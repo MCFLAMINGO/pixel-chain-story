@@ -79,6 +79,7 @@ async function main() {
 
     const peer = await generateLightKeypair();
     const paid = await payOnSharedTip({
+      requireCrowned: false, // lab tip on a random port, not the crowned Earth
       rpc,
       unlocked,
       toAddress: peer.address,
@@ -98,6 +99,7 @@ async function main() {
     let refused = false;
     try {
       await attachTransferViaRpc({
+        requireCrowned: false, // lab tip
         rpcBase: rpc,
         from: unlocked.keypair,
         toAddress: peer.address,
@@ -114,6 +116,24 @@ async function main() {
     }
     if (!refused) throw new Error("foreign expectedCanvas must refuse");
     console.log("▸ foreign canvas refuse ✓");
+
+    // The default must refuse a look-alike Earth. Until now assertCrownedEarth had
+    // zero call sites, so a wallet would happily pay onto any chain that answered
+    // /health — the mistake worth making impossible.
+    let refusedWrongEarth = false;
+    try {
+      await payOnSharedTip({
+        rpc,
+        unlocked,
+        toAddress: peer.address,
+        amount: 1,
+        note: "should never land",
+      });
+    } catch (e) {
+      refusedWrongEarth = /not the crowned Earth/.test((e as Error).message);
+    }
+    if (!refusedWrongEarth) throw new Error("non-crowned tip must be refused by default");
+    console.log("▸ non-crowned Earth refused unless the caller opts out ✓");
 
     console.log("\n═══ PASS — shared tip attach ═══");
   } finally {

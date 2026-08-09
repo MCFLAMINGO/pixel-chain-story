@@ -10,6 +10,7 @@
  * Dream ≠ claim: only shared_tip may be marketed as the public picture.
  */
 
+import { assertCrownedEarth } from "./crowned-genesis";
 import type { Hex, LightKeypair } from "./crypto";
 import { proposeTransfer, stateFromPixels, type PixelChainState, type SequencerId } from "./chain";
 import type { ReadableMeta, Transaction } from "./transaction";
@@ -200,6 +201,12 @@ export async function attachTransferViaRpc(opts: {
   metadata: ReadableMeta;
   kind?: TipMarkKind;
   expectedCanvas?: CanvasId;
+  /**
+   * Refuse to attach to anything but the crowned Earth. Default on: paying onto
+   * a look-alike chain is the mistake worth making impossible, and a caller who
+   * genuinely wants a lab tip has to say so.
+   */
+  requireCrowned?: boolean;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<{ tipMark: TipMarkReceipt; tx: Transaction }> {
@@ -207,6 +214,13 @@ export async function attachTransferViaRpc(opts: {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const { state, canvasId } = await pullTipState(opts.rpcBase, fetchImpl);
   if (opts.expectedCanvas) assertSameCanvas(opts.expectedCanvas, canvasId);
+  if (opts.requireCrowned !== false) {
+    assertCrownedEarth({
+      genesisHash: canvasId.genesisHash,
+      networkId: canvasId.networkId,
+      label: opts.rpcBase,
+    });
+  }
 
   const spoken = await proposeTransfer(
     state,

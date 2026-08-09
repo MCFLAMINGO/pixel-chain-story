@@ -19,12 +19,14 @@ export function BillboardScreen({
   rpc?: string;
   showLabLink?: boolean;
 }) {
-  const local = usePixelChain();
+  const local = usePixelChain({ skipLocalGenesis: Boolean(rpc) });
   const [remote, setRemote] = useState<LedgerPixel[] | null>(null);
   const [pending, setPending] = useState(0);
   const [tip, setTip] = useState<string>("");
   const [canvasShort, setCanvasShort] = useState<string>("");
   const [live, setLive] = useState(false);
+  // Distinguishes "not tried yet" from "tried and failed".
+  const [attempted, setAttempted] = useState(false);
 
   useEffect(() => {
     if (!rpc) return;
@@ -52,6 +54,8 @@ export function BillboardScreen({
         setLive(true);
       } catch {
         if (!cancelled) setLive(false);
+      } finally {
+        if (!cancelled) setAttempted(true);
       }
     };
     void pull();
@@ -75,16 +79,28 @@ export function BillboardScreen({
     return () => mo.disconnect();
   }, []);
 
-  const pixels = remote ?? local.chain?.pixels ?? [];
-  const pendingCount = remote ? pending : local.pending;
-  const countLabel = remote ? tip : local.chain ? `#${local.chain.pixels.length - 1}` : "…";
+  // A configured tip is never substituted by a local chain. Falling back showed
+  // a privately forged Earth under the label "connecting…", which is the one way
+  // lab light can be mistaken for the picture.
+  const pixels = rpc ? (remote ?? []) : (local.chain?.pixels ?? []);
+  const pendingCount = remote ? pending : rpc ? 0 : local.pending;
+  const countLabel = remote
+    ? tip
+    : rpc
+      ? "—"
+      : local.chain
+        ? `#${local.chain.pixels.length - 1}`
+        : "…";
   const igniting = !rpc && local.busy && pixels.length === 0;
+  const unreachable = Boolean(rpc) && !live && attempted;
   const litCount = pixels.filter((p) => p.illuminated).length;
   // World canvas honesty: without rpc this is lab light, not the public tip of humanity.
   const feedLabel = rpc
     ? live
       ? "public tip"
-      : "connecting…"
+      : unreachable
+        ? "tip unreachable"
+        : "connecting…"
     : igniting
       ? "igniting…"
       : "lab light";

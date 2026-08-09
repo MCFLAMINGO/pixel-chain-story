@@ -41,13 +41,13 @@ export function assertCrownedEarth(params: {
         `(want genesis ${CROWNED_GENESIS_PREFIX}…, got ${params.genesisHash.slice(0, 16)}…)`,
     );
   }
-  if (
-    params.networkId != null &&
-    params.networkId !== CROWNED_NETWORK_ID &&
-    // lab tips may use 0x5049 — only enforce when claiming public tip
-    params.networkId !== 0x5049
-  ) {
-    /* networkId 20553 is crowned; allow lab 0x5049 only if caller skips assert for lab */
+  // This branch used to be empty, so a matching genesis on a foreign network id
+  // passed. Genesis and network together are the canvas; half of it is not it.
+  if (params.networkId != null && params.networkId !== CROWNED_NETWORK_ID) {
+    throw new Error(
+      `${params.label ?? "tip"} carries the crowned genesis on network ` +
+        `${params.networkId}, but the crowned Earth is network ${CROWNED_NETWORK_ID}`,
+    );
   }
 }
 
