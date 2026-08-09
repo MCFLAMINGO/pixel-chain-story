@@ -18,7 +18,7 @@ import {
 
 export type PixelWallet = LightKeypair & { label: string };
 
-export function usePixelChain() {
+export function usePixelChain({ skipLocalGenesis = false } = {}) {
   const [alice, setAlice] = useState<PixelWallet | null>(null);
   const [bob, setBob] = useState<PixelWallet | null>(null);
   const [chain, setChain] = useState<PixelChainState | null>(null);
@@ -34,6 +34,14 @@ export function usePixelChain() {
 
   useEffect(() => {
     let cancelled = false;
+    // Forging a genesis creates a second Earth. Never do it silently when the
+    // caller is pointed at a real tip — an unreachable tip must read as
+    // unreachable, not be quietly replaced by a private chain.
+    if (skipLocalGenesis) {
+      setBusy(false);
+      setPhase("Using the configured tip — no lab genesis forged.");
+      return;
+    }
     (async () => {
       try {
         setBusy(true);
@@ -59,7 +67,7 @@ export function usePixelChain() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [skipLocalGenesis]);
 
   const propose = useCallback(
     async (amount: number, memo: string) => {

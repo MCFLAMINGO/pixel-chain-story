@@ -33,6 +33,16 @@ export interface PixelAnchorRecord {
   tipHash: Hex;
   /** Illuminated-picture root at that height (SHA-512 hex). */
   spatialRoot: Hex;
+  /**
+   * Genesis hash of the chain this height belongs to (SHA-512 hex).
+   *
+   * Optional only because v1 anchors were published without it. A canvas is
+   * `(networkId, genesisHash)`, so a v1 record names half of its own identity:
+   * two Earths sharing a network id produce records of identical shape, and an
+   * anchor read cold cannot say which one it belongs to. Supply this and the
+   * anchor is self-describing — see `anchorDigestV2`.
+   */
+  genesisHash?: Hex;
 }
 
 export type AnchorVenueKind = "evm" | "bitcoin" | "ipfs" | "file" | "other";
@@ -82,6 +92,13 @@ function digestBytes(hex: Hex, label: string): Uint8Array {
  * Portable 32-byte commitment to an anchor record.
  * Layout: networkId(8) ‖ pixelIndex(8) ‖ tipHash(64) ‖ spatialRoot(64).
  */
+/**
+ * v1 digest — `(networkId, pixelIndex, tipHash, spatialRoot)`.
+ *
+ * Kept exactly as published so the anchors already on Sepolia and Robinhood
+ * continue to verify. Do not change these bytes; heights are write-once and a
+ * digest change would read as divergence on chains that cannot be corrected.
+ */
 export function anchorDigest(record: PixelAnchorRecord): Hex {
   const buf = new Uint8Array(8 + 8 + PIXEL_DIGEST_BYTES * 2);
   buf.set(u64be(record.networkId), 0);
@@ -92,6 +109,31 @@ export function anchorDigest(record: PixelAnchorRecord): Hex {
 }
 
 /** Anchor record for the current tip. */
+/**
+ * v2 digest — v1 plus the genesis hash, so an anchor names its own Earth.
+ *
+ * This is what makes an anchor evidence of *which* chain existed at a time
+ * rather than only *a* chain. Adopting it needs a fresh contract deployment,
+ * because the venue recomputes the digest from the fields it was handed.
+ */
+export function anchorDigestV2(record: PixelAnchorRecord): Hex {
+  if (!record.genesisHash) {
+    throw new Error("anchorDigestV2 requires genesisHash — use anchorDigest for v1 records");
+  }
+  const buf = new Uint8Array(8 + 8 + PIXEL_DIGEST_BYTES * 3);
+  buf.set(u64be(record.networkId), 0);
+  buf.set(u64be(record.pixelIndex), 8);
+  buf.set(digestBytes(record.tipHash, "tipHash"), 16);
+  buf.set(digestBytes(record.spatialRoot, "spatialRoot"), 16 + PIXEL_DIGEST_BYTES);
+  buf.set(digestBytes(record.genesisHash, "genesisHash"), 16 + PIXEL_DIGEST_BYTES * 2);
+  return bytesToHex(keccak_256(buf));
+}
+
+/** Which Earth an anchor record claims, or null when it is a v1 record. */
+export function anchorEarth(record: PixelAnchorRecord): Hex | null {
+  return record.genesisHash ?? null;
+}
+
 export function buildAnchorFromState(state: PixelChainState): PixelAnchorRecord {
   const tip = state.pixels[state.pixels.length - 1];
   if (!tip) throw new Error("anchor: chain has no pixels");
@@ -100,6 +142,7 @@ export function buildAnchorFromState(state: PixelChainState): PixelAnchorRecord 
     pixelIndex: tip.index,
     tipHash: tip.hash,
     spatialRoot: tip.lightProof.spatialRoot,
+    genesisHash: state.pixels[0]?.hash,
   };
 }
 

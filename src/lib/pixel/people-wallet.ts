@@ -387,11 +387,14 @@ export async function payOnSharedTip(params: {
   toAddress: string;
   amount: number;
   note?: string;
+  /** Lab tips only. Paying onto a look-alike Earth is refused by default. */
+  requireCrowned?: boolean;
 }): Promise<{ tipMark: TipMarkReceipt; summary: string }> {
   const to = params.toAddress.trim();
   if (!to.startsWith("pix")) throw new Error("Pay needs a Pixel address (pix…)");
   const { tipMark } = await attachTransferViaRpc({
     rpcBase: params.rpc,
+    requireCrowned: params.requireCrowned,
     from: params.unlocked.keypair,
     toAddress: to,
     amount: params.amount,
