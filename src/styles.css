@@ -657,18 +657,36 @@
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  padding:
-    calc(0.65rem + env(safe-area-inset-top))
-    0.85rem
+  padding: calc(0.65rem + env(safe-area-inset-top)) 0.85rem
     calc(0.65rem + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background:
     radial-gradient(ellipse 80% 60% at 50% 45%, oklch(0.28 0.08 145 / 0.55), transparent 70%),
     #030504;
 }
+/* The face centres on the whole screen, not on the space left above the caption.
+   The footer overlays; the stage already reserves room for it in --kindling-face,
+   so the square cannot collide with it. */
+.kindling-projector-footer {
+  position: absolute;
+  right: 0;
+  bottom: calc(0.55rem + env(safe-area-inset-bottom));
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.kindling-projector-footer > * {
+  pointer-events: auto;
+}
 .kindling-projector-stage-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
+  /* Centre on the viewport itself. Centring inside the flex column left the
+     square high, because it was centring in whatever the siblings had not
+     taken. Absolute removes the dependency on siblings entirely. */
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
   width: 100%;

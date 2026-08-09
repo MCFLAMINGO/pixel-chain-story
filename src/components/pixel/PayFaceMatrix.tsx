@@ -170,12 +170,18 @@ export function PayFaceMatrix(props: {
           </div>
         </div>
       </div>
-      <p className="kindling-projector-hint">
-        Fill their camera with this square · PXP1-P · vault sealed
-      </p>
-      <button type="button" className="kindling-projector-close" onClick={() => props.onClose?.()}>
-        Hide face
-      </button>
+      <div className="kindling-projector-footer">
+        <p className="kindling-projector-hint">
+          Fill their camera with this square · PXP1-P · vault sealed
+        </p>
+        <button
+          type="button"
+          className="kindling-projector-close"
+          onClick={() => props.onClose?.()}
+        >
+          Hide face
+        </button>
+      </div>
     </div>
   );
 }
