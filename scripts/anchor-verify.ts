@@ -168,18 +168,22 @@ async function main(): Promise<void> {
       const behind = record.pixelIndex - height;
       const ageHours = (Date.now() / 1000 - onChain.anchoredAtSec) / 3600;
       const when = new Date(onChain.anchoredAtSec * 1000).toISOString();
+      // A publisher that quietly stopped leaves matching anchors behind it, so
+      // agreement alone is not health. But age alone is not either: a chain with
+      // no new moments has nothing to publish, and an idle chain fully anchored
+      // is healthy however long ago that happened. What is wrong is history the
+      // tip has moved past and nobody has witnessed since.
+      const unwitnessed = behind > 0 && ageHours > maxAgeHours;
       rows.push({
         venue,
         contract,
         behind,
         ageHours,
-        // A publisher that quietly stopped leaves matching anchors behind, so
-        // agreement alone is not health. Age is what catches a stalled job.
-        status: ageHours > maxAgeHours ? "stale" : "matches",
+        status: unwitnessed ? "stale" : "matches",
         detail:
           `#${height} anchored ${when} by ${onChain.anchorer}` +
-          (behind > 0 ? ` — tip is ${behind} ahead` : "") +
-          (ageHours > maxAgeHours ? ` — ${Math.floor(ageHours)}h old` : ""),
+          (behind > 0 ? ` — tip is ${behind} ahead` : " — tip fully anchored") +
+          (unwitnessed ? ` — unwitnessed for ${Math.floor(ageHours)}h` : ""),
       });
     } catch (e) {
       rows.push({ venue, contract, status: "unreachable", detail: (e as Error).message });
@@ -228,11 +232,14 @@ async function main(): Promise<void> {
   const stale = rows.filter((r) => r.status === "stale");
   if (stale.length > 0) {
     const oldest = Math.max(...stale.map((r) => r.ageHours ?? 0));
+    const worst = Math.max(...stale.map((r) => r.behind ?? 0));
     console.log(
-      `\nSTALE, not diverged. Every venue still holds the right digest — the newest\n` +
-        `is ${Math.floor(oldest)}h old against a ${maxAgeHours}h limit, so publishing has stopped\n` +
-        "rather than history having changed. Check the anchorer's gas and the\n" +
-        "scheduled run; nothing already anchored is at risk.",
+      `\nUNWITNESSED, not diverged. Every venue still holds the right digest, but the\n` +
+        `tip has been ${worst} pixel${worst === 1 ? "" : "s"} ahead of the newest anchor for ` +
+        `${Math.floor(oldest)}h,\n` +
+        `past the ${maxAgeHours}h limit — so publishing has stopped rather than history\n` +
+        "having changed. Check the anchorer's gas and the scheduled run; nothing\n" +
+        "already anchored is at risk.",
     );
     process.exit(1);
   }

@@ -199,17 +199,28 @@ So with no arguments, verify holds each venue to _its own newest claim_: the
 latest height it anchored, checked against local history. It then states how far
 the tip has advanced past that, because that is where the guarantee stops.
 
-| Reported      | Meaning                                                                               |
-| ------------- | ------------------------------------------------------------------------------------- |
-| `matches`     | the venue's newest anchor still agrees with local history                             |
-| `diverges`    | the venue holds a different digest — alarm, unfixable                                 |
-| `absent`      | the venue holds nothing at all, or nothing at a height you named                      |
-| `stale`       | everything agrees, but the newest anchor is older than `--max-age-hours` (default 48) |
-| `unreachable` | the RPC could not be read                                                             |
+| Reported      | Meaning                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| `matches`     | the venue's newest anchor still agrees with local history                                                 |
+| `diverges`    | the venue holds a different digest — alarm, unfixable                                                     |
+| `absent`      | the venue holds nothing at all, or nothing at a height you named                                          |
+| `stale`       | everything agrees, but the tip has sat ahead of the newest anchor for over `--max-age-hours` (default 48) |
+| `unreachable` | the RPC could not be read                                                                                 |
 
-`stale` exists because agreement alone is not health. A publisher that runs out
-of gas leaves perfectly matching anchors behind it, and every venue keeps saying
-`matches` forever while nothing new is witnessed. Age is what catches that.
+`stale` exists because agreement alone is not health. A publisher that runs out of
+gas leaves perfectly matching anchors behind it, and every venue keeps saying
+`matches` forever while nothing new is witnessed.
+
+But elapsed time alone is the wrong test, because **a chain with no new moments has
+nothing to publish**. An idle chain whose tip is fully anchored is healthy however
+long ago that anchor was written, and calling it stale is a false alarm — the same
+mistake as reporting agreement as divergence, one layer up.
+
+So the alarm is _unwitnessed history_: the tip has advanced past the newest anchor
+and stayed there past the limit. Both conditions, never one.
+
+Stale also counts toward agreement in the summary line, because a stale venue holds
+the correct digest and is merely behind. Only a _different_ digest is divergence.
 
 Pass `--pixel N` to ask about one specific height instead.
 
