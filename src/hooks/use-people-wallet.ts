@@ -73,6 +73,14 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [tipBridgeEvm, setTipBridgeEvm] = useState<TipBridgeEvm | null>(null);
   const [tipFaucet, setTipFaucet] = useState<boolean | null>(null);
   const [crownedTip, setCrownedTip] = useState<boolean | null>(null);
+  /**
+   * What the configured tip actually is. These were previously conflated into
+   * crownedTip=null, so "no tip", "cannot reach the tip" and "this is a
+   * different Earth" all rendered the same and none of them stopped a payment.
+   */
+  const [tipStatus, setTipStatus] = useState<
+    "unset" | "checking" | "unreachable" | "wrong-earth" | "crowned"
+  >("checking");
   const [faucetNote, setFaucetNote] = useState<string | null>(null);
   const [needsPinUpgrade, setNeedsPinUpgrade] = useState(false);
   const [pinSealed, setPinSealed] = useState(false);
@@ -116,11 +124,14 @@ export function usePeopleWallet(rpcOverride?: string) {
         setTipBridgeEvm(null);
         setTipFaucet(null);
         setCrownedTip(null);
+        setTipStatus("unset");
         return;
       }
       const tip = await fetchTipBalance(rpc, address);
       if (!tip) {
+        // A tip that cannot be read is not a tip with no money in it.
         setBalance(null);
+        setTipStatus("unreachable");
         return;
       }
       setBalance(tip.amount);
@@ -138,13 +149,18 @@ export function usePeopleWallet(rpcOverride?: string) {
           setTipBridgeLab(Boolean(j.bridgeLab));
           setTipBridgeEvm(j.bridgeEvm ?? j.bridgeSepolia ?? null);
           setTipFaucet(Boolean(j.faucet ?? j.bridgeLab));
-          setCrownedTip(isCrownedGenesisHash(j.genesisHash));
+          const crowned = isCrownedGenesisHash(j.genesisHash);
+          setCrownedTip(crowned);
+          setTipStatus(crowned ? "crowned" : "wrong-earth");
+        } else {
+          setTipStatus("unreachable");
         }
       } catch {
         setTipBridgeLab(null);
         setTipBridgeEvm(null);
         setTipFaucet(null);
         setCrownedTip(null);
+        setTipStatus("unreachable");
       }
     },
     [rpc],
@@ -470,6 +486,9 @@ export function usePeopleWallet(rpcOverride?: string) {
     tipBridgeSepolia: tipBridgeEvm,
     tipFaucet,
     crownedTip,
+    tipStatus,
+    /** Anything that moves value is refused unless the tip is the crowned Earth. */
+    canTransact: tipStatus === "crowned",
     crownedPrefix: CROWNED_GENESIS_PREFIX,
     faucetNote,
     needsPinUpgrade,

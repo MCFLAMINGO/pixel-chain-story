@@ -434,20 +434,38 @@ function WalletPage() {
                 {w.payFace.localId}
               </p>
               <p className="font-display mt-3 text-5xl font-bold tracking-tight">
-                {w.rpc ? (w.balance === null ? "…" : w.balance) : "—"}
+                {w.canTransact ? (w.balance === null ? "…" : w.balance) : "—"}
                 <span className="ml-2 text-lg font-semibold text-white/45">PIX</span>
               </p>
-              {w.rpc ? (
+              {w.tipStatus === "crowned" ? (
                 <p className="mt-2 text-xs text-white/45">
                   On tip{typeof w.tipIndex === "number" ? ` #${w.tipIndex}` : ""}
-                  {w.crownedTip ? ` · Earth ${w.crownedPrefix}…` : " · check genesis"}
+                  {` · Earth ${w.crownedPrefix}…`}
                   {w.tipBridgeLab ? " · bridge open" : ""}
                   {w.tipFaucet ? " · faucet open" : ""}
                 </p>
+              ) : w.tipStatus === "checking" ? (
+                <p className="mt-2 text-xs text-white/45">Reaching the tip…</p>
               ) : (
-                <p className="mt-2 text-xs text-amber-200/80">
-                  No tip — set VITE_PIXEL_RPC or open with ?rpc=
-                </p>
+                // A wallet that cannot confirm the Earth must not look usable.
+                // Showing a balance beside "check genesis" invited paying onto a
+                // look-alike chain, which is unrecoverable.
+                <div className="mt-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 px-4 py-3">
+                  <p className="font-pixel text-[10px] tracking-[0.2em] text-amber-200 uppercase">
+                    {w.tipStatus === "wrong-earth"
+                      ? "Not the crowned Earth"
+                      : w.tipStatus === "unreachable"
+                        ? "Tip unreachable"
+                        : "No tip configured"}
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-amber-100/80">
+                    {w.tipStatus === "wrong-earth"
+                      ? `This tip answers, but its genesis is not ${w.crownedPrefix}… — it is a different picture. Paying here cannot be undone, so sending is disabled.`
+                      : w.tipStatus === "unreachable"
+                        ? "Cannot read the tip right now. Balances and sending stay disabled rather than showing a number that may be wrong."
+                        : "No tip — set VITE_PIXEL_RPC or open with ?rpc="}
+                  </p>
+                </div>
               )}
               <p className="mt-4 break-all font-mono text-[11px] leading-relaxed text-white/55">
                 {w.payFace.address}
@@ -544,7 +562,7 @@ function WalletPage() {
                 )}
                 <button
                   type="button"
-                  disabled={w.busy || !w.rpc || w.tipFaucet === false}
+                  disabled={w.busy || !w.canTransact || w.tipFaucet === false}
                   onClick={() => void w.faucet().catch(() => undefined)}
                   className="wallet-chip-active"
                 >
@@ -552,7 +570,7 @@ function WalletPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={w.busy || !w.rpc}
+                  disabled={w.busy || !w.canTransact}
                   onClick={() => void w.refresh()}
                   className="wallet-chip"
                 >
@@ -805,22 +823,26 @@ function WalletPage() {
                     </label>
                     <button
                       type="submit"
-                      disabled={w.busy || !w.unlocked || !sendArmed}
+                      disabled={w.busy || !w.unlocked || !sendArmed || !w.canTransact}
                       className={
                         opticalPresence && sendArmed && !w.busy
                           ? "wallet-cta kindling-send-hot"
                           : "wallet-cta"
                       }
                     >
-                      {!w.unlocked
-                        ? "Unlock with PIN to send"
-                        : w.busy
-                          ? "Sending…"
-                          : !sendArmed
-                            ? "Sent — change amount to send again"
-                            : opticalPresence
-                              ? "Send PIX — shine ready"
-                              : "Send PIX"}
+                      {!w.canTransact
+                        ? w.tipStatus === "wrong-earth"
+                          ? "Wrong Earth — sending refused"
+                          : "Tip unreachable — sending refused"
+                        : !w.unlocked
+                          ? "Unlock with PIN to send"
+                          : w.busy
+                            ? "Sending…"
+                            : !sendArmed
+                              ? "Sent — change amount to send again"
+                              : opticalPresence
+                                ? "Send PIX — shine ready"
+                                : "Send PIX"}
                     </button>
                     {payReceipt ? (
                       <div
