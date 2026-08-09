@@ -139,6 +139,18 @@ async function main(): Promise<void> {
   );
   console.log("▸ stale counts as agreement; only a different digest is divergence ✓");
 
+  // Staleness must mean unwitnessed history, not merely elapsed time. A chain
+  // with no new moments has nothing to publish, and calling an idle-but-fully-
+  // anchored chain "stale" is the same false alarm one layer up.
+  const unwitnessed = (behind: number, ageHours: number, limit = 48) =>
+    behind > 0 && ageHours > limit;
+  assert(!unwitnessed(0, 61), "an idle chain fully anchored is healthy, however old the anchor");
+  assert(!unwitnessed(0, 10_000), "age alone must never raise the alarm");
+  assert(unwitnessed(1, 61), "one unanchored pixel left for days is the real alarm");
+  assert(!unwitnessed(3, 2), "history the tip just moved past is not yet a problem");
+  assert(unwitnessed(3, 49), "history left unwitnessed past the limit is");
+  console.log("▸ the alarm is unwitnessed history, not elapsed time ✓");
+
   // 2. Anchor a real chain to several venues.
   const state = await labChain();
   const record = buildAnchorFromState(state);
