@@ -1,0 +1,4 @@
+{
+  "maxErrors": 22,
+  "note": "Ceiling only. Lower it by fixing errors; never raise it to make CI pass."
+}
