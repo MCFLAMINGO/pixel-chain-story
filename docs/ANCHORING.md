@@ -179,6 +179,58 @@ Divergence means one of two things, and both matter: the tip's history was
 rewritten, or a venue was handed a false digest. Neither can be quietly repaired,
 because heights are write-once.
 
+## Which Earth came first
+
+Anyone can copy this repository, run `tip:host`, and have their own Earth tonight.
+Nothing prevents that and nothing could — the code is public, and the same is true
+of every open chain. A fork is a `createGenesis` call away.
+
+What the project relied on until now was a pinned genesis hash, a blessed RPC URL,
+and the sentence _"Ceremony hash (Erik); not whatever a random disk forges."_ The
+weakness is symmetry: a copycat's build says exactly the same thing about their
+hash. Convention cannot settle a dispute between two parties who each hold the
+convention.
+
+Anchoring can, and this is the argument that was previously written down nowhere.
+
+Pixel's tip is published to independent, timestamped, append-only chains. A fork
+started today can anchor too — but its earliest possible anchor is dated today. To
+manufacture priority it would have to rewrite Ethereum's history, which is the one
+thing Ethereum is for. So _"which of these existed first"_ stops being an argument
+and becomes a lookup that requires trusting nobody: not the author, not this repo,
+not the operator of any tip.
+
+There is no proof of work here to accumulate, so accumulated cost is unavailable as
+a defence. Accumulated **time** is, and anchors are how it is proven.
+
+**Honest bounds, and they matter:**
+
+- Priority is not merit. Being provably first does not make a chain the one anyone
+  should care about; it only means that question has an answer.
+- Priority is not validity. An anchored root can still be an invalid chain — see
+  the bounds above.
+- The claim is only as old as the first anchor, not as old as the genesis. Pixel's
+  runs from 6 August 2026, not from the ceremony.
+
+### An anchor should name its own Earth
+
+A canvas is `(networkId, genesisHash)` — `canvas-id.ts` is explicit that two
+`createGenesis` calls are two Earths. But the v1 digest covers
+`(networkId, pixelIndex, tipHash, spatialRoot)`, so two Earths sharing a network id
+produce records of identical shape, and an anchor read cold cannot say whose it is.
+Verification still works, because the tip hash chains back to genesis and you
+compare against a full history — but the record is not self-describing, which is
+backwards for the one question anchors are best placed to answer.
+
+`anchorDigestV2()` adds the genesis hash. `anchorDigest()` is unchanged and must
+stay that way: heights are write-once, so altering those bytes would make the
+anchors already on Sepolia and Robinhood read as divergence on chains where nothing
+can be corrected. The selftest asserts both — that v1 is byte-identical with a
+genesis present, and that v2 gives two Earths different digests.
+
+Adopting v2 needs a fresh contract deployment, since the venue recomputes the digest
+from the fields it is handed. The v1 anchors stay valid and verifiable forever.
+
 ## Staying anchored
 
 The deployed addresses live in `anchors.json`, so verification needs no

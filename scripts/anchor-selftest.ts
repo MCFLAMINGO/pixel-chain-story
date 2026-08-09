@@ -25,6 +25,8 @@ import {
   publishToAll,
   verifyAnchorAgainstChain,
   type PublishedAnchor,
+  anchorDigestV2,
+  anchorEarth,
   anchorAction,
 } from "../src/lib/pixel/anchor";
 import {
@@ -150,6 +152,43 @@ async function main(): Promise<void> {
   assert(!unwitnessed(3, 2), "history the tip just moved past is not yet a problem");
   assert(unwitnessed(3, 49), "history left unwitnessed past the limit is");
   console.log("▸ the alarm is unwitnessed history, not elapsed time ✓");
+
+  // A canvas is (networkId, genesisHash). The v1 digest covers only half of that,
+  // so a v1 anchor cannot say which Earth it belongs to. v2 closes it without
+  // disturbing anchors already published on chains that cannot be corrected.
+  const base = {
+    networkId: 20553,
+    pixelIndex: 12,
+    tipHash: "11".repeat(64),
+    spatialRoot: "22".repeat(64),
+  };
+  const earthA = { ...base, genesisHash: "aa".repeat(64) };
+  const earthB = { ...base, genesisHash: "bb".repeat(64) };
+
+  assert(
+    anchorDigest(earthA) === anchorDigest(earthB),
+    "v1 cannot distinguish two Earths — the gap v2 exists to close",
+  );
+  assert(
+    anchorDigest(earthA) === anchorDigest(base),
+    "adding a genesis must not disturb the v1 digest, or published anchors break",
+  );
+  assert(
+    anchorDigestV2(earthA) !== anchorDigestV2(earthB),
+    "v2 must give two Earths different digests",
+  );
+  assert(anchorDigestV2(earthA) !== anchorDigest(earthA), "v2 must not collide with v1");
+  assert(anchorEarth(earthA) === earthA.genesisHash, "a v2 record names its Earth");
+  assert(anchorEarth(base) === null, "a v1 record admits it cannot");
+
+  let refusedV1 = false;
+  try {
+    anchorDigestV2(base);
+  } catch {
+    refusedV1 = true;
+  }
+  assert(refusedV1, "v2 must refuse a record with no genesis rather than invent one");
+  console.log("▸ v2 anchors name their Earth; v1 digests are byte-identical ✓");
 
   // 2. Anchor a real chain to several venues.
   const state = await labChain();
