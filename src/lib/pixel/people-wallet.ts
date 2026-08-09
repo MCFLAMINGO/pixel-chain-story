@@ -431,3 +431,80 @@ export function isOpticalVault(v: unknown): v is OpticalPattern {
     typeof (v as OpticalPattern).checksum === "string"
   );
 }
+
+/* ── Export / import ─────────────────────────────────────────────────────────
+ *
+ * The seed is born inside one browser and, until now, could never leave it. That
+ * made the phone the wallet: no second device, and no recovery if storage went.
+ * Meanwhile the only thing a user *could* back up was the PIN — which is the one
+ * piece that is worthless alone, since it unwraps a seed stored nowhere else.
+ *
+ * What moves is the stored blob, which is already sealed with the PIN. So the
+ * text below is not a secret in the way a seed phrase is: without the PIN it
+ * unwraps nothing. That is deliberate — no new crypto, no plaintext seed on a
+ * screen, and no new way to lose everything by screenshotting it.
+ */
+
+export const PEOPLE_WALLET_EXPORT_MAGIC = "PIXELWALLET1";
+
+/**
+ * Sealed, portable copy of this device's wallet. Requires the PIN to be of any
+ * use. Returns null when there is nothing stored.
+ */
+export async function exportPeopleWallet(): Promise<string | null> {
+  const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
+  if (!blob) return null;
+  if (blob.v !== 2) {
+    throw new Error("This wallet predates PIN sealing — unlock and re-forge before exporting");
+  }
+  return `${PEOPLE_WALLET_EXPORT_MAGIC}:${btoa(JSON.stringify(blob))}`;
+}
+
+export interface ImportedWallet {
+  address: string;
+  localId: string;
+  /** True when an existing wallet on this device was replaced. */
+  replaced: boolean;
+}
+
+/**
+ * Take a sealed copy onto this device.
+ *
+ * Refuses to overwrite a *different* wallet unless asked, because importing over
+ * an identity whose seed exists nowhere else destroys it silently — the same
+ * mistake as offering "create wallet" when a read failed.
+ *
+ * The OTS leaf cursor travels with the blob. Two live copies signing from one
+ * cursor would reuse one-time leaves, which the chain rejects; this is a path for
+ * moving and recovering a wallet, not for running it in two places at once.
+ */
+export async function importPeopleWallet(
+  text: string,
+  opts?: { replaceDifferent?: boolean },
+): Promise<ImportedWallet> {
+  const trimmed = text.trim();
+  const prefix = `${PEOPLE_WALLET_EXPORT_MAGIC}:`;
+  if (!trimmed.startsWith(prefix)) {
+    throw new Error("Not a Pixel wallet export — expected text starting PIXELWALLET1:");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(atob(trimmed.slice(prefix.length)));
+  } catch {
+    throw new Error("Wallet export is corrupt — copy the whole line, including the end");
+  }
+  const blob = parseBlob(JSON.stringify(parsed));
+  if (!blob || blob.v !== 2) throw new Error("Wallet export is not a PIN-sealed wallet");
+
+  const existing = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
+  const existingAddress = existing && existing.v === 2 ? existing.address : null;
+  const different = existingAddress !== null && existingAddress !== blob.address;
+  if (different && !opts?.replaceDifferent) {
+    throw new Error(
+      `This device already holds a different wallet (${existingAddress.slice(0, 12)}…). ` +
+        "Importing would replace it, and its seed may exist nowhere else. Export that one first.",
+    );
+  }
+  savePeopleWalletBlob(blob);
+  return { address: blob.address, localId: blob.localId, replaced: different };
+}
