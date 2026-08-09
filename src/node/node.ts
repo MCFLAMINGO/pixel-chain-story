@@ -73,6 +73,12 @@ export interface NodeOptions {
   gossipPort: number;
   seeds?: string[];
   label?: string;
+  /**
+   * Take turns producing pixels. Default false — a node follows and verifies
+   * unless it opts in, because joining the rota without chain-carried membership
+   * makes this node reject the tip's blocks.
+   */
+  sequencer?: boolean;
   /** Auto-sequence when this node is elected and mempool nonempty */
   autoSequenceMs?: number;
   /** Public host/IP peers should dial for gossip (VPS DNS or IP) */
@@ -143,7 +149,23 @@ export class PixelLedgerNode {
 
     const existing = await loadChain(this.datadir);
     if (existing) {
-      this.chain = registerSequencer(existing, keypair);
+      // Adding yourself to the rota changes the electable set this node derives,
+      // and acceptBlock requires that set to match what an incoming block binds.
+      // A node that self-registers therefore rejects every block the tip makes
+      // until the tip has heard its hello — so a fresh joiner would sync, then
+      // freeze. Witnessing is the default; taking turns is opted into, and until
+      // membership is carried by the chain that opt-in has known consequences
+      // (scripts/electable-drift-selftest.ts).
+      const wantsTurns =
+        this.opts.sequencer === true ||
+        process.env.PIXEL_SEQUENCER === "1" ||
+        process.env.PIXEL_SEQUENCER === "true" ||
+        process.env.PIXEL_TIP_HOST === "1" ||
+        process.env.PIXEL_TIP_HOST === "true";
+      this.chain = wantsTurns ? registerSequencer(existing, keypair) : existing;
+      if (!wantsTurns) {
+        console.log("[pixel-ledger] witness mode — following the tip, not taking turns");
+      }
     } else {
       const allowLab =
         process.env.PIXEL_ALLOW_LAB_GENESIS === "1" ||
