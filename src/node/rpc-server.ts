@@ -2,6 +2,11 @@
  * HTTP JSON-RPC + REST helpers for Pixel Ledger nodes.
  */
 
+import {
+  CROWNED_GENESIS_PREFIX,
+  isCrownedGenesisHash,
+  PUBLIC_TIP_RPC_DEFAULT,
+} from "../lib/pixel/crowned-genesis";
 import type { PixelLedgerNode } from "./node";
 import type { JsonRpcRequest, Transaction } from "../lib/pixel/index";
 import {
@@ -320,9 +325,53 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         return json(result);
       }
 
+      // A person who opens this URL in a browser is asking "what is this, and is
+      // it real?" — a list of routes answers neither. Say which chain this is,
+      // how to check it without trusting us, and how to join.
+      if (req.method === "GET" && url.pathname === "/") {
+        const snap = node.syncSnapshot();
+        const crowned = isCrownedGenesisHash(snap.genesisHash);
+        return text(
+          [
+            "Pixel Ledger — this is a node, not a website.",
+            "",
+            `  network   ${snap.networkId}`,
+            `  genesis   ${snap.genesisHash.slice(0, 32)}…`,
+            `  earth     ${crowned ? `crowned (${CROWNED_GENESIS_PREFIX}…)` : "NOT the crowned Earth — a different picture"}`,
+            `  height    #${snap.tip}`,
+            `  peers     ${node.gossip.peerCount()}`,
+            "",
+            // Only the crowned Earth may point at the crowned anchors. A lab node
+            // borrowing that evidence would be claiming someone else's history.
+            ...(crowned
+              ? [
+                  "Check it without trusting this server:",
+                  "  this tip is anchored on Ethereum Sepolia and Robinhood testnet at",
+                  "  0xA4Dc733fcb075b5c880eB1067225f5064bbff963 — same digest on both,",
+                  "  published 2026-08-06 and unchanged since. Compare them yourself.",
+                  "",
+                  "Join it (laptop or VPS):",
+                ]
+              : [
+                  "This is a lab or private chain. It is not the public picture, and",
+                  "the anchors published for the crowned Earth do not describe it.",
+                  "",
+                  "To join the crowned Earth instead:",
+                ]),
+            "  bun install",
+            `  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ./data/friend --require-crowned`,
+            "  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002",
+            "",
+            "Endpoints: POST /rpc · POST /tx · GET /health · GET /sync ·",
+            "GET /spatial/snapshot · GET /wave/tip · POST /continuity/order",
+          ].join("\n"),
+          { status: 200 },
+        );
+      }
+
       return text(
         "Pixel Ledger — POST /rpc | POST /tx | GET /health | GET /sync | GET /spatial/snapshot | GET /wave/tip | Continuity: /continuity/invite/:token | POST /continuity/order",
-        { status: 200 },
+        { status: 404 },
       );
     },
   });
