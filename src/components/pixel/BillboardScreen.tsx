@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LedgerField } from "@/components/pixel/LedgerField";
 import { usePixelChain } from "@/hooks/use-pixel-chain";
 import { type LedgerPixel } from "@/lib/pixel";
@@ -25,6 +25,8 @@ export function BillboardScreen({
   const [tip, setTip] = useState<string>("");
   const [canvasShort, setCanvasShort] = useState<string>("");
   const [live, setLive] = useState(false);
+  // Pixels already held, so each poll can ask only for what is new.
+  const knownRef = useRef<LedgerPixel[]>([]);
   // Distinguishes "not tried yet" from "tried and failed".
   const [attempted, setAttempted] = useState(false);
 
@@ -34,7 +36,22 @@ export function BillboardScreen({
     const pull = async () => {
       try {
         const base = rpc.replace(/\/$/, "");
-        const pixels = (await fetch(`${base}/pixels`).then((r) => r.json())) as LedgerPixel[];
+        // Ask only for what we do not have. The first pull is the whole picture;
+        // after that each poll carries the new pixels alone.
+        const have = knownRef.current;
+        const since = have.length > 0 ? have[have.length - 1]!.index : -1;
+        const fresh = (await fetch(`${base}/pixels?since=${since}`).then((r) =>
+          r.json(),
+        )) as LedgerPixel[];
+        // A shorter chain than ours means a different history, not a smaller one —
+        // fall back to a full pull rather than stitching two pictures together.
+        const pixels =
+          Array.isArray(fresh) && fresh.length > 0 && fresh[0]!.index === since + 1
+            ? [...have, ...fresh]
+            : since >= 0 && Array.isArray(fresh) && fresh.length === 0
+              ? have
+              : ((await fetch(`${base}/pixels`).then((r) => r.json())) as LedgerPixel[]);
+        knownRef.current = pixels;
         const health = (await fetch(`${base}/health`).then((r) => r.json())) as {
           pending?: number;
           networkId?: number;
