@@ -65,9 +65,7 @@ export function faucetGrantedTo(state: PixelChainState, address: string): boolea
   return faucetLedger(state).recipients.has(address);
 }
 
-export type FaucetDecision =
-  | { allowed: true; amount: number }
-  | { allowed: false; reason: string };
+export type FaucetDecision = { allowed: true; amount: number } | { allowed: false; reason: string };
 
 /**
  * Whether this address may be granted, and how much.
