@@ -148,7 +148,17 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
       }
 
       if (req.method === "GET" && url.pathname === "/pixels") {
-        return json(node.chain.pixels);
+        // The whole picture, every time, was fine at a dozen pixels and is not at
+        // a thousand: the field polls this every 2s, so each viewer re-downloads
+        // all of history twice a second. `?since=N` returns only what is new.
+        // Omitting it still returns everything, so older clients keep working.
+        const sinceRaw = url.searchParams.get("since");
+        if (sinceRaw === null) return json(node.chain.pixels);
+        const since = Number(sinceRaw);
+        if (!Number.isInteger(since) || since < -1) {
+          return json({ ok: false, error: "since must be an integer >= -1" }, { status: 400 });
+        }
+        return json(node.chain.pixels.filter((p) => p.index > since));
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/balance/")) {
