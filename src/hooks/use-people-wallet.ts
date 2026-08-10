@@ -9,6 +9,7 @@ import {
   forgeAndPersistPeopleWallet,
   importPeopleWalletBackup,
   isPinSealedBlob,
+  loadPeopleWalletResult,
   loadPeopleWalletBlobAsync,
   payFaceFromBlob,
   payOnSharedTip,
@@ -85,6 +86,8 @@ export function usePeopleWallet(rpcOverride?: string) {
   const [needsPinUpgrade, setNeedsPinUpgrade] = useState(false);
   const [pinSealed, setPinSealed] = useState(false);
   const [deviceUnlockOn, setDeviceUnlockOn] = useState(false);
+  /** Set when storage could not be read — distinct from having no wallet. */
+  const [storageError, setStorageError] = useState<string | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payInFlight = useRef(false);
 
@@ -168,7 +171,11 @@ export function usePeopleWallet(rpcOverride?: string) {
 
   useEffect(() => {
     void (async () => {
-      const blob = await loadPeopleWalletBlobAsync();
+      const res = await loadPeopleWalletResult();
+      // Never let a failed read look like an empty device — that is what invites
+      // a second identity to be forged over the top of a first.
+      setStorageError(res.status === "unreadable" ? res.reason : null);
+      const blob = res.status === "found" ? res.blob : null;
       if (blob) {
         setPayFace(payFaceFromBlob(blob));
         setPinSealed(isPinSealedBlob(blob));
@@ -486,6 +493,7 @@ export function usePeopleWallet(rpcOverride?: string) {
     tipBridgeSepolia: tipBridgeEvm,
     tipFaucet,
     crownedTip,
+    storageError,
     tipStatus,
     /** Anything that moves value is refused unless the tip is the crowned Earth. */
     canTransact: tipStatus === "crowned",

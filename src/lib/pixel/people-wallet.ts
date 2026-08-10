@@ -508,3 +508,47 @@ export async function importPeopleWallet(
   savePeopleWalletBlob(blob);
   return { address: blob.address, localId: blob.localId, replaced: different };
 }
+
+/**
+ * Load the wallet, distinguishing "no wallet here" from "could not look".
+ *
+ * The plain loader returns null for both, and the wallet screen treats null as
+ * "offer to create one" — which invites a user to forge a second identity on top
+ * of a first whose seed may exist nowhere else. A read failure must never be
+ * presented as an empty device.
+ */
+export async function loadPeopleWalletResult(): Promise<
+  | { status: "found"; blob: PeopleWalletBlob }
+  | { status: "empty" }
+  | { status: "unreadable"; reason: string }
+> {
+  const { idbReadResult } = await import("./people-wallet-idb");
+  const idb = await idbReadResult();
+  if (idb.status === "found") {
+    const blob = parseBlob(idb.raw);
+    if (blob) return { status: "found", blob };
+    return { status: "unreadable", reason: "stored wallet is corrupt or from a newer version" };
+  }
+  // IndexedDB is the source of truth; localStorage is only a migration mirror.
+  // Consult it either way — a wallet written before the migration still counts,
+  // and finding one there after an IDB failure is a recovery rather than a risk.
+  const mirrored = loadPeopleWalletBlob();
+  if (mirrored) return { status: "found", blob: mirrored };
+  if (idb.status === "unreadable") return { status: "unreadable", reason: idb.reason };
+  // Something is stored here but did not parse. Present-and-broken is not absent,
+  // and must not be answered with an offer to create a replacement.
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem(PEOPLE_WALLET_STORAGE_KEY);
+      if (raw !== null && raw.trim() !== "") {
+        return { status: "unreadable", reason: "stored wallet is corrupt or from a newer version" };
+      }
+    }
+  } catch (e) {
+    return {
+      status: "unreadable",
+      reason: e instanceof Error ? e.message : "storage is not readable",
+    };
+  }
+  return { status: "empty" };
+}

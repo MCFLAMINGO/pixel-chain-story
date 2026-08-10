@@ -24,6 +24,42 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+/**
+ * Whether the store held a wallet, held nothing, or could not be read at all.
+ *
+ * These were previously the same value. A throw — eviction, a locked store,
+ * private browsing, a transient failure — returned null, which is also what an
+ * empty store returns. The wallet screen then offered to create a new identity
+ * over the top of one it had simply failed to look at.
+ */
+export type WalletReadResult =
+  | { status: "found"; raw: string }
+  | { status: "empty" }
+  | { status: "unreadable"; reason: string };
+
+export async function idbReadResult(): Promise<WalletReadResult> {
+  // No IndexedDB on this platform is not a failure to read one — some private
+  // modes and non-browser hosts have none at all. There, localStorage is the
+  // authority and an absent wallet is genuinely absent.
+  if (typeof indexedDB === "undefined") return { status: "empty" };
+  try {
+    const db = await openDb();
+    const raw = await new Promise<string | null>((resolve, reject) => {
+      const tx = db.transaction(PEOPLE_WALLET_IDB_STORE, "readonly");
+      const req = tx.objectStore(PEOPLE_WALLET_IDB_STORE).get(PEOPLE_WALLET_IDB_KEY);
+      req.onsuccess = () => {
+        const v = req.result;
+        resolve(typeof v === "string" ? v : v == null ? null : JSON.stringify(v));
+      };
+      req.onerror = () => reject(req.error);
+    });
+    return raw === null ? { status: "empty" } : { status: "found", raw };
+  } catch (e) {
+    return { status: "unreadable", reason: e instanceof Error ? e.message : "storage read failed" };
+  }
+}
+
+/** Back-compat: null for both empty and unreadable. Prefer `idbReadResult`. */
 export async function idbReadRaw(): Promise<string | null> {
   try {
     const db = await openDb();
