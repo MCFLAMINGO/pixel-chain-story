@@ -41,6 +41,29 @@ async function main() {
 
   const existing = await loadChain(datadir);
   if (!existing) {
+    // Forging here creates a NEW Earth, not a copy of the crowned one. The script
+    // name reads like "run the tip", so a friend who clones the repo and tries it
+    // would quietly become their own network and wonder why nobody else is on it.
+    // A ceremony is a deliberate act and has to be asked for out loud.
+    const ceremony =
+      process.env.PIXEL_GENESIS_CEREMONY === "1" || process.env.PIXEL_GENESIS_CEREMONY === "true";
+    if (!ceremony) {
+      console.error(
+        [
+          `No ledger in ${datadir}, and this would forge a NEW Earth — not a copy of`,
+          "the crowned one. Almost nobody wants that.",
+          "",
+          "To follow the existing tip instead (this is probably what you want):",
+          "  PEER=https://pixel-tip-production.up.railway.app",
+          "  bun run pixel -- join --peer $PEER --datadir ./data/friend --require-crowned",
+          "  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002",
+          "",
+          "If you really are holding a genesis ceremony for a separate network:",
+          "  PIXEL_GENESIS_CEREMONY=1 bun run tip:host",
+        ].join("\n"),
+      );
+      process.exit(1);
+    }
     const { keypair } = await loadOrCreateIdentity(datadir, "genesis");
     const chain = await createGenesis(keypair);
     await saveChain(datadir, chain);
