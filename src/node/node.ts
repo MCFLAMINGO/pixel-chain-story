@@ -601,17 +601,26 @@ export class PixelLedgerNode {
     const { assertPixelAddress } = await import("../lib/pixel/crypto");
     assertPixelAddress(params.address, "faucet address");
     return this.withChainLock(async () => {
-      const have = balanceOf(this.chain, params.address);
-      if (have >= amount) {
+      const { faucetDecision, FAUCET_DEFAULT_BUDGET } = await import("../lib/pixel/faucet-ledger");
+      const budget = Number(process.env.PIXEL_FAUCET_BUDGET ?? FAUCET_DEFAULT_BUDGET);
+      const decision = faucetDecision({
+        state: this.chain,
+        address: params.address,
+        amount,
+        budget: Number.isFinite(budget) && budget > 0 ? budget : FAUCET_DEFAULT_BUDGET,
+      });
+      if (!decision.allowed) {
         return {
           funded: 0,
-          balance: have,
+          balance: balanceOf(this.chain, params.address),
           tipIndex: this.chain.pixels.length - 1,
           skipped: true,
-          summary: `already funded (${have} PIX)`,
+          summary: decision.reason,
         };
       }
-      const need = amount - have;
+      // A grant, not a top-up: what you already hold is irrelevant, and spending
+      // it does not entitle you to more.
+      const need = decision.amount;
       const vaultBal = balanceOf(this.chain, this.keypair.address);
       if (vaultBal < need) {
         throw new Error(`faucet vault needs ${need} PIX (has ${vaultBal})`);
