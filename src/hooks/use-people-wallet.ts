@@ -9,6 +9,8 @@ import {
   forgeAndPersistPeopleWallet,
   importPeopleWalletBackup,
   isPinSealedBlob,
+  exportPeopleWallet,
+  importPeopleWallet,
   loadPeopleWalletResult,
   loadPeopleWalletBlobAsync,
   payFaceFromBlob,
@@ -247,6 +249,40 @@ export function usePeopleWallet(rpcOverride?: string) {
       }
     },
     [refreshBalance, lock],
+  );
+
+  /**
+   * Sealed, portable copy. Requires an unlocked session: the blob is only as
+   * strong as the PIN that seals it, so handing one out should at least prove
+   * the holder knows that PIN.
+   */
+  const exportWallet = useCallback(async () => {
+    if (!unlocked) throw new Error("Unlock with your PIN before exporting");
+    const text = await exportPeopleWallet();
+    if (!text) throw new Error("No wallet on this device to export");
+    return text;
+  }, [unlocked]);
+
+  const importWallet = useCallback(
+    async (text: string, opts?: { replaceDifferent?: boolean }) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await importPeopleWallet(text, opts);
+        const loaded = await loadPeopleWalletResult();
+        if (loaded.status === "found") {
+          setPayFace(payFaceFromBlob(loaded.blob));
+          setPinSealed(isPinSealedBlob(loaded.blob));
+          setDeviceUnlockOn(loaded.blob.v === 2 && !!loaded.blob.webauthn);
+          setStorageError(null);
+          await refreshBalance(payFaceFromBlob(loaded.blob).address);
+        }
+        return res;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refreshBalance],
   );
 
   const unlockDevice = useCallback(async () => {
@@ -494,6 +530,8 @@ export function usePeopleWallet(rpcOverride?: string) {
     tipFaucet,
     crownedTip,
     storageError,
+    exportWallet,
+    importWallet,
     tipStatus,
     /** Anything that moves value is refused unless the tip is the crowned Earth. */
     canTransact: tipStatus === "crowned",
