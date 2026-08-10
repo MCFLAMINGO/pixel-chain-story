@@ -509,14 +509,28 @@ export async function importPeopleWallet(
 ): Promise<ImportedWallet> {
   const trimmed = text.trim();
   const prefix = `${PEOPLE_WALLET_EXPORT_MAGIC}:`;
-  if (!trimmed.startsWith(prefix)) {
-    throw new Error("Not a Pixel wallet export — expected text starting PIXELWALLET1:");
-  }
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(atob(trimmed.slice(prefix.length)));
-  } catch {
-    throw new Error("Wallet export is corrupt — copy the whole line, including the end");
+  if (trimmed.startsWith(prefix)) {
+    try {
+      parsed = JSON.parse(atob(trimmed.slice(prefix.length)));
+    } catch {
+      throw new Error("Wallet export is corrupt — copy the whole line, including the end");
+    }
+  } else if (trimmed.startsWith("{")) {
+    // The downloaded backup file. Two export paths already existed and only one
+    // could be imported, which is a good way to lose a wallet while believing it
+    // was backed up. Import takes whatever this app produced.
+    try {
+      const file = JSON.parse(trimmed) as { pixelBackup?: number; wallet?: unknown };
+      if (!file.wallet) throw new Error("no wallet in backup");
+      parsed = file.wallet;
+    } catch {
+      throw new Error("Backup file is not readable — paste its whole contents");
+    }
+  } else {
+    throw new Error(
+      "Not a Pixel wallet export — paste the PIXELWALLET1: line, or the contents of a backup file",
+    );
   }
   const blob = parseBlob(JSON.stringify(parsed));
   if (!blob || blob.v !== 2) throw new Error("Wallet export is not a PIN-sealed wallet");

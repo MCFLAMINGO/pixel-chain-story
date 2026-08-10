@@ -745,24 +745,24 @@ function WalletPage() {
                       ) : null}
                       <button
                         type="button"
+                        className="wallet-ghost"
+                        disabled={w.busy || !w.unlocked}
+                        onClick={() => {
+                          setExportErr(null);
+                          void w
+                            .exportWallet()
+                            .then(setExportText)
+                            .catch((e: unknown) =>
+                              setExportErr(e instanceof Error ? e.message : "Export failed"),
+                            );
+                        }}
+                      >
+                        {w.unlocked ? "Export wallet" : "Unlock to export"}
+                      </button>
+                      <button
+                        type="button"
                         disabled={w.busy}
                         onClick={() => {
-                          <button
-                            type="button"
-                            className="wallet-ghost"
-                            disabled={w.busy || !w.unlocked}
-                            onClick={() => {
-                              setExportErr(null);
-                              void w
-                                .exportWallet()
-                                .then(setExportText)
-                                .catch((e: unknown) =>
-                                  setExportErr(e instanceof Error ? e.message : "Export failed"),
-                                );
-                            }}
-                          >
-                            {w.unlocked ? "Export wallet" : "Unlock to export"}
-                          </button>;
                           try {
                             w.exportBackup();
                           } catch (e) {

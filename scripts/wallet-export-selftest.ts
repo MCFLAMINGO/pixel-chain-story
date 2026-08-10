@@ -155,6 +155,21 @@ console.log("▸ garbage, truncation and legacy blobs are refused with a reason 
   console.log("▸ empty, found and unreadable are three states, never one ✓");
 }
 
+// Two export paths already existed and only one could be imported. Believing a
+// backup works when it does not is how a wallet is lost, so import must take
+// whatever this app hands the user.
+{
+  const { exportPeopleWalletBackup } = await import("../src/lib/pixel/people-wallet");
+  store.clear();
+  const w = await forgeAndPersistPeopleWallet("Two Formats", "112358");
+  const file = exportPeopleWalletBackup();
+  assert(file && file.trim().startsWith("{"), "the downloaded backup is a JSON file");
+  store.clear();
+  const back = await importPeopleWallet(file!);
+  assert(back.address === w.payFace.address, "the backup file must import to the same wallet");
+  console.log("▸ the downloaded backup file imports too, not just the pasted line ✓");
+}
+
 console.log(
   "\nwhat this changes: the phone is no longer the wallet. The seed can be moved\n" +
     "and recovered, and the thing a user backs up is finally the thing that matters.",
