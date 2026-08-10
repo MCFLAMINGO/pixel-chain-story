@@ -358,8 +358,12 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
                   "",
                   "To join the crowned Earth instead:",
                 ]),
+            // Browsers render text/plain preformatted, so a long line scrolls off
+            // the right edge and cannot be read, let alone copied. Every line has
+            // to survive a narrow window while staying paste-able as-is.
             "  bun install",
-            `  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ./data/friend --require-crowned`,
+            `  PEER=${PUBLIC_TIP_RPC_DEFAULT}`,
+            "  bun run pixel -- join --peer $PEER --datadir ./data/friend --require-crowned",
             "  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002",
             "",
             "Endpoints: POST /rpc · POST /tx · GET /health · GET /sync ·",
