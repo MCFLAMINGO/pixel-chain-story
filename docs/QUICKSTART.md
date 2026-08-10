@@ -15,6 +15,8 @@ Discord paste: [`demos/friend-invite.md`](./demos/friend-invite.md) · bot: [`de
 ## B. Friend node (laptop / VPS) — witness
 
 ```bash
+git clone https://github.com/MCFLAMINGO/pixel-chain-story
+cd pixel-chain-story
 bun install
 bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend --require-crowned
 bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002

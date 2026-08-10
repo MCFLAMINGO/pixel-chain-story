@@ -371,6 +371,11 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
             // Browsers render text/plain preformatted, so a long line scrolls off
             // the right edge and cannot be read, let alone copied. Every line has
             // to survive a narrow window while staying paste-able as-is.
+            // Without the clone and cd, these run in whatever directory the reader
+            // happens to be in and fail with "could not find a package.json" —
+            // which is exactly what happened to the first person who tried.
+            "  git clone https://github.com/MCFLAMINGO/pixel-chain-story",
+            "  cd pixel-chain-story",
             "  bun install",
             `  PEER=${PUBLIC_TIP_RPC_DEFAULT}`,
             "  bun run pixel -- join --peer $PEER --datadir ./data/friend --require-crowned",
