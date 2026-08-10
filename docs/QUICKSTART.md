@@ -12,13 +12,25 @@
 
 Discord paste: [`demos/friend-invite.md`](./demos/friend-invite.md) · bot: [`demos/discord-bot.md`](./demos/discord-bot.md)
 
-## B. Friend node (laptop / VPS)
+## B. Friend node (laptop / VPS) — witness
 
 ```bash
 bun install
 bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend --require-crowned
 bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 ```
+
+A joining node **follows and verifies**; it does not take turns producing pixels.
+That is deliberate. Sequencer membership is not yet carried by the chain, so a
+node that joined the rota would reject the tip's blocks and freeze at whatever
+height it synced to (`scripts/electable-drift-selftest.ts` reproduces it).
+
+Witnessing is not a consolation prize. `docs/ANCHORING.md` states that catching a
+false-but-immutable anchored root needs an independent archive to compare
+against — witnesses are that archive, and there is currently exactly one copy of
+this history.
+
+Taking turns is opted into with `PIXEL_SEQUENCER=1`, with the above consequence.
 
 ## C. Local tip (operators)
 
@@ -49,7 +61,7 @@ Lab CI only: `PIXEL_ALLOW_LAB_GENESIS=1 bun scripts/lab-forge-datadir.ts`
 
 ## Next docs
 
-- [`PHONE-WALLET.md`](./PHONE-WALLET.md) — hold · send · bridge  
-- [`demos/friend-invite.md`](./demos/friend-invite.md) — Discord paste  
-- [`CANONICAL-TIP.md`](./CANONICAL-TIP.md) — tip ops  
-- [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) — Gate E honesty  
+- [`PHONE-WALLET.md`](./PHONE-WALLET.md) — hold · send · bridge
+- [`demos/friend-invite.md`](./demos/friend-invite.md) — Discord paste
+- [`CANONICAL-TIP.md`](./CANONICAL-TIP.md) — tip ops
+- [`BRIDGE-STATUS.md`](./BRIDGE-STATUS.md) — Gate E honesty
