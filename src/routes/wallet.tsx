@@ -734,7 +734,14 @@ function WalletPage() {
                         </button>
                       ) : null}
                       {w.deviceUnlockOn ? (
-                        <span className="wallet-chip text-emerald-200/80">Device unlock on</span>
+                        <button
+                          type="button"
+                          className="wallet-ghost"
+                          disabled={w.busy}
+                          onClick={() => void w.turnOffDeviceUnlock()}
+                        >
+                          Turn off Face ID
+                        </button>
                       ) : null}
                       <button
                         type="button"

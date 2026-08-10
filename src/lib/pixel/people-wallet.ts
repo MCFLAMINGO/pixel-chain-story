@@ -254,8 +254,30 @@ export async function enableDeviceUnlock(params: {
 }): Promise<void> {
   const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
   if (!blob || blob.v !== 2) throw new Error("PIN-sealed wallet required");
+  // Each call mints a platform passkey. Called twice, the device accumulates
+  // credentials the wallet will never look for again — clutter in the user's
+  // password manager, and the reason a stale one can be offered at unlock time.
+  if (blob.webauthn && blob.address === params.address) {
+    throw new Error(
+      "Face ID is already set up for this wallet. Turn it off first if you want to replace it.",
+    );
+  }
   const seal = await enableWebAuthnSeal(params);
   await savePeopleWalletBlobAsync({ ...blob, webauthn: seal });
+}
+
+/**
+ * Forget this device's Face ID seal.
+ *
+ * Only removes the wallet's pointer to it. The platform passkey itself lives in
+ * the browser or password manager and has to be deleted there — the web cannot
+ * delete a credential it created.
+ */
+export async function disableDeviceUnlock(): Promise<void> {
+  const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
+  if (!blob || blob.v !== 2) return;
+  const { webauthn: _dropped, ...rest } = blob;
+  await savePeopleWalletBlobAsync(rest);
 }
 
 export async function unlockStoredPeopleWalletWithDevice(): Promise<{
@@ -270,7 +292,10 @@ export async function unlockStoredPeopleWalletWithDevice(): Promise<{
   const seed = await unlockSeedWithWebAuthn(blob.webauthn);
   const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? OTS_CURSOR_UNKNOWN);
   if (keypair.address !== blob.address) {
-    throw new Error("Device unlock Source mismatch");
+    throw new Error(
+      "This device's Face ID belongs to a different wallet. Unlock with your PIN, " +
+        "then turn Face ID off and on again to bind it to this one.",
+    );
   }
   return {
     payFace: {

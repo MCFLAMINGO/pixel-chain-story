@@ -9,6 +9,7 @@ import {
   forgeAndPersistPeopleWallet,
   importPeopleWalletBackup,
   isPinSealedBlob,
+  disableDeviceUnlock,
   exportPeopleWallet,
   importPeopleWallet,
   loadPeopleWalletResult,
@@ -256,6 +257,11 @@ export function usePeopleWallet(rpcOverride?: string) {
    * strong as the PIN that seals it, so handing one out should at least prove
    * the holder knows that PIN.
    */
+  const turnOffDeviceUnlock = useCallback(async () => {
+    await disableDeviceUnlock();
+    setDeviceUnlockOn(false);
+  }, []);
+
   const exportWallet = useCallback(async () => {
     if (!unlocked) throw new Error("Unlock with your PIN before exporting");
     const text = await exportPeopleWallet();
@@ -531,6 +537,7 @@ export function usePeopleWallet(rpcOverride?: string) {
     crownedTip,
     storageError,
     exportWallet,
+    turnOffDeviceUnlock,
     importWallet,
     tipStatus,
     /** Anything that moves value is refused unless the tip is the crowned Earth. */
