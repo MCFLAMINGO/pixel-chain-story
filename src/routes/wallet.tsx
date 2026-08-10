@@ -369,6 +369,27 @@ function WalletPage() {
 
         {!w.ready ? (
           <p className="mt-16 text-sm text-white/50">Opening…</p>
+        ) : w.storageError ? (
+          // Offering "create wallet" here would invite forging a second identity
+          // over a first this browser merely failed to read.
+          <section className="mt-10 space-y-4 rounded-3xl border border-amber-300/40 bg-amber-300/10 px-5 py-6">
+            <p className="font-pixel text-[10px] tracking-[0.2em] text-amber-200 uppercase">
+              Could not read this device
+            </p>
+            <p className="text-sm leading-relaxed text-amber-100/85">
+              Your wallet may still be here — the browser could not open its storage, which is not
+              the same as having no wallet. Do not create a new one yet: that would be a different
+              person with a different address.
+            </p>
+            <p className="text-xs leading-relaxed text-amber-100/60">{w.storageError}</p>
+            <button type="button" className="wallet-cta" onClick={() => window.location.reload()}>
+              Try again
+            </button>
+            <p className="text-xs leading-relaxed text-amber-100/60">
+              If it keeps failing, quit the browser completely and reopen it. Avoid clearing site
+              data for this site — that would remove the wallet for real.
+            </p>
+          </section>
         ) : !w.payFace ? (
           <section className="mt-10 flex flex-1 flex-col justify-center space-y-6">
             <p className="text-base leading-relaxed text-white/70">{peopleWalletThesis()}</p>

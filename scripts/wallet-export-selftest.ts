@@ -128,6 +128,33 @@ await expectThrow(
 );
 console.log("▸ garbage, truncation and legacy blobs are refused with a reason ✓");
 
+// A read failure must never look like an empty device — that is what invited a
+// second identity to be forged over the first.
+{
+  const { loadPeopleWalletResult } = await import("../src/lib/pixel/people-wallet");
+
+  store.clear();
+  const empty = await loadPeopleWalletResult();
+  assert(empty.status === "empty", `a wiped device must read empty, got ${empty.status}`);
+
+  await forgeAndPersistPeopleWallet("Present", "161803");
+  const found = await loadPeopleWalletResult();
+  assert(found.status === "found", `a stored wallet must read found, got ${found.status}`);
+
+  // Corrupt what is stored: present but unreadable, which is not the same as gone.
+  store.set([...store.keys()][0]!, "{not json");
+  const broken = await loadPeopleWalletResult();
+  assert(
+    broken.status === "unreadable",
+    `corrupt storage must read unreadable, got ${broken.status}`,
+  );
+  assert(
+    broken.status === "unreadable" && broken.reason.length > 0,
+    "an unreadable result must carry a reason to show the user",
+  );
+  console.log("▸ empty, found and unreadable are three states, never one ✓");
+}
+
 console.log(
   "\nwhat this changes: the phone is no longer the wallet. The seed can be moved\n" +
     "and recovered, and the thing a user backs up is finally the thing that matters.",
