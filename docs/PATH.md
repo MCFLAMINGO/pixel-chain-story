@@ -159,7 +159,7 @@ Each gate has **evidence** (repo artifact) and **claim unlock**. Do not advertis
 - [x] Personal Source unlock persists leaf cursor safely after optical unlock (`people-wallet` `nextLeaf` + `restoreLightKeypair`)
 - [ ] Scheme id persisted beside vault for ML-DSA Personal Sources (OTS path green)
 
-**Evidence:** `test:optical` + kindling optical-capture path green + `test:pay-face-optical`  
+**Evidence:** `test:optical` + kindling optical-capture path green + `test:pay-face-optical`
 
 **Claim unlock:** _“Optical capture path shipped (pilot); presence-bound Kindling when channel=optical-capture.”_
 
@@ -225,15 +225,32 @@ provenance that outlives the venue — see [`RWA-CONTINUITY.md`](./RWA-CONTINUIT
 
 ## 6. Immediate next actions (this repo)
 
+0. **Namespace the network id so a genesis cannot be forged onto the crowned Earth.**
+   Bitcoin has no ceremony script: the genesis is a constant in the client and any
+   chain not starting there is rejected. `PIXEL_GENESIS_CEREMONY=1` (`tip:host`) is
+   the weak version of that — it stops an accident, it does not make one impossible.
+
+   The real fix, in order:
+   - Give lab / selftest / demo chains their own network id. `createGenesis`
+     currently defaults everything to 20553, which is why `canvas-id.ts` has to warn
+     that a matching family id is not the same picture.
+   - Then make network 20553 accept exactly one genesis — `CROWNED_GENESIS_HASH`,
+     already a constant — enforced at node startup rather than only on CLI `join`.
+   - Then delete the forge path instead of flagging it. A new genesis would
+     necessarily be a different network, visibly and by construction.
+
+   Wide change: dozens of selftests plus node startup validation on a live tip.
+   Worth one coherent pass rather than a partial one.
+
 1. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
 2. Decide the emission question — reachable supply is 20,370,000 of a 21,000,000 ceiling, and PoLS has no expensive work to subsidise ([`EMISSION.md`](./EMISSION.md))
 3. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
-3. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
-4. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
-5. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
-6. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
-7. [~] **World canvas + people wallet** — frame + lab `/wallet` pay-on-tip + billboard honesty + tip-mark / canvas id + shared-tip attach (`test:wallet`, `test:tip-mark`, `test:shared-tip`, [`WORLD-CANVAS.md`](./WORLD-CANVAS.md)); tip-host contract + `VITE_REQUIRE_PUBLIC_TIP` (`test:tip-host`, [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)); public tip live at `https://pixel-tip-production.up.railway.app`. Still open: **ops** — wire that URL into production `VITE_PIXEL_RPC` (+ require flag) on Lovable. Lab `init` stays for builders only.
-8. [~] **Spatial lattice invent** — meat behind the 3D/light vision ([`SPATIAL.md`](./SPATIAL.md)): S1–S4 tip physics + Lock→lead; S5 Three.js UI sink (`test:spatial-sink`, `/spatial`). Still open: WASM/octree only if benches demand. Dream ≠ voxel mainnet claim.
-9. Keep `pix_protocolInfo` gates honest as evidence lands
+4. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
+5. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
+6. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
+7. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
+8. [~] **World canvas + people wallet** — frame + lab `/wallet` pay-on-tip + billboard honesty + tip-mark / canvas id + shared-tip attach (`test:wallet`, `test:tip-mark`, `test:shared-tip`, [`WORLD-CANVAS.md`](./WORLD-CANVAS.md)); tip-host contract + `VITE_REQUIRE_PUBLIC_TIP` (`test:tip-host`, [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)); public tip live at `https://pixel-tip-production.up.railway.app`. Still open: **ops** — wire that URL into production `VITE_PIXEL_RPC` (+ require flag) on Lovable. Lab `init` stays for builders only.
+9. [~] **Spatial lattice invent** — meat behind the 3D/light vision ([`SPATIAL.md`](./SPATIAL.md)): S1–S4 tip physics + Lock→lead; S5 Three.js UI sink (`test:spatial-sink`, `/spatial`). Still open: WASM/octree only if benches demand. Dream ≠ voxel mainnet claim.
+10. Keep `pix_protocolInfo` gates honest as evidence lands
 
 Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume. FieldWitness is invent evidence for tip custody as a sphere lock — not simile alone. World canvas is the people-facing north star: one picture, wallet-held, tip-marked — not everyone lighting a private notebook.
