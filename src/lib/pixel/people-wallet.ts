@@ -254,8 +254,30 @@ export async function enableDeviceUnlock(params: {
 }): Promise<void> {
   const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
   if (!blob || blob.v !== 2) throw new Error("PIN-sealed wallet required");
+  // Each call mints a platform passkey. Called twice, the device accumulates
+  // credentials the wallet will never look for again — clutter in the user's
+  // password manager, and the reason a stale one can be offered at unlock time.
+  if (blob.webauthn && blob.address === params.address) {
+    throw new Error(
+      "Face ID is already set up for this wallet. Turn it off first if you want to replace it.",
+    );
+  }
   const seal = await enableWebAuthnSeal(params);
   await savePeopleWalletBlobAsync({ ...blob, webauthn: seal });
+}
+
+/**
+ * Forget this device's Face ID seal.
+ *
+ * Only removes the wallet's pointer to it. The platform passkey itself lives in
+ * the browser or password manager and has to be deleted there — the web cannot
+ * delete a credential it created.
+ */
+export async function disableDeviceUnlock(): Promise<void> {
+  const blob = (await loadPeopleWalletBlobAsync()) ?? loadPeopleWalletBlob();
+  if (!blob || blob.v !== 2) return;
+  const { webauthn: _dropped, ...rest } = blob;
+  await savePeopleWalletBlobAsync(rest);
 }
 
 export async function unlockStoredPeopleWalletWithDevice(): Promise<{
@@ -270,7 +292,10 @@ export async function unlockStoredPeopleWalletWithDevice(): Promise<{
   const seed = await unlockSeedWithWebAuthn(blob.webauthn);
   const keypair = await restoreLightKeypair(seed, blob.nextLeaf ?? OTS_CURSOR_UNKNOWN);
   if (keypair.address !== blob.address) {
-    throw new Error("Device unlock Source mismatch");
+    throw new Error(
+      "This device's Face ID belongs to a different wallet. Unlock with your PIN, " +
+        "then turn Face ID off and on again to bind it to this one.",
+    );
   }
   return {
     payFace: {
@@ -484,14 +509,28 @@ export async function importPeopleWallet(
 ): Promise<ImportedWallet> {
   const trimmed = text.trim();
   const prefix = `${PEOPLE_WALLET_EXPORT_MAGIC}:`;
-  if (!trimmed.startsWith(prefix)) {
-    throw new Error("Not a Pixel wallet export — expected text starting PIXELWALLET1:");
-  }
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(atob(trimmed.slice(prefix.length)));
-  } catch {
-    throw new Error("Wallet export is corrupt — copy the whole line, including the end");
+  if (trimmed.startsWith(prefix)) {
+    try {
+      parsed = JSON.parse(atob(trimmed.slice(prefix.length)));
+    } catch {
+      throw new Error("Wallet export is corrupt — copy the whole line, including the end");
+    }
+  } else if (trimmed.startsWith("{")) {
+    // The downloaded backup file. Two export paths already existed and only one
+    // could be imported, which is a good way to lose a wallet while believing it
+    // was backed up. Import takes whatever this app produced.
+    try {
+      const file = JSON.parse(trimmed) as { pixelBackup?: number; wallet?: unknown };
+      if (!file.wallet) throw new Error("no wallet in backup");
+      parsed = file.wallet;
+    } catch {
+      throw new Error("Backup file is not readable — paste its whole contents");
+    }
+  } else {
+    throw new Error(
+      "Not a Pixel wallet export — paste the PIXELWALLET1: line, or the contents of a backup file",
+    );
   }
   const blob = parseBlob(JSON.stringify(parsed));
   if (!blob || blob.v !== 2) throw new Error("Wallet export is not a PIN-sealed wallet");

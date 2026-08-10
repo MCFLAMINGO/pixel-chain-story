@@ -106,6 +106,10 @@ const WALLET_CONCEPT = {
 
 function WalletPage() {
   const { rpc: rpcQuery, tab: tabQuery, to: toQuery } = Route.useSearch();
+  const [exportText, setExportText] = useState<string | null>(null);
+  const [exportErr, setExportErr] = useState<string | null>(null);
+  const [importText, setImportText] = useState("");
+  const [importErr, setImportErr] = useState<string | null>(null);
   const w = usePeopleWallet(rpcQuery);
   const [tab, setTab] = useState<Tab>(tabQuery ?? (toQuery ? "send" : "hold"));
   const [name, setName] = useState("you");
@@ -444,6 +448,39 @@ function WalletPage() {
             >
               {w.busy ? "Forging…" : "Create wallet"}
             </button>
+            <div className="mt-8 space-y-3 rounded-2xl border border-white/10 bg-black/30 px-4 py-4">
+              <p className="font-pixel text-[10px] tracking-[0.2em] text-white/45 uppercase">
+                Already have a wallet?
+              </p>
+              <p className="text-xs leading-relaxed text-white/55">
+                Creating one here makes a <em>different</em> person with a different address. To use
+                the wallet from another device, export it there and paste it here.
+              </p>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="PIXELWALLET1:…"
+                rows={3}
+                className="w-full rounded-xl border border-white/15 bg-black/50 px-3 py-2 font-mono text-[11px] text-white/80"
+              />
+              <button
+                type="button"
+                disabled={w.busy || importText.trim() === ""}
+                className="wallet-cta"
+                onClick={() => {
+                  setImportErr(null);
+                  void w
+                    .importWallet(importText.trim())
+                    .then(() => setImportText(""))
+                    .catch((e: unknown) =>
+                      setImportErr(e instanceof Error ? e.message : "Import failed"),
+                    );
+                }}
+              >
+                Bring my wallet here
+              </button>
+              {importErr ? <p className="text-xs text-amber-200/85">{importErr}</p> : null}
+            </div>
             {pin.length > 0 && pin !== pinConfirm ? (
               <p className="text-xs text-amber-200/80">PINs must match</p>
             ) : null}
@@ -491,6 +528,46 @@ function WalletPage() {
               <p className="mt-4 break-all font-mono text-[11px] leading-relaxed text-white/55">
                 {w.payFace.address}
               </p>
+              {exportErr ? <p className="mt-3 text-xs text-amber-200/85">{exportErr}</p> : null}
+              {exportText ? (
+                <div className="mt-4 space-y-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-4">
+                  <p className="font-pixel text-[10px] tracking-[0.2em] text-emerald-200/85 uppercase">
+                    Your wallet, sealed
+                  </p>
+                  <p className="text-xs leading-relaxed text-white/65">
+                    Save this somewhere you will still have if this phone is gone. It is sealed with
+                    your PIN — useless to anyone who does not know it, and useless to you if you
+                    forget it. Paste it into a new device to bring this wallet there.
+                  </p>
+                  <textarea
+                    readOnly
+                    rows={4}
+                    value={exportText}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="w-full rounded-xl border border-white/15 bg-black/50 px-3 py-2 font-mono text-[10px] break-all text-white/75"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="wallet-ghost"
+                      onClick={() => void navigator.clipboard?.writeText(exportText)}
+                    >
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="wallet-ghost"
+                      onClick={() => setExportText(null)}
+                    >
+                      Hide
+                    </button>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-white/45">
+                    A short PIN can be guessed offline by anyone holding this text. Treat it as
+                    valuable, and use a PIN you have not used elsewhere.
+                  </p>
+                </div>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" className="wallet-chip" onClick={() => void copyPayFace()}>
                   Copy
@@ -657,8 +734,31 @@ function WalletPage() {
                         </button>
                       ) : null}
                       {w.deviceUnlockOn ? (
-                        <span className="wallet-chip text-emerald-200/80">Device unlock on</span>
+                        <button
+                          type="button"
+                          className="wallet-ghost"
+                          disabled={w.busy}
+                          onClick={() => void w.turnOffDeviceUnlock()}
+                        >
+                          Turn off Face ID
+                        </button>
                       ) : null}
+                      <button
+                        type="button"
+                        className="wallet-ghost"
+                        disabled={w.busy || !w.unlocked}
+                        onClick={() => {
+                          setExportErr(null);
+                          void w
+                            .exportWallet()
+                            .then(setExportText)
+                            .catch((e: unknown) =>
+                              setExportErr(e instanceof Error ? e.message : "Export failed"),
+                            );
+                        }}
+                      >
+                        {w.unlocked ? "Export wallet" : "Unlock to export"}
+                      </button>
                       <button
                         type="button"
                         disabled={w.busy}
