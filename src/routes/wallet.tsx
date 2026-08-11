@@ -532,12 +532,24 @@ function WalletPage() {
               {exportText ? (
                 <div className="mt-4 space-y-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-4">
                   <p className="font-pixel text-[10px] tracking-[0.2em] text-emerald-200/85 uppercase">
-                    Your wallet, sealed
+                    Your backup
                   </p>
-                  <p className="text-xs leading-relaxed text-white/65">
-                    Save this somewhere you will still have if this phone is gone. It is sealed with
-                    your PIN — useless to anyone who does not know it, and useless to you if you
-                    forget it. Paste it into a new device to bring this wallet there.
+                  <p className="text-sm leading-relaxed text-white/75">
+                    Your wallet lives only in this browser. If you lose this phone, or clear its
+                    data, it is gone and nobody can bring it back — there is no company holding a
+                    copy.
+                  </p>
+                  <p className="text-sm leading-relaxed text-white/75">
+                    The code below is that copy. Email it to yourself, or save it in your notes,
+                    then paste it into another phone to open the same wallet there.
+                  </p>
+                  <p className="text-xs leading-relaxed text-white/55">
+                    It is locked with your PIN, so it is useless to anyone who does not know it —
+                    and useless to you if you forget it. The PIN is not saved anywhere.
+                  </p>
+                  <p className="text-xs leading-relaxed text-amber-200/75">
+                    Anyone with both this code and your PIN can spend your PIX. Keep them apart — do
+                    not put the PIN in the same email or note.
                   </p>
                   <textarea
                     readOnly
@@ -553,6 +565,9 @@ function WalletPage() {
                       onClick={() => void navigator.clipboard?.writeText(exportText)}
                     >
                       Copy
+                    </button>
+                    <button type="button" className="wallet-ghost" onClick={() => w.exportBackup()}>
+                      Save as file
                     </button>
                     <button
                       type="button"
@@ -757,21 +772,7 @@ function WalletPage() {
                             );
                         }}
                       >
-                        {w.unlocked ? "Export wallet" : "Unlock to export"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={w.busy}
-                        onClick={() => {
-                          try {
-                            w.exportBackup();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        className="wallet-chip"
-                      >
-                        Export backup
+                        {w.unlocked ? "Save a backup" : "Unlock to save a backup"}
                       </button>
                     </div>
                   ) : null}
