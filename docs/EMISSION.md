@@ -2,6 +2,27 @@
 
 ## The bug, which is settled
 
+**Fixed.** The schedule is now flat — 50 PIX for 420,000 pixels — and mints exactly
+21,000,000. Halving was inherited from Bitcoin without Bitcoin's base unit, so
+integer division truncated every era and the series died 630,000 short of the cap
+it advertised.
+
+Flat is also the honest shape here. Halving front-loads a subsidy to buy mining
+security; there is no hash race to subsidise, so the curve was paying for something
+that does not exist. "Every moment is worth the same" is now true rather than
+aspirational.
+
+Nothing in existence is revalued: below pixel 210,000 the old and new schedules are
+identical, both paying 50. `mintedThrough(29)` still returns 1,450, matching the
+live chain.
+
+Still open, and now the live question: **the reward goes to the sequencer.** With
+five people the machine has earned 1,256 PIX while the humans hold under 200
+between them. Sending it to the authors of the moments in each pixel — which
+`lit-cell.ts` already identifies — would put issuance where the work is, and would
+make supply track living participation without an oracle, which is where the census
+idea landed.
+
 `PIX_HARD_CAP` is 21,000,000. The schedule can only ever mint **20,370,000**.
 
 Bitcoin halves in satoshis, so it can halve 33 times and its series lands on

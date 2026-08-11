@@ -17,7 +17,9 @@ async function main() {
   if (snap.hardCapPix !== 21_000_000) throw new Error("cap");
   if (snap.genesisRewardPix !== 50) throw new Error("genesis reward");
   if (snap.rewardAtPixel(0) !== 50) throw new Error("era0");
-  if (snap.rewardAtPixel(210_000) !== 25) throw new Error("halving");
+  // Flat, not halving: every moment is worth the same, and the schedule reaches
+  // the cap exactly instead of 3% under it. See docs/EMISSION.md.
+  if (snap.rewardAtPixel(210_000) !== 50) throw new Error("reward must stay flat");
 
   const illuminate = DAY_ONE_PATHS.find((p) => p.id === "illuminate")!;
   if (illuminate.needsPixAlready || illuminate.needsDollars) {

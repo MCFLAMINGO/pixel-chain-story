@@ -61,11 +61,30 @@ export interface EmissionInfo {
   totalBaseUnitsAtCap: number;
 }
 
+/**
+ * Pixels that carry a reward. 420,000 x 50 PIX is exactly PIX_HARD_CAP.
+ *
+ * Halving was inherited from Bitcoin without Bitcoin's base unit, so integer
+ * division truncated every era and the series landed 630,000 short of the cap it
+ * claimed. Bitcoin halves in satoshis and lands 0.0000001% under; ours halved in
+ * whole PIX and landed 3% under.
+ */
+export const LIGHT_HORIZON = PIX_HARD_CAP / GENESIS_LIGHT_REWARD;
+
+/**
+ * A flat reward to a horizon, not a halving.
+ *
+ * Halving front-loads a subsidy to buy mining security. There is no mining here
+ * and no hash race to subsidise, so the curve was paying for something that does
+ * not exist. Flat makes "every moment is worth the same" true rather than
+ * aspirational, and it reaches the cap exactly.
+ *
+ * Identical to the old schedule below pixel 210,000 — both pay 50 — so no chain
+ * in existence is revalued by this.
+ */
 export function lightReward(pixelIndex: number): number {
-  if (pixelIndex < 0) return 0;
-  const era = Math.floor(pixelIndex / LIGHT_ERA_LENGTH);
-  if (era >= 64) return 0;
-  return Math.floor(GENESIS_LIGHT_REWARD / Math.pow(2, era));
+  if (pixelIndex < 0 || pixelIndex >= LIGHT_HORIZON) return 0;
+  return GENESIS_LIGHT_REWARD;
 }
 
 export function lightRewardUnits(pixelIndex: number): number {
@@ -82,26 +101,14 @@ export function lightRewardUnits(pixelIndex: number): number {
  */
 export function mintedThrough(pixelCount: number): number {
   if (!Number.isFinite(pixelCount) || pixelCount <= 0) return 0;
-  const pixels = Math.floor(pixelCount);
-  let total = 0;
-  for (let era = 0; era < 64; era++) {
-    const reward = Math.floor(GENESIS_LIGHT_REWARD / Math.pow(2, era));
-    if (reward <= 0) break;
-    const eraStart = era * LIGHT_ERA_LENGTH;
-    if (pixels <= eraStart) break;
-    total += Math.min(pixels - eraStart, LIGHT_ERA_LENGTH) * reward;
-  }
-  return total;
+  return Math.min(Math.floor(pixelCount), LIGHT_HORIZON) * GENESIS_LIGHT_REWARD;
 }
 
 /**
- * What the schedule can actually mint, ever: 20,370,000 PIX.
- *
- * Stated so the number is in the code rather than implied by a formula nobody
- * evaluated. Bitcoin's own series also lands just under its ceiling
- * (20,999,999.9769 BTC) — the difference is that ours is 3% short, not 0.0000001%.
+ * What the schedule mints, ever. Now equal to PIX_HARD_CAP rather than 3% under
+ * it, so the declared ceiling is a fact instead of an aspiration.
  */
-export const PIX_SCHEDULE_TOTAL = mintedThrough(64 * LIGHT_ERA_LENGTH);
+export const PIX_SCHEDULE_TOTAL = mintedThrough(LIGHT_HORIZON);
 
 export function emissionInfo(nextPixelIndex: number): EmissionInfo {
   const mintedPixToDate = mintedThrough(nextPixelIndex);
