@@ -35,7 +35,7 @@ async function main() {
   //    The schedule is now flat to a horizon and reaches the cap exactly, so this
   //    asserts the arithmetic rather than the shortfall. See docs/EMISSION.md.
   const thesis = valueThesis();
-  if (thesis.cap !== 21_000_000) throw new Error("cap");
+  if (thesis.cap !== 10_300_000_000) throw new Error("cap");
   if (lightReward(0) !== GENESIS_LIGHT_REWARD) throw new Error("genesis reward");
   if (lightReward(LIGHT_ERA_LENGTH) !== GENESIS_LIGHT_REWARD) {
     throw new Error("reward must be flat — every moment worth the same");

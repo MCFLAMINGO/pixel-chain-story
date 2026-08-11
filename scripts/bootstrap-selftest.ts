@@ -14,7 +14,7 @@ async function main() {
   console.log("");
 
   if (snap.dollarFdvFromCap !== null) throw new Error("must refuse FDV-from-cap");
-  if (snap.hardCapPix !== 21_000_000) throw new Error("cap");
+  if (snap.hardCapPix !== 10_300_000_000) throw new Error("cap");
   if (snap.genesisRewardPix !== 50) throw new Error("genesis reward");
   if (snap.rewardAtPixel(0) !== 50) throw new Error("era0");
   // Flat, not halving: every moment is worth the same, and the schedule reaches

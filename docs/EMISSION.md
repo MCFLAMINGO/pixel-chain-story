@@ -2,10 +2,18 @@
 
 ## The bug, which is settled
 
-**Fixed.** The schedule is now flat — 50 PIX for 420,000 pixels — and mints exactly
-21,000,000. Halving was inherited from Bitcoin without Bitcoin's base unit, so
-integer division truncated every era and the series died 630,000 short of the cap
-it advertised.
+**Fixed, and the cap now means something.**
+
+21,000,000 was Satoshi's number, borrowed for a ledger that is not money. The cap is
+now **10,300,000,000 — one PIX for every human alive at the projected peak of
+humanity**, around 2084, after which population declines. The schedule is flat at 50
+PIX per pixel to a horizon of 206,000,000 pixels and mints exactly that. The old schedule could not even reach its own ceiling: halving was inherited from
+Bitcoin without Bitcoin's base unit, so integer division truncated every era and the
+series died 630,000 short.
+
+The cap needs no oracle, which is what killed the census peg as a _rule_. A chain
+cannot read the world's population — but a ceiling is a fixed number chosen once for
+a stated reason, and this reason is legible to anyone who asks.
 
 Flat is also the honest shape here. Halving front-loads a subsidy to buy mining
 security; there is no hash race to subsidise, so the curve was paying for something

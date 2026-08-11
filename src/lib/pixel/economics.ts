@@ -18,19 +18,21 @@
  */
 
 /**
- * Ceiling, not a total.
+ * One PIX for every human alive at the peak of humanity.
  *
- * Inherited from Bitcoin, where 50 BTC halving every 210,000 blocks converges
- * on 21,000,000 because Bitcoin halves in *satoshis* and so can halve 33 times.
- * `lightReward` halves in whole PIX, which reaches zero after six halvings, so
- * the schedule can only ever mint PIX_SCHEDULE_TOTAL — 630,000 short of this
- * number. The gap is real and unreachable; the constant is kept as a ceiling
- * that `assertUnderCap` enforces, not as a claim about eventual supply.
+ * 21,000,000 was Satoshi's number and meant nothing here — a borrowed ceiling for
+ * a ledger that is not money. This one says what the picture is for: population is
+ * projected to peak near 10.3 billion around 2084 and decline after, so the cap is
+ * the largest number of people who will ever be alive at once.
  *
- * OPEN QUESTION, deliberately not answered here: whether a per-pixel emission
- * belongs in this design at all. See docs/EMISSION.md.
+ * It does not need to be an accurate census and cannot be — a chain cannot read
+ * the world's population, which is why the peg in `presence-peg.ts` had to be
+ * abandoned as a *rule*. As a ceiling it needs no oracle: it is a fixed number
+ * chosen for a reason, and the reason is legible to anyone.
+ *
+ * The schedule reaches it exactly. See docs/EMISSION.md.
  */
-export const PIX_HARD_CAP = 21_000_000;
+export const PIX_HARD_CAP = 10_300_000_000;
 /** Base units per PIX — prevents 21M from limiting micropayments / fees. */
 export const PIX_BASE_UNITS = 100_000_000;
 export const LIGHT_ERA_LENGTH = 210_000;
