@@ -2,6 +2,35 @@
 
 ## The bug, which is settled
 
+**Fixed, and the cap now means something.**
+
+21,000,000 was Satoshi's number, borrowed for a ledger that is not money. The cap is
+now **10,300,000,000 — one PIX for every human alive at the projected peak of
+humanity**, around 2084, after which population declines. The schedule is flat at 50
+PIX per pixel to a horizon of 206,000,000 pixels and mints exactly that. The old schedule could not even reach its own ceiling: halving was inherited from
+Bitcoin without Bitcoin's base unit, so integer division truncated every era and the
+series died 630,000 short.
+
+The cap needs no oracle, which is what killed the census peg as a _rule_. A chain
+cannot read the world's population — but a ceiling is a fixed number chosen once for
+a stated reason, and this reason is legible to anyone who asks.
+
+Flat is also the honest shape here. Halving front-loads a subsidy to buy mining
+security; there is no hash race to subsidise, so the curve was paying for something
+that does not exist. "Every moment is worth the same" is now true rather than
+aspirational.
+
+Nothing in existence is revalued: below pixel 210,000 the old and new schedules are
+identical, both paying 50. `mintedThrough(29)` still returns 1,450, matching the
+live chain.
+
+Still open, and now the live question: **the reward goes to the sequencer.** With
+five people the machine has earned 1,256 PIX while the humans hold under 200
+between them. Sending it to the authors of the moments in each pixel — which
+`lit-cell.ts` already identifies — would put issuance where the work is, and would
+make supply track living participation without an oracle, which is where the census
+idea landed.
+
 `PIX_HARD_CAP` is 21,000,000. The schedule can only ever mint **20,370,000**.
 
 Bitcoin halves in satoshis, so it can halve 33 times and its series lands on

@@ -10,6 +10,7 @@ import { balanceOf, type PixelChainState, type LedgerPixel, verifyChain } from "
 import { buildHeadersSync, proveBalance, proveTipIlluminatedCell } from "./light-client";
 import { buildSpatialPicture, pictureSnapshot } from "./spatial-picture";
 import { estimatePoLSCost } from "./pol";
+import { GENESIS_LIGHT_REWARD, LIGHT_HORIZON, PIX_HARD_CAP } from "./economics";
 import type { Transaction } from "./transaction";
 
 export type JsonRpcId = string | number | null;
@@ -199,9 +200,11 @@ export async function handlePixelRpc(
           language: "Lumen (light-native) + TypeScript host",
           finality: "light-revelation (sequencer signature + beacon); offline sequencer stalls tip",
           economics: {
-            hardCap: 21_000_000,
-            issuance: "light rewards per illuminated pixel (halving eras of 210,000)",
-            analogy: "Bitcoin scarcity schedule; energy-cheap security",
+            hardCap: PIX_HARD_CAP,
+            capMeaning:
+              "one PIX per human alive at the projected peak of humanity (~10.3bn, ~2084)",
+            issuance: `flat ${GENESIS_LIGHT_REWARD} PIX per illuminated pixel to a horizon of ${LIGHT_HORIZON} pixels; reaches the cap exactly`,
+            analogy: "not Bitcoin's 21M — a ceiling chosen for what the picture is for",
           },
           sovereignty:
             "Diversity policy enforced when ≥7 providers are registered; single-node labs skip",
