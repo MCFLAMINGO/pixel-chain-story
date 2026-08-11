@@ -58,18 +58,23 @@ async function main() {
           "  bun run pixel -- join --peer $PEER --datadir ./data/friend --require-crowned",
           "  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002",
           "",
-          "If you really are holding a genesis ceremony for a separate network:",
+          "If you really are starting a separate network of your own:",
           "  PIXEL_GENESIS_CEREMONY=1 bun run tip:host",
         ].join("\n"),
       );
       process.exit(1);
     }
     const { keypair } = await loadOrCreateIdentity(datadir, "genesis");
-    // The ceremony is the only place that may claim the crowned network.
-    const { PIXEL_NETWORK_ID } = await import("../src/lib/pixel/chain");
-    const chain = await createGenesis(keypair, PIXEL_NETWORK_ID);
+    // Never the crowned network. That genesis exists and cannot be made twice:
+    // a new ceremony produces a different hash, which node startup now refuses.
+    // Forging here would only ever build a chain nothing will run. A ceremony
+    // starts a *separate* network, and says so.
+    const chain = await createGenesis(keypair);
     await saveChain(datadir, chain);
-    console.log(`[canonical-tip] genesis forged · ${chain.pixels[0]!.hash.slice(0, 24)}…`);
+    console.log(
+      `[canonical-tip] NEW network ${chain.networkId} · genesis ${chain.pixels[0]!.hash.slice(0, 24)}…`,
+    );
+    console.log("[canonical-tip] this is not the crowned Earth and never can be");
     console.log(`[canonical-tip] sequencer ${keypair.address}`);
   } else {
     console.log(
