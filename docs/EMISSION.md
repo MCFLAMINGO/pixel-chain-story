@@ -1,5 +1,12 @@
 # Emission — an open question, stated honestly
 
+> **Decided 11 August 2026:** the emission design is
+> [`ONE-ONE-ONE.md`](./ONE-ONE-ONE.md) — three PIX per pixel, one each to giver,
+> receiver and witness, after a 500-pixel Big Bang at the inherited 50. Capped at
+> 10,300,000,000, one per human alive at the peak of humanity. The witness's share
+> returns to the flock at a jubilee. Not yet implemented; this document records how
+> that conclusion was reached.
+
 ## The bug, which is settled
 
 **Fixed, and the cap now means something.**
