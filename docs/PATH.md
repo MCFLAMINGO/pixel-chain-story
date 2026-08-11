@@ -225,7 +225,14 @@ provenance that outlives the venue — see [`RWA-CONTINUITY.md`](./RWA-CONTINUIT
 
 ## 6. Immediate next actions (this repo)
 
-0. **Namespace the network id so a genesis cannot be forged onto the crowned Earth.**
+0. [x] **Namespace the network id so a genesis cannot be forged onto the crowned Earth.**
+       Done: `createGenesis` defaults to `PIXEL_LAB_NETWORK_ID` (0x504c) and the crowned
+       id 0x5049 is enforced against `CROWNED_GENESIS_HASH` at node startup. Deleting the
+       forge path outright is still open; `PIXEL_GENESIS_CEREMONY=1` remains the gate.
+
+   Original plan:
+
+   **Namespace the network id so a genesis cannot be forged onto the crowned Earth.**
    Bitcoin has no ceremony script: the genesis is a constant in the client and any
    chain not starting there is rejected. `PIXEL_GENESIS_CEREMONY=1` (`tip:host`) is
    the weak version of that — it stops an accident, it does not make one impossible.

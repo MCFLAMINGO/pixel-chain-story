@@ -7,10 +7,13 @@ import {
   CROWNED_GENESIS_PREFIX,
   CROWNED_NETWORK_ID,
   PUBLIC_TIP_RPC_DEFAULT,
+  assertCrownedEarth,
   assertCrownedPublicTip,
   crownedGenesisThesis,
   isCrownedGenesisHash,
 } from "../src/lib/pixel/crowned-genesis";
+import { createGenesis, PIXEL_LAB_NETWORK_ID, PIXEL_NETWORK_ID } from "../src/lib/pixel/chain";
+import { generatePixelKeypair } from "../src/lib/pixel/scheme";
 
 async function main() {
   console.log("═══ CROWNED GENESIS ═══\n");
@@ -49,6 +52,37 @@ async function main() {
     }
   } catch (e) {
     console.log("▸ live tip probe skipped", e instanceof Error ? e.message : e);
+  }
+
+  // Bitcoin's genesis is a constant in the client and nothing else runs on mainnet.
+  // This is that, in two halves: lab chains get their own network id, and the crowned
+  // id accepts exactly one genesis. Neither half is enough alone.
+  {
+    const kp = await generatePixelKeypair("PIX-ML-DSA-65");
+
+    const lab = await createGenesis(kp);
+    if (lab.networkId !== PIXEL_LAB_NETWORK_ID) {
+      throw new Error(`createGenesis must default to the lab network, got ${lab.networkId}`);
+    }
+    if (lab.networkId === PIXEL_NETWORK_ID) {
+      throw new Error("a chain forged without asking must never claim the crowned network");
+    }
+
+    // Claiming the crowned id is possible — refusing the chain is what stops it.
+    const pretender = await createGenesis(kp, PIXEL_NETWORK_ID);
+    let refused = false;
+    try {
+      assertCrownedEarth({
+        genesisHash: pretender.pixels[0]!.hash,
+        networkId: pretender.networkId,
+      });
+    } catch {
+      refused = true;
+    }
+    if (!refused) {
+      throw new Error("a foreign genesis on the crowned network must be refused");
+    }
+    console.log("▸ lab chains cannot claim the crowned network; a pretender is refused ✓");
   }
 
   console.log("\n═══ PASS — crowned genesis ═══");

@@ -65,7 +65,9 @@ async function main() {
       process.exit(1);
     }
     const { keypair } = await loadOrCreateIdentity(datadir, "genesis");
-    const chain = await createGenesis(keypair);
+    // The ceremony is the only place that may claim the crowned network.
+    const { PIXEL_NETWORK_ID } = await import("../src/lib/pixel/chain");
+    const chain = await createGenesis(keypair, PIXEL_NETWORK_ID);
     await saveChain(datadir, chain);
     console.log(`[canonical-tip] genesis forged · ${chain.pixels[0]!.hash.slice(0, 24)}…`);
     console.log(`[canonical-tip] sequencer ${keypair.address}`);

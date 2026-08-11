@@ -149,6 +149,18 @@ export class PixelLedgerNode {
 
     const existing = await loadChain(this.datadir);
     if (existing) {
+      // The crowned network accepts exactly one genesis. This is the other half of
+      // namespacing lab chains: a chain claiming to be the public picture has to be
+      // it. Lab chains carry PIXEL_LAB_NETWORK_ID and are not checked here.
+      const { PIXEL_NETWORK_ID } = await import("../lib/pixel/chain");
+      if (existing.networkId === PIXEL_NETWORK_ID) {
+        const { assertCrownedEarth } = await import("../lib/pixel/crowned-genesis");
+        assertCrownedEarth({
+          genesisHash: existing.pixels[0]?.hash ?? "",
+          networkId: existing.networkId,
+          label: `ledger in ${this.datadir}`,
+        });
+      }
       // Adding yourself to the rota changes the electable set this node derives,
       // and acceptBlock requires that set to match what an incoming block binds.
       // A node that self-registers therefore rejects every block the tip makes
