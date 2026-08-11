@@ -236,11 +236,29 @@ async function hashBlock(header: {
   );
 }
 
+/**
+ * The crowned network. One Earth lives here: genesis f1d193f62d54e982.
+ *
+ * Bitcoin's genesis is a constant in the client and nothing else may run on
+ * mainnet. This is the first half of that: a lab, selftest or demo chain gets a
+ * different id, so it cannot claim to be the public picture even by accident.
+ * `canvas-id.ts` had to warn that a matching family id is not the same chain
+ * precisely because everything used to share this one.
+ */
 export const PIXEL_NETWORK_ID = 0x5049; // "PI"
+
+/**
+ * Everything that is not the crowned Earth — tests, demos, a laptop exploring.
+ *
+ * Default for `createGenesis`, so forging without saying which network you mean
+ * produces a lab chain rather than a rival to the public one. Claiming the
+ * crowned id has to be deliberate.
+ */
+export const PIXEL_LAB_NETWORK_ID = 0x504c; // "PL"
 
 export async function createGenesis(
   sequencer: LightKeypair,
-  networkId = PIXEL_NETWORK_ID,
+  networkId = PIXEL_LAB_NETWORK_ID,
 ): Promise<PixelChainState> {
   const genesisReward = lightReward(0);
   assertUnderCap(0, genesisReward);
