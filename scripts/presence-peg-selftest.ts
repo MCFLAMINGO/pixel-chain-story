@@ -18,7 +18,11 @@
  * finding a design that never has to read them.
  */
 
+import { PIX_HARD_CAP } from "../src/lib/pixel/economics";
 import {
+  WORLD_PEAK_POPULATION,
+  farmYield,
+  giftBudgetThesis,
   cumulativePresence,
   decayDial,
   presencePegModel,
@@ -239,6 +243,102 @@ assert(
 );
 console.log("▸ moments permanent and PIX population-pegged, simultaneously ✓");
 console.log("▸ absence costs future income; it never erases a witnessed moment ✓");
+
+// Making a gift cost a phone: does it price out a farm?
+//
+// The obvious answer to the mint-back hole is to require a physical meeting, so a
+// fresh address is free but a fresh address that has *met* one is not. The cost is
+// real. The shape of it is what decides whether it helps, and under the pair rule
+// the shape favours the attacker.
+{
+  const phone = 200;
+
+  // Per-pair (the current rule): yield is quadratic, cost is linear.
+  const small = farmYield({ devices: 100, deviceCostUsd: phone });
+  const big = farmYield({ devices: 100_000, deviceCostUsd: phone });
+  assert(
+    big.costPerPixUsd < small.costPerPixUsd / 100,
+    `a bigger farm must not get a discount, got $${small.costPerPixUsd.toFixed(4)} -> ` +
+      `$${big.costPerPixUsd.toFixed(4)}`,
+  );
+  assert(
+    big.shareOfCap > 0.9,
+    `a $${(big.capexUsd / 1e6).toFixed(0)}M farm captures ${(big.shareOfCap * 100).toFixed(0)}% ` +
+      `of the cap — this is the finding, not a pass`,
+  );
+  console.log(
+    `▸ PER-PAIR is a volume discount: $${small.costPerPixUsd.toFixed(2)}/PIX at 100 devices, ` +
+      `$${big.costPerPixUsd.toFixed(4)}/PIX at 100k ✗`,
+  );
+  console.log(
+    `▸ PER-PAIR: $${(big.capexUsd / 1e6).toFixed(0)}M of handsets mints ` +
+      `${(big.shareOfCap * 100).toFixed(0)}% of every PIX that will ever exist ✗`,
+  );
+
+  // Per-identity: yield and cost both linear, so cost per PIX is scale-invariant.
+  const G = 50;
+  const yields = [100, 1_000, 100_000].map((devices) =>
+    farmYield({ devices, deviceCostUsd: phone, giftsPerIdentity: G }),
+  );
+  for (const y of yields) {
+    assert(
+      Math.abs(y.costPerPixUsd - phone / G) < 1e-9,
+      `cost per PIX must not move with scale, got $${y.costPerPixUsd} at ${y.devices}`,
+    );
+  }
+  assert(
+    yields[2]!.shareOfCap < 0.001,
+    `a 100k-device farm should stay under 0.1% of the cap, got ${yields[2]!.shareOfCap}`,
+  );
+  console.log(
+    `▸ PER-IDENTITY (G=${G}) is scale-invariant: $${(phone / G).toFixed(2)}/PIX at every size, ` +
+      `and 100k devices reach ${(yields[2]!.shareOfCap * 100).toFixed(3)}% of the cap ✓`,
+  );
+
+  // G=1 — "one gift, one person" — is the strongest version, and it makes the cap
+  // and the emission rule the same sentence: welcome every human once and supply is
+  // exactly the peak population the cap was set from.
+  const one = farmYield({ devices: 1e9, deviceCostUsd: phone, giftsPerIdentity: 1 });
+  assert(one.costPerPixUsd === phone, "at G=1 a PIX costs a whole device");
+  assert(
+    one.shareOfCap < 0.1,
+    `a billion handsets — $${(one.capexUsd / 1e9).toFixed(0)}bn — should still reach under ` +
+      `10% of the cap, got ${(one.shareOfCap * 100).toFixed(1)}%`,
+  );
+  assert(
+    WORLD_PEAK_POPULATION === PIX_HARD_CAP,
+    "one gift per person makes supply equal peak population, which is the cap",
+  );
+  console.log(
+    `▸ G=1 is strongest: $${one.costPerPixUsd}/PIX, and $${(one.capexUsd / 1e9).toFixed(0)}bn of ` +
+      `handsets still reaches only ${(one.shareOfCap * 100).toFixed(1)}% of the cap ✓`,
+  );
+  console.log(
+    `▸ G=1 makes the cap and the rule one sentence: welcome each human once and supply ` +
+      `is ${(PIX_HARD_CAP / 1e9).toFixed(1)}e9 = the cap ✓`,
+  );
+
+  // And the half that is easy to miss: a per-identity budget is worth nothing on its
+  // own, because every fresh address arrives with an unused budget of its own. The
+  // budget makes the yield linear; only a cost on identity makes linear expensive.
+  const freeAddresses = 100_000;
+  const mintedForFree = freeAddresses * 1; // each new address brings its own G=1
+  assert(
+    mintedForFree === freeAddresses,
+    "a per-identity cap does not bind when identities are free",
+  );
+  console.log(
+    `▸ but G=1 alone is worthless: ${freeAddresses.toLocaleString()} free addresses still ` +
+      `mint ${mintedForFree.toLocaleString()} PIX at $0.00/PIX ✗ — the budget needs a ` +
+      `costly identity behind it`,
+  );
+}
+
+const budget = giftBudgetThesis();
+console.log(`\nper-pair:     ${budget.perPair}`);
+console.log(`per-identity: ${budget.perIdentity}`);
+console.log(`electricity:  ${budget.electricity}`);
+console.log(`unresolved:   ${budget.unresolved}`);
 
 const split = splitDesignThesis();
 console.log(`\nproblem:      ${split.problem}`);

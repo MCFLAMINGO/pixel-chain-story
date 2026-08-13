@@ -45,6 +45,85 @@ This is a design question, not a coding task: what makes a giver costly to
 manufacture? Until it has an answer, the ceiling is enforced and the growth stays
 switched off.
 
+### Making a gift cost a phone does not fix it, and the reason is the pair rule
+
+The obvious answer is physical presence: a fresh address is free, but a fresh address
+that has _optically met_ another one needs a second handset in a second place. The
+Kindling matrix already exists for exactly this exchange.
+
+The cost is real. The **shape** of the cost is the problem, and one gift per ordered
+pair is what gets it wrong. A per-pair budget grows as K² while devices cost K, so a
+farm's cost per PIX falls as 1/K — the bigger the attacker, the cheaper each PIX.
+`farmYield()` computes it and `test:presence-peg` checks it:
+
+| Farm             | Capex | Cost per PIX | Share of the 10.3e9 cap |
+| ---------------- | ----- | ------------ | ----------------------- |
+| 100 handsets     | $20k  | $2.02        | ~0%                     |
+| 100,000 handsets | $20M  | $0.002       | **97%**                 |
+
+**$20 million of handsets commands enough fresh pairs to mint nearly every PIX that
+will ever exist.** Sybil resistance that gets cheaper with scale is a volume discount.
+
+### A per-identity budget is scale-invariant
+
+Cap how many gifts an address may ever give — G, lifetime — and yield becomes K·G
+against a cost of K. Cost per PIX is `phone/G`: **$4.00 at a hundred devices and
+$4.00 at a hundred thousand.** The same $20M farm reaches 0.05% of the cap instead of
+97%.
+
+That is the property worth buying. Not that faking becomes impossible, but that it
+stops getting cheaper the more of it you do. It also matches the design's own
+arithmetic, which already assumes each person gives to about fifty others.
+
+### One gift, one person: G = 1
+
+The strongest version, and the one that makes the cap stop being an arbitrary number.
+
+**Welcome each human once, and supply is exactly peak population — which is the cap.**
+`PIX_HARD_CAP` and `WORLD_PEAK_POPULATION` are already the same value, so at G = 1 the
+emission rule and the ceiling become one sentence instead of two facts that have to be
+kept in agreement. There is no schedule left to get wrong.
+
+The farm arithmetic is also the best available: a PIX costs a whole handset, $200, at
+every scale. **A billion handsets — two hundred billion dollars — still reaches only
+9.7% of the cap.**
+
+Giving stays unlimited. What happens once is being _made whole_: your first gift is
+minted back, every later gift is yours to pay for. So the social texture survives —
+you can still welcome your wife, and Sammy, and a stadium — while the thing that
+creates PIX happens once per person, which is what "one PIX per human" always meant.
+
+### Both halves are needed, and G = 1 alone is worth nothing
+
+The easy mistake is to take the budget as the fix. It is not. **Every fresh address
+arrives with an unused budget of its own**, so 100,000 free addresses still mint
+100,000 PIX at $0.00 each even at G = 1.
+
+- A per-identity budget makes the yield **linear** in identities.
+- A cost on identity makes linear yield **expensive**.
+
+Neither works alone. The pair rule fails because K² pairs cost K devices; a budget on
+free addresses fails because the budget is free too. Together they give the
+scale-invariant $200/PIX above. That is why the presence work and the emission work
+are the same problem, and why the mint-back cannot ship before presence does.
+
+So the pair rule is necessary but not sufficient: it stops one relationship becoming
+a faucet, and it does nothing about a thousand relationships being bought. **A
+lifetime per-identity budget is the missing half.**
+
+### Two things this rules out
+
+**Proof of work per mint does not substitute.** Cloud silicon beats handsets on cost
+per hash, so it prices out the very phone it was meant to privilege, and burning
+energy to prove presence contradicts the reason this chain exists.
+
+**Presence cannot be proven by the two parties alone.** They can always simulate the
+optical channel between them by sharing the secret directly, so no seal the pair
+produces is evidence against the pair. A real presence proof needs a third party who
+was there — a witness — or hardware attestation, which installs the handset vendor as
+trust root. `kindling.ts` is already honest about this: its seal is labelled
+`simulated`, `partyId` is self-asserted, and the camera path is unshipped.
+
 **A record costs three.** One is spent into the picture, one goes to the person you
 are recording with, one goes to the witness who sealed it.
 
