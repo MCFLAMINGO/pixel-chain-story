@@ -69,7 +69,7 @@ console.log("═══ ECONOMY MODEL ═══\n");
 // 3. The recycle attack — the bug that nearly survived in prose.
 {
   const e = newEconomy();
-  // Seed a colluding pair from real people, which is the only way in.
+  // Seed a colluding pair from a fixed cast, which case 7 shows is not the only way in.
   for (const g of ["p", "q", "r", "s"]) {
     gift(e, g, "mallory");
     gift(e, g, "sock");
@@ -165,7 +165,8 @@ console.log("═══ ECONOMY MODEL ═══\n");
   console.log("▸ 400 random histories: conserved, under cap, no negative balance ✓");
 }
 
-// 6. Writing is bounded by having been given to.
+// 6. Writing is bounded by having been given to — with the cast of givers held fixed.
+//    Case 7 shows why that caveat is the whole ballgame.
 {
   for (const givers of [3, 6, 12]) {
     const e = newEconomy();
@@ -176,11 +177,53 @@ console.log("═══ ECONOMY MODEL ═══\n");
     // stock drains at 2 a time and cannot be replenished without new givers.
     assert(wrote === Math.floor(givers / COSIGNED_RECORD_COST), `given ${givers}, wrote ${wrote}`);
   }
-  console.log("▸ output is bounded by how many distinct people ever gave ✓");
+  console.log("▸ output is bounded by how many distinct addresses ever gave ✓");
+}
+
+// 7. THE HOLE: "distinct people" means "distinct addresses", and addresses are free.
+//
+// Cases 2 and 6 both hold the cast of givers fixed and then show output is bounded by
+// it. True, and vacuous — they never let the attacker *create* givers. The mint-back
+// makes giving cost the giver nothing, and the pair limit cannot object to a fresh
+// address because a fresh address is always a new pair. So the round trip
+// alice → puppet → alice mints two PIX and nets Alice one, for free, forever.
+//
+// This is pinned as a passing test on purpose. It characterises behaviour we know is
+// wrong so it cannot change silently: close the hole and this test fails loudly and
+// must be rewritten, which is exactly the moment someone should be forced to think.
+// It is also why src/lib/pixel/gift-and-record.ts does NOT implement the mint-back —
+// shipping it as written would be a minting vulnerability, not a missing feature.
+{
+  const e = newEconomy();
+  const puppets = 2000;
+  for (let i = 0; i < puppets; i++) {
+    assert(gift(e, "alice", `puppet${i}`).ok, "gifting a fresh address is always a new pair");
+    assert(gift(e, `puppet${i}`, "alice").ok, "and so is the way back");
+  }
+  assert(
+    balance(e, "alice") === puppets,
+    `alice started with nothing and should now hold ${puppets}, has ${balance(e, "alice")}`,
+  );
+  assert(
+    conserved(e),
+    "conservation still holds — it is Sybil resistance that fails, not the books",
+  );
+
+  let wrote = 0;
+  while (record(e, "alice", "puppet0").ok) wrote += 1;
+  assert(wrote > 0, "and the minted light spends: the hole is not theoretical");
+  console.log(
+    `▸ KNOWN HOLE: 0 PIX + ${puppets} free addresses → ${puppets} PIX, ${wrote} records ✗ ` +
+      `(mint-back must not ship until this is closed)`,
+  );
 }
 
 const t = economyThesis();
 console.log(`\nbound:     ${t.bound}`);
 console.log(`sink:      ${t.sink}`);
 console.log(`collusion: ${t.collusion}`);
-console.log("\n═══ PASS — the math maths ═══");
+console.log(`\nHOLE:      ${t.hole}`);
+console.log(
+  "\n═══ PASS — the books balance and the sink is load-bearing; " +
+    "Sybil resistance does not hold ═══",
+);
