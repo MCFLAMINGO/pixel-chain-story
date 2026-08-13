@@ -138,6 +138,11 @@ export function exportMirrorHtml(pixels: LedgerPixel[]): string {
   const genesis = pixels[0]?.hash ?? "";
   const height = pixels[pixels.length - 1]?.index ?? -1;
   const data = JSON.stringify(cells).replace(/</g, "\\u003c");
+  // The whole record, not just what it looks like. A file carrying only colours
+  // is a picture *of* the picture — a visitor could see it and decode nothing.
+  // Every transaction, author, note and signature travels too, which is what
+  // makes this the artifact rather than a view of one.
+  const archive = JSON.stringify(pixels).replace(/</g, "\\u003c");
   return `<!doctype html>
 <meta charset="utf-8">
 <title>Pixel Ledger — ${height + 1} pixels</title>
@@ -150,8 +155,12 @@ export function exportMirrorHtml(pixels: LedgerPixel[]): string {
 </style>
 <h1>Pixel Ledger</h1>
 <p>${height + 1} pixels · genesis ${genesis.slice(0, 32)}…<br>
-This file holds the picture and the code to draw it. It needs no server.</p>
+This file holds the picture, the whole record it was drawn from, and the code to
+draw it. It needs no server.<br>
+The record is in the <code>pixel-record</code> script tag below — every moment,
+author and note. View source to read it.</p>
 <div id="f"></div>
+<script type="application/json" id="pixel-record">${archive}</script>
 <script>
 const px=${data};
 const n=Math.max(1,Math.ceil(Math.sqrt(px.length)));

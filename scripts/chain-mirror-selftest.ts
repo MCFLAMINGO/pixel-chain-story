@@ -140,6 +140,23 @@ for (const p of saved) {
   assert(html.includes(`{"i":${p.index}`), `pixel #${p.index} must be in the file`);
 }
 assert(html.includes("needs no server"), "it should say what it is");
+// The file must carry the record, not only what it looked like. A picture with no
+// record inside it is a picture *of* the picture — a visitor could see it and
+// decode nothing.
+const recordTag = html.match(/id="pixel-record">([\s\S]*?)<\/script>/);
+assert(recordTag, "the file must carry the record in a pixel-record tag");
+const archived = JSON.parse(recordTag![1]!) as LedgerPixel[];
+assert(archived.length === saved.length, "every pixel must be archived, not just drawn");
+for (const p of saved) {
+  const a = archived.find((x) => x.index === p.index)!;
+  assert(a.hash === p.hash, `#${p.index} hash must survive the export`);
+  assert(
+    a.transactions.length === p.transactions.length,
+    `#${p.index} must keep its transactions, not just its colour`,
+  );
+}
+console.log(`▸ carries the whole record: ${archived.length} pixels with transactions ✓`);
+
 console.log(`▸ opens itself: ${(html.length / 1024).toFixed(1)} KB, no external reference ✓`);
 
 const t = mirrorThesis();
