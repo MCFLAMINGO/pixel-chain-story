@@ -167,6 +167,52 @@ and unlike hardware it does not fall to cheaper parts. The dials are exactly two
 witness has to lose, and how fast a corrupt one is caught. Which is why rate limits per
 witness and a graph anyone can read are load-bearing rather than hygiene.
 
+### The farm cannot aggregate what it mints, and that is the real bound
+
+Everything above is about the meeting. This is about everything after it, and it is
+stronger than any of it — see `src/lib/pixel/farm-signature.ts`.
+
+**Minting shape separates nothing.** Under a mint-once-per-identity budget, every
+minting graph is a tree — farm and village alike, because each identity has exactly one
+incoming mint. So there is no anomaly to find there.
+
+**What separates them is the second meeting, and the flow afterwards.** A camera watching
+a screen has no second meeting. And light spread over a million addresses is useless
+until it is concentrated, which is a flow that all points one way:
+
+| Measure                          | Consolidating farm | Real economy |
+| -------------------------------- | ------------------ | ------------ |
+| Reciprocity                      | 0.00               | 0.67         |
+| Largest sink's share             | 1.00               | 0.11         |
+| Person-to-person in-degree       | 100,000            | 6            |
+| Addresses that only ever receive | 1.00               | 0.04         |
+
+**The farm cannot buy its way out of this, and that is the point.** Reciprocity is light
+sent back; consolidation is light kept. They are the same quantity pointing opposite
+ways, so a farm returning a fraction `r` to look alive keeps exactly `1 − r`. At a real
+economy's reciprocity of 0.67 it **keeps a third of what it minted**, and looking fully
+alive keeps nothing.
+
+That is why this beats detection. A detector can be evaded by a patient adversary; a
+trade-off cannot, because it is arithmetic on the attacker's own balance and **the payoff
+requires the very flow that exposes it.**
+
+Cadence is a third, weaker signal. A script runs at a flat rate with no day or night —
+0.000 burstiness, 4.2% in its peak hour, zero quiet hours. A concert is the opposite:
+99.8% of its light inside one hour and 22 hours dark, one issuer to many and then many
+turning to whoever is beside them.
+
+### None of this may decide validity
+
+The selftest keeps a false positive on purpose: **the largest sink in an honest economy
+is the picture itself**, paid by everyone, with an in-degree of 500. A busy shop looks
+the same. Any one of these measures read as a verdict would convict the one address the
+design requires.
+
+So these are read-only measurements for **witness eligibility** and for anyone auditing
+the picture — never a validity rule. A heuristic in consensus would let a false positive
+confiscate a real person's light.
+
 ### What this concedes
 
 A bound, not immunity. And it admits that **trust has a root**: either humans who vouch
