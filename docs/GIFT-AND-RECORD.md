@@ -114,6 +114,39 @@ immediately — that is information, not failure. And recording is deflationary,
 network that only asserts and never meets drains into the picture until nobody can
 afford to record.
 
+## The math, checked
+
+`bun run test:economy-model` holds the rules as code and attacks them, because prose
+is where a zero-cost recycle nearly survived.
+
+**Co-signing lowers the price, not the ceiling.** A record co-signed by its
+counterparty costs two — one into the picture, one to whoever signed. An assertion
+made alone costs three and pays nobody. Signature substitutes for quorum: if a real
+second party puts their key on it, three strangers' light is not needed to establish
+that you are not talking to yourself.
+
+**The picture's share is load-bearing, and the test proves it both ways.** With it, a
+colluding pair seeded with eight gifted PIX writes six records and then cannot
+continue. Without it — a record that pays its co-signer and keeps nothing — the same
+pair wrote 100,000 for free and was no poorer. That is the version that nearly got
+written down.
+
+**Writing is bounded by having been given to.** PIX enters only by gift, one per
+ordered pair forever, so anyone's total output is capped by how many distinct people
+ever vouched for them. Sockpuppets still have to pay, and can only pay with light
+real people gave them.
+
+Asserted over 400 random histories, checked after every step: supply conserved,
+never above the cap, no negative balance.
+
+**Open, and not settled by the model:** who pays. Designing from the mechanism
+suggested the shop pays to record its sales, which is wrong — a shop got its money
+and the transaction is over. Whoever wants the record pays, and that is usually the
+customer, with the business earning by co-signing. The narrow case where a business
+does want it is an unforgeable trading history where institutional trust is missing
+or removable. If nobody wants a fact witnessed enough to spend on it, the thesis is
+wrong and PIX has no demand — gifts are free, so they cannot create it.
+
 ## No bridge
 
 The protocol never sells PIX. If someone needs light and has none, they find someone
