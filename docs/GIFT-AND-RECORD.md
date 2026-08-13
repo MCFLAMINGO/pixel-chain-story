@@ -202,6 +202,92 @@ Cadence is a third, weaker signal. A script runs at a flat rate with no day or n
 99.8% of its light inside one hour and 22 hours dark, one issuer to many and then many
 turning to whoever is beside them.
 
+### A wallet is not the light, and wanting to mint is not an attack
+
+Everything above asks how to stop minting without ever asking what the minting costs
+anyone. Two things change the answer — see `src/lib/pixel/mint-harm.ts`.
+
+**Spending is how light is used, so wallets emptying destroys nothing.** A record pays one
+PIX into the picture, one to the counterparty, one to the witness. A puppet that hands its
+light back holds nothing and is finished _as a wallet_ — while the light it carried is
+still there, and ends up in the picture, permanent and nobody's. Following wallets is the
+wrong trace; follow the light.
+
+**People straining to obtain PIX are people who want to write to the picture.** That is a
+use case, not an attack. Adoption and farming differ in exactly one respect — whether a
+person is behind it — which is the one thing that cannot be checked. So a protocol whose
+users push against its issuance limit is succeeding, and treating that pressure as hostile
+is a category error.
+
+### Nobody is ever excluded — a correction
+
+An earlier version of this section said the harm was _exclusion_: that cap consumed by a
+farm was cap unavailable to humans not yet born, and one farmed PIX was one person who
+could never be welcomed. **That was wrong**, and recording the error matters because it
+overstated the stakes of the whole Sybil discussion.
+
+**A person can always be given light**, and whether it is newly minted is irrelevant to
+them. A welcome is somebody giving you light, by one of two routes: the giver has an unused
+mint-back budget, so the light is new and giving is free; or the giver has none left, so the
+light is theirs and giving costs them one PIX. Either way you are welcomed.
+
+**The cap gates minting, never welcoming.** An exhausted cap locks nobody out. It ends the
+subsidy that made giving free — after which welcoming somebody costs the giver one PIX,
+which is exactly how every gift after the first already works.
+
+**And the cap could never have subsidised everyone.** At 132 million births a year, a 10.3e9
+cap is **78 years** of free welcomes with zero farming. `PIX_HARD_CAP` equals peak
+_simultaneous_ population, but welcomes accumulate across generations — roughly 117 billion
+humans have ever lived, eleven times the cap. The cap is a subsidy with a horizon, not a
+seat for every person. Fine once named; not fine while being described as one PIX per human
+forever.
+
+So the honest unit of harm is years of subsidy: **1% of the cap farmed burns about nine
+months of free welcoming, with no victim.**
+
+### Holding the most light is not controlling the record
+
+The second thing this section got wrong. Having corrected "farming excludes people" to
+"farming captures the right to write," that was overstated too — and for a reason worth
+saying plainly: **a stock of light is not a share of the record.** The picture is made of
+what was _spent_, not of what is _held_.
+
+**Hoarding writes nothing.** A farm sitting on 99% of the light contributes zero records
+while real people keep being welcomed and keep writing. To control a static picture is to
+control nothing. It is the same reason a captured network is a worthless one: if holding
+Bitcoin were attainable only by the state, Bitcoin would be pointless. Whoever captures a
+network of participation destroys the thing they captured.
+
+**Writing liquidates the hoard, and funds the honest network doing it.** A record pays one
+PIX into the picture and one to the witness who sealed it. A puppet counterparty can recycle
+its share, but the picture's is gone and the witness's goes to somebody outside the farm. So
+every record costs the farm **two PIX it never gets back**:
+
+| Farm holding 1% of the cap              |           |
+| --------------------------------------- | --------- |
+| Share of holdings, idle                 | 99%       |
+| Share of the picture, idle              | **0%**    |
+| Records it can buy before going broke   | 51.5M     |
+| PIX handed to honest witnesses doing so | **51.5M** |
+
+Capture is therefore finite and self-terminating. It buys a burst, pays for the privilege,
+and ends broke — having subsidised the witnesses of the network it meant to capture.
+
+### Farming is still worth making hard, for the right reasons
+
+Two corrections in a row are not an argument that farming is harmless. What survives:
+
+**The on-ramp dies for the poorest.** Burning the subsidy ends free welcoming, so somebody
+whose only contacts also hold nothing cannot get in. The subsidy is precisely what serves
+people with no light yet. This is the harm that survives everything.
+
+**It is cheap undefended.** The whole 78-year subsidy costs about **$103M** to burn at
+emulated-camera prices — one rich enemy, not a nation-state programme. Witness-attested it
+costs **$3.1tn**. That difference is the entire case for the presence work.
+
+**The burst it does buy is permanent.** Records spend into the picture and the picture never
+forgets, so farmed records cannot be cleaned out afterwards. Bounded, but not reversible.
+
 ### None of this may decide validity
 
 The selftest keeps a false positive on purpose: **the largest sink in an honest economy
