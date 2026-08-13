@@ -19,6 +19,7 @@ import {
 } from "../src/lib/pixel/chain";
 import {
   exportMirror,
+  exportMirrorHtml,
   mirrorState,
   mirrorThesis,
   syncMirror,
@@ -128,6 +129,18 @@ assert(parsed.pixelMirror === 1, "the export must identify itself");
 assert(parsed.pixels.length === saved.length, "the export must carry every pixel held");
 assert(parsed.height === saved[saved.length - 1]!.index, "the export must state its height");
 console.log(`▸ exports as a file carrying all ${parsed.pixels.length} pixels ✓`);
+
+// 7. And as a picture that opens itself. Data nobody can look at is not a copy of
+//    a picture; a file that needs our website is only as durable as our website.
+const html = exportMirrorHtml(saved);
+assert(html.startsWith("<!doctype html>"), "the export must be a document");
+assert(!/src=|href=|@import|fetch\(|XMLHttpRequest/.test(html), "it must load nothing external");
+assert(!/https?:\/\//.test(html), "it must reference no URL at all");
+for (const p of saved) {
+  assert(html.includes(`{"i":${p.index}`), `pixel #${p.index} must be in the file`);
+}
+assert(html.includes("needs no server"), "it should say what it is");
+console.log(`▸ opens itself: ${(html.length / 1024).toFixed(1)} KB, no external reference ✓`);
 
 const t = mirrorThesis();
 console.log(`\nwhy:     ${t.why}`);

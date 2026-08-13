@@ -118,6 +118,62 @@ export async function syncMirror(params: {
   return { ok: true, added: fresh.length, state: mirrorState(merged) };
 }
 
+/**
+ * The copy as a picture that can open itself.
+ *
+ * JSON is data nobody can look at. A file that needs our website to be readable
+ * is only as durable as our website, which is the dependency this whole exercise
+ * exists to remove. So the export carries the pixels *and* the few lines needed to
+ * draw them: one HTML file, no scripts fetched, no fonts, no server, no us.
+ *
+ * Open it in any browser in a hundred years and the picture is there.
+ */
+export function exportMirrorHtml(pixels: LedgerPixel[]): string {
+  const cells = pixels.map((p) => ({
+    i: p.index,
+    // Colour already lives in the pixel; rendering is a reading, not a decision.
+    c: p.illuminated ? [p.color.r, p.color.g, p.color.b] : null,
+    t: p.transactions.length,
+  }));
+  const genesis = pixels[0]?.hash ?? "";
+  const height = pixels[pixels.length - 1]?.index ?? -1;
+  const data = JSON.stringify(cells).replace(/</g, "\\u003c");
+  return `<!doctype html>
+<meta charset="utf-8">
+<title>Pixel Ledger — ${height + 1} pixels</title>
+<style>
+ body{background:#050706;color:#9fb8a8;font:14px/1.6 ui-monospace,monospace;margin:0;padding:24px}
+ h1{font-size:15px;letter-spacing:.18em;text-transform:uppercase;color:#7fd4a4;margin:0 0 4px}
+ p{margin:0 0 18px;color:#6b8779;font-size:12px;word-break:break-all}
+ #f{display:grid;gap:1px;max-width:min(92vw,92vh);margin:0 auto}
+ i{aspect-ratio:1;display:block}
+</style>
+<h1>Pixel Ledger</h1>
+<p>${height + 1} pixels · genesis ${genesis.slice(0, 32)}…<br>
+This file holds the picture and the code to draw it. It needs no server.</p>
+<div id="f"></div>
+<script>
+const px=${data};
+const n=Math.max(1,Math.ceil(Math.sqrt(px.length)));
+const f=document.getElementById("f");
+f.style.gridTemplateColumns="repeat("+n+",minmax(0,1fr))";
+for(const p of px){
+  const d=document.createElement("i");
+  d.title="#"+p.i+" · "+p.t+" tx";
+  if(p.c){
+    const rgb="rgb("+p.c[0]+","+p.c[1]+","+p.c[2]+")";
+    d.style.background=rgb;
+    d.style.boxShadow="0 0 12px "+rgb;
+  }else{
+    d.style.background="transparent";
+    d.style.opacity=".15";
+  }
+  f.appendChild(d);
+}
+</script>
+`;
+}
+
 /** The copy, as a file someone could hand back if every server were gone. */
 export function exportMirror(pixels: LedgerPixel[]): string {
   return JSON.stringify(
