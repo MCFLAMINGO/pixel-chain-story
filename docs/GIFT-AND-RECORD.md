@@ -1,13 +1,33 @@
 # Gift and record
 
-The economics, as of 13 August 2026. **Specification, not implementation.** Written
-down the night it was worked out. Supersedes the earlier one-one-one sketch.
+The economics, as of 13 August 2026. Written down the night it was worked out.
+Supersedes the earlier one-one-one sketch.
+
+**Four of these rules are now code that refuses.** `src/lib/pixel/gift-and-record.ts`
+enforces the gift cap, one-gift-per-pair, the three-distinct-giver quorum, and the
+picture's share; `scripts/gift-and-record-selftest.ts` shows each one rejecting the
+specific abuse it exists to stop, and shows that a bad moment cannot reach a block.
+A rule described here and enforced nowhere is not a rule, so anything below that is
+still only prose says so where it appears.
+
+**The policy is off unless a network turns it on** (`PIXEL_GIFT_AND_RECORD=1`).
+These are consensus rules, and changing validation underneath a running chain
+orphans whoever upgrades last. The crowned Earth has real people on it, so enabling
+this there is a ceremony rather than a deploy.
 
 ## Two acts, and only one is free
 
 **A gift is free.** You give one PIX, one is minted back, you are made whole. The
 receiver keeps it. Passing the peace costs the giver nothing, so there is never a
 reason not to.
+
+**The mint-back is not implemented.** The limits on giving are enforced; the light
+that makes giving free is not, so under the policy a gift currently costs the giver
+one PIX. A mint-back needs a transaction whose outputs exceed its inputs by exactly
+one, and `applySpendTx` refuses that — the conservation invariant from PIX-02/03.
+Teaching it to permit exactly one kind of non-coinbase mint, under exactly these
+conditions and nowhere else, is the emission half of this design and needs its own
+adversarial tests. Until then the ceiling is enforced and the growth is not.
 
 **A record costs three.** One is spent into the picture, one goes to the person you
 are recording with, one goes to the witness who sealed it.
@@ -36,6 +56,8 @@ real all the way down, and free addresses do not manufacture provenance.
 **It is verifiable from history.** The UTXO model already carries where each PIX
 came from, so "three PIX from three distinct people" is a question the chain
 answers by itself — no registry, no identity, no oracle.
+`src/lib/pixel/provenance.ts` asks it; `scripts/provenance-selftest.ts` proves the
+answer survives a restart and survives the gift being spent.
 
 ## Spent into the picture, not burned
 
@@ -46,6 +68,12 @@ Two readings then exist, both computable from history:
 
 - **Light in circulation** — held by people, giftable
 - **Light in the picture** — spent into moments, permanent, nobody's
+
+The picture is an address derived from a phrase rather than from a key
+(`PICTURE_PHRASE`), under its own preimage domain so no public key can reach it.
+Anyone can recompute it and see it came from words. The balance there is the
+accumulated cost of every record ever made — a number you can read, which a burn
+would have made invisible.
 
 Over time the second grows and the first turns over. That is what a record of
 humanity should look like.
