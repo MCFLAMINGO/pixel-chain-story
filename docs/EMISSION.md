@@ -1,5 +1,11 @@
 # Emission — an open question, stated honestly
 
+> **Superseded 13 August 2026** by [`GIFT-AND-RECORD.md`](./GIFT-AND-RECORD.md) —
+> gifts are free and capped at one per pair, records cost three PIX from three
+> distinct givers, light is spent into the picture rather than burned, and the
+> witness recycles its share into onboarding. No bridge. This document records how
+> the earlier conclusions were reached.
+
 ## The bug, which is settled
 
 **Fixed, and the cap now means something.**
