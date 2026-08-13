@@ -20,9 +20,13 @@
 
 import { PIX_HARD_CAP } from "../src/lib/pixel/economics";
 import {
+  FARM_DEVICE_COST,
   WORLD_PEAK_POPULATION,
+  cliqueYield,
+  farmDefenceThesis,
   farmYield,
   giftBudgetThesis,
+  witnessedMintCost,
   cumulativePresence,
   decayDial,
   presencePegModel,
@@ -333,6 +337,73 @@ console.log("▸ absence costs future income; it never erases a witnessed moment
       `costly identity behind it`,
   );
 }
+
+// How the farm is actually run, and which defence changes its shape.
+{
+  // 1. Retail pricing flatters the defence. A real farm does not pay it.
+  const rows = (["retail", "used", "shared-screen", "emulated"] as const).map((hardware) => ({
+    hardware,
+    y: cliqueYield({ devices: 1e6, hardware, giftsPerIdentity: 1 }),
+  }));
+  for (const { hardware, y } of rows) {
+    console.log(
+      `▸ 1M identities on ${hardware.padEnd(13)} $${y.capexUsd.toExponential(2).padStart(8)} ` +
+        `= $${y.costPerPixUsd.toFixed(2).padStart(6)}/PIX`,
+    );
+  }
+  const retail = rows[0]!.y;
+  const emulated = rows[3]!.y;
+  assert(
+    emulated.costPerPixUsd < retail.costPerPixUsd / 1000,
+    "emulation must be shown to collapse the hardware defence, not survive it",
+  );
+  console.log(
+    `▸ a per-identity budget alone does not bind: emulation is ` +
+      `${Math.round(retail.costPerPixUsd / emulated.costPerPixUsd).toLocaleString()}× cheaper ` +
+      `than the retail number the defence assumed ✗`,
+  );
+
+  // 2. Rooting the budget in the existing graph fixes the exponent, and only that.
+  const perPair = farmYield({ devices: 1e6, deviceCostUsd: FARM_DEVICE_COST.used });
+  const rooted = cliqueYield({ devices: 1e6, hardware: "used", giftsPerIdentity: 1 });
+  assert(
+    rooted.minted < perPair.minted / 1000,
+    "rooting must convert quadratic yield into linear yield",
+  );
+  console.log(
+    `▸ rooting the budget fixes the exponent: ${perPair.minted.toExponential(2)} PIX per-pair ` +
+      `-> ${rooted.minted.toExponential(2)} rooted, from the same 1M devices ✓`,
+  );
+
+  // 3. A witness outside the pair moves the cost to corruption, which cheap parts
+  //    cannot reduce. The dials are what a witness has to lose and how fast it is caught.
+  const lax = witnessedMintCost({ corruptionCostUsd: 10_000, welcomesBeforeDetection: 100_000 });
+  const tight = witnessedMintCost({
+    corruptionCostUsd: 10_000,
+    welcomesBeforeDetection: 100,
+    quorum: 3,
+  });
+  assert(
+    tight.costPerPixWithQuorumUsd > lax.costPerPixUsd * 100,
+    "rate-limiting a witness and requiring a quorum must dominate the lax case",
+  );
+  console.log(
+    `▸ witness attestation prices the mint: $${lax.costPerPixUsd.toFixed(2)}/PIX if a corrupt ` +
+      `witness signs 100k welcomes unnoticed, $${tight.costPerPixWithQuorumUsd.toFixed(2)}/PIX ` +
+      `at 100 welcomes and a quorum of 3 ✓`,
+  );
+  assert(
+    tight.costPerPixWithQuorumUsd > FARM_DEVICE_COST.retail,
+    "a well-dialled witness requirement should cost more per PIX than a retail handset",
+  );
+  console.log(
+    `▸ and it beats hardware outright: $${tight.costPerPixWithQuorumUsd.toFixed(0)}/PIX ` +
+      `vs $${FARM_DEVICE_COST.retail}/PIX for the best hardware assumption ✓`,
+  );
+}
+
+const defence = farmDefenceThesis();
+for (const [k, v] of Object.entries(defence)) console.log(`\n${k}: ${v}`);
 
 const budget = giftBudgetThesis();
 console.log(`\nper-pair:     ${budget.perPair}`);

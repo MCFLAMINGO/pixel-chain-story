@@ -111,6 +111,72 @@ So the pair rule is necessary but not sufficient: it stops one relationship beco
 a faucet, and it does nothing about a thousand relationships being bought. **A
 lifetime per-identity budget is the missing half.**
 
+### How the farm is actually run
+
+`farmYield()` prices a handset at $200 retail, which flatters the defence. No farm pays
+that. Phone farms are an existing industry — click fraud, install fraud, review farming
+— with known economics. For a million identities:
+
+| Hardware                                | Capex | Cost per PIX |
+| --------------------------------------- | ----- | ------------ |
+| Retail handsets                         | $200M | $200.00      |
+| Bulk used Android                       | $30M  | $30.00       |
+| One screen, many cheap tablets watching | $8M   | $8.00        |
+| Virtual camera fed a rendered frame     | $10k  | **$0.01**    |
+
+**Emulation is 20,000× cheaper than the number the defence assumed.** If the check is
+"a camera saw a pattern," software satisfies it at no marginal cost, and the whole
+hardware argument collapses.
+
+### And there is no forgery to detect
+
+The case that defeats every integrity check: **a room of a thousand devices genuinely
+_is_ present.** Nothing is faked. Every optical exchange is real. They all belong to one
+person.
+
+A presence proof proves presence, never personhood. So "detect the fake" is the wrong
+frame — there is no fake to find. This is why device attestation, liveness checks and
+better cameras do not answer it.
+
+### What separates a farm from a village is topology
+
+A farm is a clique whose edges all point inward. A village has edges into the rest of
+the graph. **An edge to a stranger cannot be manufactured without the stranger**, and
+strangers do not cooperate on request.
+
+So the defence is not to verify the meeting but to require a **path into the existing
+graph**: the mint needs a third party who was there and is not in the clique. Trust
+flows outward from people already in the picture.
+
+Two things follow, and the second is the one that matters:
+
+**Rooting fixes the exponent.** With the budget rooted in the graph, a million devices
+mint 10⁶ instead of 10¹² — linear, not quadratic. Necessary, and by itself worthless,
+because a million emulated identities still cost $10k.
+
+**The witness fixes the price.** Cost moves from hardware to _corrupting a witness_,
+which is the one input a farm cannot cheapen by buying worse parts. And it is a dial:
+
+| Witness regime                                | Cost per PIX |
+| --------------------------------------------- | ------------ |
+| Corrupt witness signs 100k welcomes unnoticed | $0.10        |
+| 100 welcomes before detection, quorum of 3    | **$300.00**  |
+
+Tightly dialled, that beats the best hardware assumption outright — $300 against $200 —
+and unlike hardware it does not fall to cheaper parts. The dials are exactly two: what a
+witness has to lose, and how fast a corrupt one is caught. Which is why rate limits per
+witness and a graph anyone can read are load-bearing rather than hygiene.
+
+### What this concedes
+
+A bound, not immunity. And it admits that **trust has a root**: either humans who vouch
+and can be de-elected, or the handset vendor. There is no third option in which identity
+costs something and nobody is trusted at all.
+
+Given the choice, humans are the answer consistent with everything else here — which
+makes "who witnesses" not a loose end but the load-bearing question the emission design
+rests on.
+
 ### Two things this rules out
 
 **Proof of work per mint does not substitute.** Cloud silicon beats handsets on cost
