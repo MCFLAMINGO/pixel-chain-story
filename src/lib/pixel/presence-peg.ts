@@ -170,6 +170,89 @@ export function sybilEconomics(params: {
   };
 }
 
+/**
+ * What a farm of devices yields, if a gift has to be a physical meeting.
+ *
+ * "Make giving cost a phone" is the obvious answer to the mint-back's Sybil hole:
+ * a fresh address is free, but a fresh address that has physically met another one
+ * needs a second handset in a second place. Buying presence should then cost money.
+ *
+ * It does — but the shape of the cost is what decides whether that helps, and under
+ * the current rule the shape favours the attacker.
+ *
+ * **One gift per ordered pair is a per-pair budget, and pairs grow as K².** A farm of
+ * K devices commands K(K−1) ordered pairs while paying for only K devices, so the
+ * cost per minted PIX falls as 1/K. Sybil resistance that gets *cheaper* the bigger
+ * the attacker is not Sybil resistance; it is a volume discount.
+ *
+ * **A per-identity budget grows as K.** Cap how many gifts an address may ever give
+ * and the yield is K·G against a cost of K devices, so cost per PIX is phone/G — a
+ * constant, the same for a farm of ten and a farm of a million. That is the property
+ * worth having: not that faking is impossible, but that faking does not get cheaper
+ * with scale.
+ *
+ * Neither is implemented. This is the arithmetic for choosing, checked by
+ * `bun run test:presence-peg` so the comparison is not prose.
+ */
+export interface FarmYield {
+  devices: number;
+  /** PIX the farm can mint over the devices' lifetime. */
+  minted: number;
+  capexUsd: number;
+  costPerPixUsd: number;
+  /** Share of the whole 10.3e9 cap this farm captures. */
+  shareOfCap: number;
+}
+
+export function farmYield(params: {
+  devices: number;
+  deviceCostUsd: number;
+  /** Per-identity lifetime gift budget. Omit for the per-pair rule (K² pairs). */
+  giftsPerIdentity?: number;
+}): FarmYield {
+  const { devices, deviceCostUsd, giftsPerIdentity } = params;
+  const minted =
+    giftsPerIdentity === undefined
+      ? devices * (devices - 1) // every ordered pair is a fresh pair
+      : devices * giftsPerIdentity;
+  const capexUsd = devices * deviceCostUsd;
+  return {
+    devices,
+    minted,
+    capexUsd,
+    costPerPixUsd: minted === 0 ? Infinity : capexUsd / minted,
+    shareOfCap: minted / WORLD_PEAK_POPULATION,
+  };
+}
+
+export function giftBudgetThesis(): {
+  perPair: string;
+  perIdentity: string;
+  electricity: string;
+  unresolved: string;
+} {
+  return {
+    perPair:
+      "One gift per ordered pair is a per-pair budget, and ordered pairs grow as K² " +
+      "against a device cost of K. Cost per PIX falls as 1/K, so a big farm pays less " +
+      "per PIX than a small one. A $20M farm of 100,000 handsets commands enough pairs " +
+      "to mint the entire supply.",
+    perIdentity:
+      "A lifetime cap of G gifts per address makes yield K·G against cost K, so cost " +
+      "per PIX is phone/G — constant at every scale. Faking stays possible and stops " +
+      "getting cheaper, which is the property actually worth buying.",
+    electricity:
+      "Proof of work per mint does not substitute. Cloud silicon beats handsets on " +
+      "cost per hash, so it prices out the phone it was meant to privilege, and " +
+      "burning energy to prove presence contradicts the reason this chain exists.",
+    unresolved:
+      "Both assume presence can be proven at all. It cannot be proven by the two " +
+      "parties alone — they can always simulate the channel between them — so a real " +
+      "presence proof needs a third party who was there, or hardware attestation and " +
+      "the vendor as trust root. kindling.ts labels its seal `simulated` for this reason.",
+  };
+}
+
 export function splitDesignThesis(): {
   problem: string;
   split: string;
