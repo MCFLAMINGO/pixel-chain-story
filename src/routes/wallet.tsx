@@ -22,6 +22,8 @@ import { PayFaceMatrix } from "@/components/pixel/PayFaceMatrix";
 import { isPixelAddress } from "@/lib/pixel/crypto";
 import { fetchTipBalance } from "@/lib/pixel/people-wallet";
 import type { TipMarkReceipt } from "@/lib/pixel/tip-mark";
+import { useChainMirror } from "@/hooks/use-chain-mirror";
+import { CROWNED_GENESIS_HASH } from "@/lib/pixel/crowned-genesis";
 
 /**
  * Phone Personal Source — hold, pay, bridge USDC/crypto on the one tip.
@@ -111,6 +113,7 @@ function WalletPage() {
   const [importText, setImportText] = useState("");
   const [importErr, setImportErr] = useState<string | null>(null);
   const w = usePeopleWallet(rpcQuery);
+  const mirror = useChainMirror(w.rpc ?? undefined, CROWNED_GENESIS_HASH);
   const [tab, setTab] = useState<Tab>(tabQuery ?? (toQuery ? "send" : "hold"));
   const [name, setName] = useState("you");
   const [pin, setPin] = useState("");
@@ -616,6 +619,50 @@ function WalletPage() {
                   {shareNote}
                 </p>
               ) : null}
+
+              {/* One volume holds the only copy of this history. This device can
+                  hold another, and it does so without being asked. */}
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+                {mirror.status === "diverged" ? (
+                  <>
+                    <p className="font-pixel text-[10px] tracking-[0.2em] text-amber-200 uppercase">
+                      This tip does not match your copy
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-amber-100/80">
+                      The history you hold and the one being served disagree. Your copy has not been
+                      changed. {mirror.note}
+                    </p>
+                  </>
+                ) : mirror.status === "unavailable" ? (
+                  <p className="text-xs leading-relaxed text-white/55">
+                    This browser will not let the picture be stored here, so this device is not
+                    keeping a copy.
+                  </p>
+                ) : mirror.state && mirror.state.pixels.length > 0 ? (
+                  <>
+                    <p className="font-pixel text-[10px] tracking-[0.2em] text-emerald-300/80 uppercase">
+                      You hold the picture
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-white/65">
+                      {mirror.state.height + 1} pixels · {Math.round(mirror.state.bytes / 1024)} KB
+                      on this device. If every server went away, the record would still exist here.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" className="wallet-chip" onClick={mirror.download}>
+                        Save the picture
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+                      Saves one file that draws itself — no server, no internet, opens in any
+                      browser.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-white/45">
+                    {mirror.status === "syncing" ? "Taking a copy of the picture…" : "No copy yet."}
+                  </p>
+                )}
+              </div>
               {showPayQr ? (
                 <div className="mt-4 flex flex-col items-center gap-2">
                   <PayFaceQr address={w.payFace.address} className="pay-face-qr rounded-lg" />
