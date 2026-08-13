@@ -26,6 +26,7 @@ import {
   PICTURE_PHRASE,
   assertMomentAllowed,
   giftAndRecordThesis,
+  giftMintsBack,
   momentKind,
   pictureAddress,
 } from "../src/lib/pixel/gift-and-record";
@@ -116,38 +117,63 @@ async function gift(from: LightKeypair, to: string) {
 await gift(witness, alice.address);
 console.log("▸ a first gift of one PIX to someone new is allowed ✓");
 
-// 2. A second gift to the same person is refused.
-await refuses(
-  chain,
-  witness,
-  [{ address: alice.address, amount: 1 }],
-  "gift",
-  "gift/one-per-pair",
-  "a second gift to the same person",
-);
+// 2. A second gift to the same person is ALLOWED, and does not mint.
+//
+// The pair limit is a minting rule, not a validity rule. You can give your wife light
+// every day of your life; you are only made whole the first time. Refusing the second
+// gift — which this module did at first — bounds no supply and only blocks generosity.
+{
+  const { state: first, tx: firstTx } = await moment(
+    chain,
+    witness,
+    [{ address: bob.address, amount: 1 }],
+    "gift",
+  );
+  assert(await giftMintsBack(first, firstTx), "a first gift to bob should mint");
+  chain = await sequenceBlock(first, witness);
 
-// 3. An oversized gift is refused.
-await refuses(
-  chain,
-  witness,
-  [{ address: bob.address, amount: 5 }],
-  "gift",
-  "gift/amount",
-  "a gift of five PIX",
-);
+  const { state: again, tx: againTx } = await moment(
+    chain,
+    witness,
+    [{ address: bob.address, amount: 1 }],
+    "gift",
+  );
+  await assertMomentAllowed(again, againTx); // must not throw
+  assert(!(await giftMintsBack(again, againTx)), "a repeat gift must not mint");
+  const sealed = await sequenceBlock(again, witness);
+  const kept = sealed.pixels[sealed.pixels.length - 1]!.transactions.filter(
+    (t) => momentKind(t) === "gift",
+  );
+  assert(kept.length === 1, "the repeat gift should still reach the block");
+  chain = sealed;
+  console.log("▸ a second gift to the same person is allowed, and does not mint ✓");
+  console.log("▸ giving again costs the giver a PIX instead of being refused ✓");
+}
 
-// 4. A batched gift is refused.
-await refuses(
-  chain,
-  witness,
-  [
-    { address: bob.address, amount: 1 },
-    { address: carol.address, amount: 1 },
-  ],
-  "gift",
-  "gift/one-recipient",
-  "two gifts batched into one transaction",
-);
+// 3. Shapes that cannot be redeemed do not mint, and are not errors either.
+{
+  const { state: big, tx: bigTx } = await moment(
+    chain,
+    witness,
+    [{ address: carol.address, amount: 5 }],
+    "gift",
+  );
+  await assertMomentAllowed(big, bigTx);
+  assert(!(await giftMintsBack(big, bigTx)), "an oversized gift must not mint");
+
+  const { state: batch, tx: batchTx } = await moment(
+    chain,
+    witness,
+    [
+      { address: carol.address, amount: 1 },
+      { address: dave.address, amount: 1 },
+    ],
+    "gift",
+  );
+  await assertMomentAllowed(batch, batchTx);
+  assert(!(await giftMintsBack(batch, batchTx)), "a batched gift must not mint");
+  console.log("▸ oversized and batched gifts move light but mint nothing ✓");
+}
 
 // Seed the graph: the witness welcomes three people, who each give to Dave.
 await gift(witness, bob.address);
@@ -254,32 +280,53 @@ await refuses(
   const { giftAndRecordEnabled } = await import("../src/lib/pixel/gift-and-record");
   assert(giftAndRecordEnabled(), "the policy should read as on");
 
-  // A repeat gift to Alice — refused by rule, and the witness already gave to her.
+  // An invalid record — no share to the picture — must not reach a block.
   const { state: s } = await moment(
+    chain,
+    dave,
+    [
+      { address: stranger.address, amount: 2 },
+      { address: witness.address, amount: 1 },
+    ],
+    "record",
+  );
+  const before = chain.pixels.length;
+  const sealed = await sequenceBlock(s, witness);
+  const sealedTxs = sealed.pixels[sealed.pixels.length - 1]!.transactions;
+  const carried = sealedTxs.filter((tx) => momentKind(tx) === "record");
+  assert(sealed.pixels.length === before + 1, "the block should still be produced");
+  assert(
+    carried.length === 0,
+    `an invalid record reached a block: ${carried.length} sealed despite the picture-share rule`,
+  );
+  console.log("▸ with the policy on, a record that skips the picture never reaches a block ✓");
+
+  // A repeat gift, by contrast, is valid — it belongs in the block, it just cannot mint.
+  const { state: rep, tx: repTx } = await moment(
     chain,
     witness,
     [{ address: alice.address, amount: 1 }],
     "gift",
   );
-  const before = chain.pixels.length;
-  const sealed = await sequenceBlock(s, witness);
-  const sealedTxs = sealed.pixels[sealed.pixels.length - 1]!.transactions;
-  const carried = sealedTxs.filter((tx) => momentKind(tx) === "gift");
-  assert(sealed.pixels.length === before + 1, "the block should still be produced");
+  assert(!(await giftMintsBack(rep, repTx)), "a repeat gift must not mint");
+  const repSealed = await sequenceBlock(rep, witness);
   assert(
-    carried.length === 0,
-    `a repeat gift reached a block: ${carried.length} gift(s) sealed despite the pair limit`,
+    repSealed.pixels[repSealed.pixels.length - 1]!.transactions.some(
+      (t) => momentKind(t) === "gift",
+    ),
+    "a repeat gift must still reach the block — it is valid, merely non-minting",
   );
-  console.log("▸ with the policy on, a repeat gift is dropped from the block it was in ✓");
+  console.log("▸ a repeat gift still reaches the block; only the mint is withheld ✓");
 
-  // And a legitimate moment still seals, so enforcement is not just refusing everything.
+  // And a legitimate first gift still seals and still mints.
   const fresh = await generatePixelKeypair("PIX-ML-DSA-65");
-  const { state: ok } = await moment(
+  const { state: ok, tx: okTx } = await moment(
     chain,
     witness,
     [{ address: fresh.address, amount: 1 }],
     "gift",
   );
+  assert(await giftMintsBack(ok, okTx), "a first gift to a new person mints");
   const good = await sequenceBlock(ok, witness);
   const kept = good.pixels[good.pixels.length - 1]!.transactions.filter(
     (tx) => momentKind(tx) === "gift",
@@ -291,4 +338,6 @@ await refuses(
 
 const t = giftAndRecordThesis();
 for (const [k, v] of Object.entries(t)) console.log(`\n${k.padEnd(8)}${v}`);
-console.log("\n═══ PASS — every rule refuses something ═══");
+console.log(
+  "\n═══ PASS — records refuse what they must; gifts are never refused, only unminted ═══",
+);

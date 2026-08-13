@@ -143,6 +143,39 @@ async function everGifted(state: PixelChainState, from: string, to: string): Pro
 }
 
 /**
+ * Does this gift mint, or is it just light moving?
+ *
+ * The pair limit belongs here rather than in validation. A gift is always allowed —
+ * you can give your wife light every day of your life — but you are only *made whole*
+ * the first time, and every gift after that is one you pay for yourself. Refusing the
+ * second gift, which is what this module did first, bounds no supply at all and only
+ * stops people being generous.
+ *
+ * That also makes the shape rules conditional in the right way. A gift only has to be
+ * exactly one PIX to exactly one person when it would mint, because that is the only
+ * time the shape can be used to create something. A batched or oversized "gift" is not
+ * an error; it simply does not mint, and is ordinary value movement.
+ *
+ * **This is the predicate a mint-back would be built on**, and it is deliberately not
+ * wired to one yet. Per-pair minting is quadratic — K devices command K(K−1) ordered
+ * pairs — so a farm's cost per PIX falls as 1/K and $20M of handsets could mint most
+ * of the supply. See `farmYield()` in presence-peg.ts and the analysis in
+ * docs/GIFT-AND-RECORD.md. The budget has to be per identity, and identity has to cost
+ * something, before this predicate may create PIX.
+ */
+export async function giftMintsBack(state: PixelChainState, tx: Transaction): Promise<boolean> {
+  if (momentKind(tx) !== "gift") return false;
+  const author = await authorOf(tx);
+  if (!author) return false;
+  const paid = paidOutputs(tx, author);
+  // Ambiguous or oversized: no single pair to be redeemed for, so nothing mints.
+  if (paid.length !== 1) return false;
+  const to = paid[0]!;
+  if (to.amount !== GIFT_PIX) return false;
+  return !(await everGifted(state, author, to.address));
+}
+
+/**
  * Would this moment be accepted under the gift-and-record rules?
  *
  * Throws with the rule that refused it. Called for its effect, so a caller cannot
@@ -161,32 +194,10 @@ export async function assertMomentAllowed(state: PixelChainState, tx: Transactio
   }
   const paid = paidOutputs(tx, author);
 
-  if (kind === "gift") {
-    if (paid.length !== 1) {
-      throw new GiftAndRecordError(
-        `A gift goes to exactly one person, not ${paid.length}. Batching gifts would let ` +
-          `one transaction exhaust the one-per-pair limit against many people at once.`,
-        "gift/one-recipient",
-      );
-    }
-    const to = paid[0]!;
-    if (to.amount !== GIFT_PIX) {
-      throw new GiftAndRecordError(
-        `A gift is exactly ${GIFT_PIX} PIX, not ${to.amount}. Uncapped gifts make the ` +
-          `pair limit meaningless — one relationship could mint any amount.`,
-        "gift/amount",
-      );
-    }
-    if (await everGifted(state, author, to.address)) {
-      throw new GiftAndRecordError(
-        `${author.slice(0, 12)}… has already given to ${to.address.slice(0, 12)}…. ` +
-          `One gift per pair, ever: supply is bounded by how many people you have met, ` +
-          `and repeating a pair would turn one relationship into a faucet.`,
-        "gift/one-per-pair",
-      );
-    }
-    return;
-  }
+  // A gift is always allowed. The pair limit decides whether it MINTS, never whether
+  // it is valid — see giftMintsBack. Refusing a second gift to the same person bounds
+  // nothing and only blocks generosity, which is the opposite of the point.
+  if (kind === "gift") return;
 
   // A record.
   const spent = paid.reduce((s, o) => s + o.amount, 0);
@@ -223,9 +234,15 @@ export async function assertMomentAllowed(state: PixelChainState, tx: Transactio
 
 export function giftAndRecordThesis(): Record<string, string> {
   return {
+    gift:
+      "A gift is always allowed — give your wife light every day of your life. The " +
+      "pair limit decides only whether you are made whole, so a second gift costs you " +
+      "one PIX instead of being refused. Generosity is never blocked by a rule.",
     bound:
-      "Supply is bounded by relationships rather than by a schedule. One gift per " +
-      "ordered pair means the ceiling is the number of distinct pairs who actually met.",
+      "NOT YET BOUND. Per-pair minting is quadratic: K devices command K(K-1) ordered " +
+      "pairs, so cost per PIX falls as 1/K and $20M of handsets could mint most of the " +
+      "supply. The budget must be per identity, and identity must cost something. " +
+      "See farmYield() in presence-peg.ts. No mint-back ships until then.",
     quorum:
       "A record needs light from three distinct givers, so writing to the picture " +
       "costs a social graph rather than a for-loop over fresh addresses.",
