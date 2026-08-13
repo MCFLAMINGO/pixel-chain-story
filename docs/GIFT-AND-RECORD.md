@@ -131,14 +131,23 @@ Generosity is free. Assertion is not. That split is what stops the record fillin
 with noise while leaving kindness unrationed — and it gives PIX a sink, which it
 has never had.
 
-## One gift per pair, ever
+## One gift per pair mints once — it does not forbid the second gift
 
-The rule that makes any of it work.
+The pair limit is a **minting** rule, not a validity rule. This is the correction that
+matters most, because the first version had it as a refusal.
 
-Without it, giving being free means PIX is free: a holder could gift the same
-person every pixel, forever, and nothing is scarce. With it, a person can be given
-light **once** by each other person. To hold three PIX you must be known to three
-people.
+You can give your wife light every day of your life. What happens once is being _made
+whole_: the first gift to a given person is minted back, and every gift after that is
+one you pay for — you are simply down a PIX. Nothing is refused.
+
+The refusal version was strictly worse, and obviously so once the mint-back is not yet
+implemented: with no minting to bound, blocking a second gift bounded nothing at all
+and only stopped people being generous. All of the cost, none of the benefit.
+
+`giftMintsBack()` is the predicate. It is also where the shape rules belong — a gift
+only has to be exactly one PIX to exactly one person _when it would mint_, since that
+is the only moment the shape could create something. An oversized or batched gift is
+not an error; it just moves light and mints nothing.
 
 ## A record needs three sources
 
