@@ -27,6 +27,7 @@ import { assertWaveDigestMatch, computeTipWaveField, type WaveHit } from "./wave
 import { assertSpatialRootMatch, buildSpatialPicture } from "./spatial-picture";
 import { opticalBeacon } from "./optical";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
+import { assertMomentAllowed, giftAndRecordEnabled } from "./gift-and-record";
 import {
   createTransaction,
   finalizeTransaction,
@@ -648,6 +649,12 @@ export async function validateAndApplyBlockTxs(params: {
 async function selectSpendableTxs(
   utxos: Map<string, Utxo>,
   txs: Transaction[],
+  /**
+   * History, for the gift-and-record rules — they ask questions a UTXO set cannot
+   * answer, such as whether this pair has exchanged a gift before. Omitted by
+   * callers that only need spendability.
+   */
+  history?: PixelChainState,
 ): Promise<{
   accepted: Transaction[];
   rejected: Array<{ txid: string; reason: string }>;
@@ -657,8 +664,12 @@ async function selectSpendableTxs(
   const accepted: Transaction[] = [];
   const rejected: Array<{ txid: string; reason: string }> = [];
   let fees = 0;
+  const enforceMoments = history && giftAndRecordEnabled();
   for (const tx of txs) {
     try {
+      // Rules before spendability: a moment that breaks them must not reach a block
+      // even when the money would have moved cleanly.
+      if (enforceMoments) await assertMomentAllowed(history, tx);
       fees += await applySpendTx(working, tx);
       accepted.push(tx);
     } catch (err) {
@@ -727,7 +738,7 @@ export async function sequenceBlock(
 
   // Drop unauthorized / unspendable mempool entries before building the block,
   // so one poisoned entry cannot stall the tip.
-  const { accepted, rejected, fees } = await selectSpendableTxs(state.utxos, state.pending);
+  const { accepted, rejected, fees } = await selectSpendableTxs(state.utxos, state.pending, state);
   for (const drop of rejected) {
     console.warn(`sequenceBlock dropped ${drop.txid.slice(0, 12)}…: ${drop.reason}`);
   }
