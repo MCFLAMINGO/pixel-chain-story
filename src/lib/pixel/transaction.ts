@@ -26,6 +26,14 @@ export interface ReadableMeta {
   description: string;
   reference?: string;
   recipientLabel?: string;
+  /**
+   * Which act this is, under the gift-and-record rules (src/lib/pixel/gift-and-record.ts).
+   *
+   * Declaring a kind is what invites the stricter check, so it is the author's claim
+   * rather than an inference. Absent means an ordinary transfer, which claims neither
+   * a gift's freedom nor a record's place in the picture.
+   */
+  kind?: "gift" | "record";
 }
 
 export interface TxInput {
