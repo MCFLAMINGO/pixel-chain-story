@@ -1,5 +1,10 @@
 # Path to a respected L1 / bridge / sovereignty regime
 
+> **Start here:** [`STATE-2026-08-13.md`](./STATE-2026-08-13.md) — current state,
+> settled decisions, open questions, and the order things must be built in. The
+> gates below predate several of those decisions and still measure this project
+> against Ethereum's shape, which it is not.
+
 **Stance:** keep the honest lab frame _and_ build until the frame is obsolete.  
 Respect is not requested in copy. It is earned when a skeptical engineer can clone, break, and still find the invariants holding.
 
