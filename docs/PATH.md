@@ -4,6 +4,11 @@
 > settled decisions, open questions, and the order things must be built in. The
 > gates below predate several of those decisions and still measure this project
 > against Ethereum's shape, which it is not.
+>
+> **For the emission and Sybil question**, which blocks the economics:
+> [`FARMING-AND-THE-MINT-BACK.md`](./FARMING-AND-THE-MINT-BACK.md) — why the gift
+> mint-back is not implemented, the arithmetic behind every claim, and three
+> confident conclusions that turned out to be wrong.
 
 **Stance:** keep the honest lab frame _and_ build until the frame is obsolete.  
 Respect is not requested in copy. It is earned when a skeptical engineer can clone, break, and still find the invariants holding.
