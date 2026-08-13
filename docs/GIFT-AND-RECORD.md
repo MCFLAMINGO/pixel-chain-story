@@ -21,6 +21,14 @@ this there is a ceremony rather than a deploy.
 receiver keeps it. Passing the peace costs the giver nothing, so there is never a
 reason not to.
 
+**The mint-back is not implemented.** The limits on giving are enforced; the light
+that makes giving free is not, so under the policy a gift currently costs the giver
+one PIX. A mint-back needs a transaction whose outputs exceed its inputs by exactly
+one, and `applySpendTx` refuses that — the conservation invariant from PIX-02/03.
+Teaching it to permit exactly one kind of non-coinbase mint, under exactly these
+conditions and nowhere else, is the emission half of this design and needs its own
+adversarial tests. Until then the ceiling is enforced and the growth is not.
+
 **A record costs three.** One is spent into the picture, one goes to the person you
 are recording with, one goes to the witness who sealed it.
 
@@ -133,6 +141,39 @@ world and six possible records. The first serious commercial use hits the wall
 immediately — that is information, not failure. And recording is deflationary, so a
 network that only asserts and never meets drains into the picture until nobody can
 afford to record.
+
+## The math, checked
+
+`bun run test:economy-model` holds the rules as code and attacks them, because prose
+is where a zero-cost recycle nearly survived.
+
+**Co-signing lowers the price, not the ceiling.** A record co-signed by its
+counterparty costs two — one into the picture, one to whoever signed. An assertion
+made alone costs three and pays nobody. Signature substitutes for quorum: if a real
+second party puts their key on it, three strangers' light is not needed to establish
+that you are not talking to yourself.
+
+**The picture's share is load-bearing, and the test proves it both ways.** With it, a
+colluding pair seeded with eight gifted PIX writes six records and then cannot
+continue. Without it — a record that pays its co-signer and keeps nothing — the same
+pair wrote 100,000 for free and was no poorer. That is the version that nearly got
+written down.
+
+**Writing is bounded by having been given to.** PIX enters only by gift, one per
+ordered pair forever, so anyone's total output is capped by how many distinct people
+ever vouched for them. Sockpuppets still have to pay, and can only pay with light
+real people gave them.
+
+Asserted over 400 random histories, checked after every step: supply conserved,
+never above the cap, no negative balance.
+
+**Open, and not settled by the model:** who pays. Designing from the mechanism
+suggested the shop pays to record its sales, which is wrong — a shop got its money
+and the transaction is over. Whoever wants the record pays, and that is usually the
+customer, with the business earning by co-signing. The narrow case where a business
+does want it is an unforgeable trading history where institutional trust is missing
+or removable. If nobody wants a fact witnessed enough to spend on it, the thesis is
+wrong and PIX has no demand — gifts are free, so they cannot create it.
 
 ## No bridge
 
