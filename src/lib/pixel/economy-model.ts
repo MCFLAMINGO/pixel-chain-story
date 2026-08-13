@@ -86,8 +86,14 @@ export function gift(e: Economy, from: string, to: string): Outcome {
   if (e.minted + 1 > PIX_HARD_CAP) return { ok: false, reason: "cap-reached" };
 
   // The giver may give from nothing: the first gift of a chain has to start
-  // somewhere, and the restoration means giving never costs. What bounds this is
-  // the pair limit, not the balance.
+  // somewhere, and the restoration means giving never costs.
+  //
+  // This is the hole. "What bounds this is the pair limit, not the balance" was the
+  // claim, and it is false while addresses are free — a fresh address is always a new
+  // pair, so alice → puppet → alice mints two and nets one, forever. Case 7 of
+  // scripts/economy-model-selftest.ts demonstrates it. Left as-is deliberately: this
+  // is the model of the design as written, and the model is where the design should be
+  // shown to be broken. The chain does not implement the mint-back.
   const fromBal = balance(e, from);
   e.held.set(from, fromBal); // unchanged: one leaves, one is minted back
   e.held.set(to, balance(e, to) + 1);
@@ -127,17 +133,28 @@ export function conserved(e: Economy): boolean {
   return e.minted === circulating(e) + e.inPicture;
 }
 
-export function economyThesis(): { bound: string; sink: string; collusion: string } {
+export function economyThesis(): {
+  bound: string;
+  sink: string;
+  collusion: string;
+  hole: string;
+} {
   return {
     bound:
       "Writing is bounded by having been given to. PIX enters only by gift, one per " +
       "ordered pair forever, so a person's total output is capped by how many " +
-      "distinct people ever vouched for them.",
+      "distinct addresses ever gave to them.",
     sink:
       "Every record puts at least one PIX into the picture permanently. Without that " +
       "a colluding pair passes the same PIX back and forth at zero cost, forever.",
     collusion:
-      "Co-signing lowers the price but cannot raise the ceiling. Sockpuppets still " +
-      "pay, and they can only pay with light real people gave them.",
+      "Co-signing lowers the price but cannot raise the ceiling. Sockpuppets pay the " +
+      "same as anyone — but see the hole, because they do not have to be funded first.",
+    hole:
+      "Addresses are free, so 'distinct addresses' is not 'distinct people'. With the " +
+      "mint-back, alice → fresh puppet → alice mints two PIX and nets one, and the " +
+      "pair limit cannot object because a fresh address is always a new pair. Case 7 " +
+      "of the selftest demonstrates it. The bound above is real only if being given " +
+      "to by a distinct party is costly, and today it is not.",
   };
 }

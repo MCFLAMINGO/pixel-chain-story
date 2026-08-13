@@ -21,13 +21,29 @@ this there is a ceremony rather than a deploy.
 receiver keeps it. Passing the peace costs the giver nothing, so there is never a
 reason not to.
 
-**The mint-back is not implemented.** The limits on giving are enforced; the light
-that makes giving free is not, so under the policy a gift currently costs the giver
-one PIX. A mint-back needs a transaction whose outputs exceed its inputs by exactly
-one, and `applySpendTx` refuses that — the conservation invariant from PIX-02/03.
-Teaching it to permit exactly one kind of non-coinbase mint, under exactly these
-conditions and nowhere else, is the emission half of this design and needs its own
-adversarial tests. Until then the ceiling is enforced and the growth is not.
+**The mint-back is not implemented, and must not be until the hole below is closed.**
+
+A mint-back needs new PIX to appear outside the coinbase. Two routes exist and both
+are shut: outputs exceeding inputs is refused by `applySpendTx`, and inflating the
+coinbase is refused by `validateAndApplyBlockTxs`, which pins it to exactly
+`lightReward(index) + fees`. Those are the PIX-02/03 conservation invariants from the
+audit, and blocking this is them working.
+
+**The hole: one gift per pair does not bound anything while addresses are free.**
+A fresh address is always a new pair, so the pair limit cannot object to it. With the
+mint-back, `alice → fresh puppet → alice` mints two PIX and leaves Alice one better
+off at no cost, repeatable to the cap. Case 7 of `scripts/economy-model-selftest.ts`
+runs it: **starting from zero PIX and 2000 free addresses, Alice ends with 2000 PIX
+and writes 1000 records.**
+
+So "supply is bounded by relationships" holds only if being given to by a distinct
+party is costly. Today it is not, and nothing above prices address creation. The
+bound is real against a fixed cast of givers and vacuous against an attacker who
+mints the cast — which is the case that matters.
+
+This is a design question, not a coding task: what makes a giver costly to
+manufacture? Until it has an answer, the ceiling is enforced and the growth stays
+switched off.
 
 **A record costs three.** One is spent into the picture, one goes to the person you
 are recording with, one goes to the witness who sealed it.
