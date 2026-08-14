@@ -190,7 +190,61 @@ async function main(): Promise<void> {
   const address = sh(cast, ["wallet", "address", "--private-key", pk]);
   console.log(`▸ anchorer ${address}`);
 
-  // 5. Funded? This is the step a script cannot do for you.
+  // 5. Authorised? Ask this BEFORE the balance, because it is the failure whose
+  //    obvious remedy is wrong. `anchor()` is gated on an owner-set allowlist, so an
+  //    unauthorised key fails no matter how well funded it is — and the balance check
+  //    firing first sent people to a faucet for days while the real problem was that
+  //    the secret held the wrong key entirely.
+  if (contract) {
+    let authorised: boolean | null = null;
+    try {
+      const out = sh(cast, [
+        "call",
+        contract,
+        "isAnchorer(address)(bool)",
+        address,
+        "--rpc-url",
+        rpcUrl,
+      ]);
+      authorised = /true/i.test(out);
+    } catch {
+      // A venue that will not answer a view call is a venue problem, not a key problem;
+      // fall through and let the later steps report it in their own terms.
+      authorised = null;
+    }
+
+    if (authorised === false) {
+      let owner = "unknown";
+      let configured = "unknown";
+      try {
+        owner = sh(cast, ["call", contract, "owner()(address)", "--rpc-url", rpcUrl]).trim();
+      } catch {
+        /* reported as unknown */
+      }
+      try {
+        const cfg = JSON.parse(readFileSync(ANCHORS_FILE, "utf8")) as { anchorer?: string };
+        configured = cfg.anchorer ?? "unknown";
+      } catch {
+        /* reported as unknown */
+      }
+      die(
+        `ANCHOR_PRIVATE_KEY derives to ${address}, which is NOT an authorised anchorer\n` +
+          `  on ${contract} (${venue}).\n\n` +
+          `  expected anchorer  ${configured}   (${ANCHORS_FILE})\n` +
+          `  contract owner     ${owner}\n` +
+          `  this key           ${address}\n\n` +
+          "  Funding this address will NOT help: anchor() is gated on an owner-set\n" +
+          "  allowlist, so an unauthorised key fails however much ETH it holds.\n\n" +
+          "  Either put the private key for the expected anchorer into the secret, or\n" +
+          `  have the owner run: cast send ${contract} "setAnchorer(address,bool)" ${address} true`,
+      );
+    }
+    if (authorised === true) {
+      console.log(`▸ ${address} is an authorised anchorer on ${contract} ✓`);
+    }
+  }
+
+  // 6. Funded? This is the step a script cannot do for you.
   const balanceWei = BigInt(sh(cast, ["balance", address, "--rpc-url", rpcUrl]));
   if (balanceWei === 0n) {
     die(
@@ -209,7 +263,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  // 6. Deploy when there is no existing deployment.
+  // 7. Deploy when there is no existing deployment.
   if (contract && !/^0x[0-9a-fA-F]{40}$/.test(contract)) {
     die(`--contract is not an address: "${contract}" (expected 0x + 40 hex chars)`);
   }
@@ -245,7 +299,7 @@ async function main(): Promise<void> {
     console.log(`▸ reusing ${contract}`);
   }
 
-  // 7. Publish through the venue adapter.
+  // 8. Publish through the venue adapter.
   const config = venueConfig({
     venue,
     contract,
@@ -255,7 +309,7 @@ async function main(): Promise<void> {
   const published = await evmAnchorVenue(config).publish(record);
   console.log(`▸ anchored #${record.pixelIndex} → ${published.reference}`);
 
-  // 8. Verify the way a stranger would: no keys.
+  // 9. Verify the way a stranger would: no keys.
   const readOnly = venueConfig({ venue, contract, rpcUrl });
   if (!(await verifyOnChain(readOnly, record))) die("published anchor does not verify on-chain");
   const onChain = await readAnchor(readOnly, record.networkId, record.pixelIndex);
