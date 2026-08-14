@@ -34,6 +34,32 @@ this history.
 
 Taking turns is opted into with `PIXEL_SEQUENCER=1`, with the above consequence.
 
+## B2. Hold a copy of the picture (anyone, 30 seconds)
+
+You do not need to run a node to make the chain harder to lose. Ask an operator for a
+backup file and check it:
+
+```bash
+bun run pixel -- restore --in picture.json --datadir ./data/copy
+```
+
+Restoring **replays every pixel** before it writes anything, so this also tells you
+whether the file you were given is any good. A backup nobody has restored is not a
+backup.
+
+Operators write one with:
+
+```bash
+bun run pixel -- backup --datadir ./data/tip --out picture.json
+```
+
+That file is history only and safe to hand to anyone — the more people hold it, the
+harder the chain is to lose. A restored history-only node serves and verifies under its
+own fresh address; it cannot extend the chain.
+
+`--include-key` also packages the sequencer key, which **can** extend the chain. Give
+that only to somebody you would trust to sequence, and send it privately.
+
 ## C. Local tip (operators)
 
 ```bash
