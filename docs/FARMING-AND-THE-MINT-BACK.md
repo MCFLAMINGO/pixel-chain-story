@@ -271,11 +271,51 @@ forgets, so farmed records cannot be cleaned out. Bounded, but not reversible.
    "who witnesses"; it should be promoted.
 2. **A per-identity mint budget**, rooted in the existing graph, replacing the per-pair
    budget. Linear instead of quadratic. Necessary, insufficient alone.
-3. **Whether the cap should be fixed at all**, given the 78-year horizon.
-   `presence-peg.ts` already models `population-pegged` and `cumulative` regimes.
+3. **Whether the cap should be fixed at all.** Two findings now point the same way: the
+   78-year subsidy horizon, and a terminus of exactly one record per person after which
+   the picture can never change. `presence-peg.ts` already models `population-pegged` and
+   `cumulative` regimes.
 4. **The mint-back itself**, last, and only after 1 and 2. It needs the coinbase equality
    check taught to permit exactly one kind of non-coinbase mint under exactly these
    conditions, with its own adversarial tests.
+
+## The end
+
+Two clocks, and the one everybody watches is the wrong one.
+
+**The subsidy clock** ends at 78 years, when the cap is minted out. The network survives it:
+welcoming still works, it just costs the giver a PIX.
+
+**The writing clock** is the terminus. Every record buries one PIX in the picture
+permanently, and gifts move light without consuming it. So the number of records the picture
+can ever hold is fixed by the cap — and because the cap was set to peak population:
+
+    10.3e9 PIX / 1 PIX per record = 10.3e9 records = exactly 1.00 per peak-human
+
+**Nobody chose that.** It falls out of two decisions made for unrelated reasons, and it is
+the tightest number in the design. One record each, and then the light is all in the
+picture: permanent, nobody's, unspendable, and nothing further can ever be written.
+
+That may be the intended shape — a complete and unalterable record, nearer a cave painting
+than a currency. But it is not what "one PIX per human forever" describes, and it should be
+deliberate rather than incidental.
+
+### The perverse part
+
+A co-signed record requires _holding_ two PIX, so whether the last light is usable depends on
+how it is spread — and the answer runs against everything else here:
+
+| Distribution             | Light stranded, unusable |
+| ------------------------ | ------------------------ |
+| Spread evenly            | **33.3%**                |
+| Pooled into 1% of people | 0.33%                    |
+
+Spread evenly, everyone ends holding one PIX, nobody can reach two, and a third of all light
+is permanently unreachable. **The fair distribution is the wasteful one.** The terminal phase
+pays a premium for concentration.
+
+Both of these argue for supply that renews with presence rather than draining once.
+`presence-peg.ts` already models those regimes.
 
 ## A note on method
 
