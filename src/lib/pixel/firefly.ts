@@ -124,7 +124,48 @@ export function isTwinkling(pixel: LedgerPixel, now: number): boolean {
  * keeps history visible underneath. The shimmer only ever modulates what is already lit —
  * it can never light a dark pixel, or the picture would be showing things that did not
  * happen.
+ *
+ * **Not used by the renderer.** `twinkleAmplitude` plus CSS keyframes replaced it, because
+ * driving inline styles from a clock fought the cells' `transition-all` and produced no
+ * visible motion. Kept because the composition it describes is still the model, and its
+ * tests pin the rules the CSS now implements.
  */
+/**
+ * How hard a cell twinkles, and how far out of step with its neighbours.
+ *
+ * The motion itself belongs to CSS (`@keyframes pixel-twinkle`), not to a React clock. A
+ * clock was tried first and did not work: the cells carry a 700ms `transition-all`, so
+ * re-rendering inline opacity every frame merely restarted the interpolation each time and
+ * the amplitude collapsed to nothing. Keyframes run on the compositor, cannot be swallowed
+ * by a transition, and cost nothing per cell.
+ *
+ * So this returns *how much*, and CSS supplies *when*:
+ *
+ *   - **amplitude** — driven by the tip's wave, the only consensus-bound input. A cell the
+ *     wave is passing through flares; a quiet one only breathes, at `QUIET_TWINKLE`, which
+ *     keeps the field alive without claiming anything happened there.
+ *   - **phaseSeconds** — a negative animation delay from the pixel index, so neighbours are
+ *     out of step. Fireflies blink asynchronously; a field pulsing in unison reads as a
+ *     machine rather than as something living.
+ *
+ * A dark pixel gets no amplitude at all. Decoration must never invent a moment.
+ */
+export const QUIET_TWINKLE = 0.18;
+export const TWINKLE_PERIOD_S = 2.3;
+
+export function twinkleAmplitude(params: { ember: number; wave: number; index: number }): {
+  amplitude: number;
+  phaseSeconds: number;
+} {
+  const { ember, wave, index } = params;
+  if (ember <= 0 && wave <= 0) return { amplitude: 0, phaseSeconds: 0 };
+  // The wave dominates; history only ever breathes.
+  const amplitude = Math.min(1, Math.max(QUIET_TWINKLE, wave, ember * 0.35));
+  // Irrational-ish stride so runs of adjacent indices do not land in step.
+  const phaseSeconds = -((index * 0.618) % TWINKLE_PERIOD_S);
+  return { amplitude, phaseSeconds };
+}
+
 export function livingBrightness(params: {
   /** Cumulative brightness from moments — the floor. */
   ember: number;

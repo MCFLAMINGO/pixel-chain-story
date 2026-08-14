@@ -23,6 +23,9 @@ import {
   EMBER_FLOOR,
   FIREFLY_HALF_LIFE_MS,
   livingBrightness,
+  twinkleAmplitude,
+  QUIET_TWINKLE,
+  TWINKLE_PERIOD_S,
   waveAmplitudeByCell,
   conduitConserved,
   fireflyBrightness,
@@ -208,6 +211,40 @@ const T0 = Date.UTC(2026, 7, 14, 1, 0, 0);
   assert(amps.get(7) === 1, "full amplitude maps to 1");
   assert(waveAmplitudeByCell(undefined).size === 0, "no wave means no amplitudes");
   console.log("▸ tip wave amplitudes: strongest hit per cell, 0..1, empty when absent ✓");
+}
+
+// 9. What the renderer actually uses: amplitude and phase, motion left to CSS.
+{
+  // A dark pixel gets no amplitude. Decoration must never invent a moment.
+  const dark = twinkleAmplitude({ ember: 0, wave: 0, index: 5 });
+  assert(dark.amplitude === 0, "a pixel with no moments and no wave must not twinkle");
+  console.log("▸ a dark pixel gets no amplitude — decoration never invents a moment ✓");
+
+  // The wave dominates; history only breathes.
+  const flaring = twinkleAmplitude({ ember: 0.2, wave: 0.9, index: 5 });
+  const quiet = twinkleAmplitude({ ember: 0.2, wave: 0, index: 5 });
+  assert(flaring.amplitude === 0.9, `a wave cell flares, got ${flaring.amplitude}`);
+  assert(quiet.amplitude === QUIET_TWINKLE, `a quiet cell breathes, got ${quiet.amplitude}`);
+  assert(flaring.amplitude > quiet.amplitude * 4, "the flare must clearly outweigh the breath");
+  console.log(
+    `▸ the wave drives it: ${flaring.amplitude} where light is moving vs ${quiet.amplitude} ` +
+      `where it is not ✓`,
+  );
+
+  // Neighbours out of step, and no run of them lands in phase.
+  const phases = Array.from({ length: 24 }, (_, i) => twinkleAmplitude({ ember: 0.5, wave: 0, index: i }).phaseSeconds);
+  assert(new Set(phases.map((p) => p.toFixed(3))).size === phases.length, "phases must be distinct");
+  for (let i = 1; i < phases.length; i++) {
+    assert(phases[i] !== phases[i - 1], `adjacent pixels must not share a phase at ${i}`);
+  }
+  assert(
+    phases.every((p) => p <= 0 && p > -TWINKLE_PERIOD_S),
+    "a negative delay inside one period starts the animation mid-cycle",
+  );
+  console.log(
+    `▸ ${phases.length} neighbours all out of step, delays spread across the ` +
+      `${TWINKLE_PERIOD_S}s period ✓`,
+  );
 }
 
 const t = fireflyThesis();
