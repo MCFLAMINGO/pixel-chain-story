@@ -2,12 +2,16 @@ import { useMemo, useState } from "react";
 import {
   cssRgb,
   isColorAbsent,
+  lastMomentAt,
+  livingBrightness,
   proximityLinks,
   type ObserverMode,
   type LedgerPixel,
   momentCount,
   pixelBrightness,
+  waveAmplitudeByCell,
 } from "@/lib/pixel";
+import { usePictureClock } from "@/hooks/use-picture-clock";
 
 /**
  * Ledger as picture: void until light; proximity only under illumination.
@@ -33,6 +37,12 @@ export function LedgerField({
   fit?: "dense" | "cinema";
 }) {
   const [focus, setFocus] = useState<number | null>(null);
+  const now = usePictureClock();
+
+  // The tip's wave says which cells light is moving through, and how strongly. This is the
+  // only part of the twinkle that is agreed — it is bound into waveDigest in PoLS.
+  const waveAmp = useMemo(() => waveAmplitudeByCell(pixels[pixels.length - 1]?.wave), [pixels]);
+
   const count = Math.max(pixels.length + pendingCount, 1);
   const cols =
     fit === "cinema"
@@ -79,7 +89,15 @@ export function LedgerField({
           // What happened here, not what it is worth. A pixel carrying only the
           // sequencer's wage sits at 0; one full of moments burns.
           const moments = momentCount(pixel);
-          const heat = pixelBrightness(pixel);
+          // Ember is history and never dims; the wave is the flare and is agreed; the
+          // shimmer is decoration that can only modulate light already there.
+          const heat = livingBrightness({
+            ember: pixelBrightness(pixel),
+            wave: waveAmp.get(pixel.index) ?? 0,
+            now,
+            index: pixel.index,
+            lastMoment: lastMomentAt(pixel),
+          });
           return (
             <button
               key={pixel.hash}
@@ -88,7 +106,7 @@ export function LedgerField({
               title={
                 absent
                   ? `#${pixel.index} — no light, color absent`
-                  : `#${pixel.index} lit · ${moments} moment${moments === 1 ? "" : "s"} · proximity ${pixel.proximity.length} · ${observer}`
+                  : `#${pixel.index} lit · ${moments} moment${moments === 1 ? "" : "s"} · proximity ${pixel.proximity.length} · ${observer}${waveAmp.has(pixel.index) ? " · wave" : ""}`
               }
               onClick={() =>
                 interactive && setFocus((f) => (f === pixel.index ? null : pixel.index))

@@ -22,6 +22,8 @@
 import {
   EMBER_FLOOR,
   FIREFLY_HALF_LIFE_MS,
+  livingBrightness,
+  waveAmplitudeByCell,
   conduitConserved,
   fireflyBrightness,
   fireflyThesis,
@@ -153,6 +155,59 @@ const T0 = Date.UTC(2026, 7, 14, 1, 0, 0);
     "▸ a sink and a conduit are identical from inside the pair; they differ only for " +
       "everybody else ✓",
   );
+}
+
+// 7. The rendered brightness: three sources, kept separate, wave dominant.
+{
+  const base = { now: T0, index: 3, lastMoment: T0, halfLifeMs: FIREFLY_HALF_LIFE_MS };
+
+  // A dark pixel stays dark. Decoration must never invent light that did not happen.
+  assert(
+    livingBrightness({ ...base, ember: 0, wave: 0, lastMoment: null }) === 0,
+    "a pixel with no moments and no wave must render dark",
+  );
+  console.log("▸ shimmer cannot light a dark pixel — decoration never invents a moment ✓");
+
+  // The wave dominates, because it is the only agreed input.
+  const withWave = livingBrightness({ ...base, ember: 0.2, wave: 0.95 });
+  const withoutWave = livingBrightness({ ...base, ember: 0.2, wave: 0 });
+  assert(withWave > withoutWave, "a cell the wave is touching must outshine one it is not");
+  assert(withWave > 0.7, `and it should read as a flare, got ${withWave.toFixed(3)}`);
+  console.log(
+    `▸ the wave dominates: ${withWave.toFixed(3)} touched vs ${withoutWave.toFixed(3)} not — ` +
+      `and the wave is the consensus-bound part ✓`,
+  );
+
+  // History stays visible: an old pixel sits at an ember, never black.
+  const old = livingBrightness({ ...base, ember: 0.8, wave: 0, lastMoment: T0 - 3_600_000 });
+  assert(old >= EMBER_FLOOR, `an old pixel keeps an ember, got ${old.toFixed(3)}`);
+  assert(old < withWave, "but it does not compete with a live flare");
+  console.log(`▸ history keeps an ember (${old.toFixed(3)}) without competing with a flare ✓`);
+
+  // It actually moves: same pixel, two moments in time, different brightness.
+  const t1 = livingBrightness({ ...base, ember: 0.6, wave: 0, now: T0 });
+  const t2 = livingBrightness({ ...base, ember: 0.6, wave: 0, now: T0 + 700 });
+  assert(t1 !== t2, "the same pixel must differ between frames, or nothing twinkles");
+  console.log(`▸ it moves between frames: ${t1.toFixed(4)} then ${t2.toFixed(4)} ✓`);
+
+  // Neighbours blink out of phase, which is what makes it read as fireflies.
+  const a = livingBrightness({ ...base, ember: 0.6, wave: 0, index: 10 });
+  const b = livingBrightness({ ...base, ember: 0.6, wave: 0, index: 11 });
+  assert(a !== b, "adjacent pixels must be out of phase, or the field pulses like a machine");
+  console.log(`▸ neighbours blink out of phase (${a.toFixed(4)} vs ${b.toFixed(4)}) ✓`);
+}
+
+// 8. Wave amplitudes read from the tip, strongest hit per cell.
+{
+  const amps = waveAmplitudeByCell([
+    { cellIndex: 4, amplitudeMilli: 3000 },
+    { cellIndex: 4, amplitudeMilli: 9000 },
+    { cellIndex: 7, amplitudeMilli: 10_000 },
+  ]);
+  assert(amps.get(4) === 0.9, `strongest hit per cell wins, got ${amps.get(4)}`);
+  assert(amps.get(7) === 1, "full amplitude maps to 1");
+  assert(waveAmplitudeByCell(undefined).size === 0, "no wave means no amplitudes");
+  console.log("▸ tip wave amplitudes: strongest hit per cell, 0..1, empty when absent ✓");
 }
 
 const t = fireflyThesis();

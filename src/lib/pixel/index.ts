@@ -64,6 +64,7 @@ export * from "./chain";
 export * from "./canvas-id";
 export * from "./tip-mark";
 export * from "./lit-cell";
+export * from "./firefly";
 export * from "./light-client";
 export * from "./peer-score";
 export * from "./rpc";

@@ -105,6 +105,67 @@ export function isTwinkling(pixel: LedgerPixel, now: number): boolean {
   return fireflyBrightness(pixel, now) > EMBER_FLOOR * 2;
 }
 
+/**
+ * What a pixel looks like right now, from three sources kept deliberately separate.
+ *
+ * Pure so it can be tested without a browser, and so the three inputs cannot get blended
+ * into one number that nobody can reason about:
+ *
+ *   - **ember** — cumulative moments (`pixelBrightness`). History. Never dims, so it is the
+ *     floor rather than the signal, and it is what stops the picture forgetting.
+ *   - **wave** — `WaveHit.amplitudeMilli / 10000` for cells the tip's wave is touching.
+ *     **This is the only one that is agreed**: it is bound into `waveDigest` in PoLS, so
+ *     every node computes the same value. It is the flare when light moves.
+ *   - **shimmer** — a slow out-of-phase oscillation keyed to the pixel's index. Pure
+ *     decoration, and honest about it: fireflies blink asynchronously, so a picture where
+ *     everything pulses together reads as a machine rather than as a field.
+ *
+ * The wave dominates when present, because that is the part that means something. The ember
+ * keeps history visible underneath. The shimmer only ever modulates what is already lit —
+ * it can never light a dark pixel, or the picture would be showing things that did not
+ * happen.
+ */
+export function livingBrightness(params: {
+  /** Cumulative brightness from moments — the floor. */
+  ember: number;
+  /** Tip wave amplitude for this cell, 0..1. Consensus-bound. */
+  wave: number;
+  /** Wall-clock ms, for shimmer and decay. */
+  now: number;
+  /** Pixel index, so neighbours blink out of phase with each other. */
+  index: number;
+  /** When light last moved here, for the flare's decay. Null if never. */
+  lastMoment: number | null;
+  halfLifeMs?: number;
+}): number {
+  const { ember, wave, now, index, lastMoment, halfLifeMs = FIREFLY_HALF_LIFE_MS } = params;
+  if (ember <= 0 && wave <= 0) return 0;
+
+  // A recent moment flares and settles. Consensus says how strong; the clock says how long.
+  const age = lastMoment === null ? Infinity : Math.max(0, now - lastMoment);
+  const recency = Number.isFinite(age) ? Math.pow(0.5, age / halfLifeMs) : 0;
+
+  const flare = Math.max(wave, ember * recency);
+  const base = Math.max(EMBER_FLOOR, ember * 0.45, flare);
+
+  // Out-of-phase twinkle, scaled so it is visible but never invents light.
+  const phase = now / 1400 + index * 1.7;
+  const shimmer = 1 + 0.16 * Math.sin(phase);
+  return Math.min(1, Math.max(EMBER_FLOOR, base * shimmer));
+}
+
+/** Tip wave amplitudes by cell index, 0..1. Empty when the tip carries no wave. */
+export function waveAmplitudeByCell(
+  hits: ReadonlyArray<{ cellIndex: number; amplitudeMilli: number }> | undefined,
+): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const hit of hits ?? []) {
+    const amp = Math.min(1, Math.max(0, hit.amplitudeMilli / 10_000));
+    out.set(hit.cellIndex, Math.max(out.get(hit.cellIndex) ?? 0, amp));
+  }
+  return out;
+}
+
 export interface Conduit {
   /** PIX held by the picture right now, waiting to welcome somebody. */
   inPicture: number;
