@@ -326,6 +326,30 @@ export function anchorAction(
   return { action: "divergence", onVenue: existing.digest, local: localDigest };
 }
 
+/**
+ * Which precondition to report when a publish cannot proceed.
+ *
+ * Ordering is the whole content of this function, and getting it wrong cost days. The
+ * deploy script checked *funding* before *authorisation*, so an unauthorised key was told
+ * to visit a faucet — and funding it would have changed nothing, because `anchor()` is
+ * gated on an owner-set allowlist. Every scheduled run for days reported a remedy that
+ * could not work.
+ *
+ * So: a failure whose obvious remedy is wrong must outrank one whose remedy is right.
+ * Authorisation is unfixable by the user holding the key; funding is fixable by anyone.
+ */
+export type AnchorBlocker = "unauthorised" | "unfunded" | null;
+
+export function anchorPreflight(params: {
+  /** Null when the venue would not answer — not a key problem, so not reported as one. */
+  authorised: boolean | null;
+  balanceWei: bigint;
+}): AnchorBlocker {
+  if (params.authorised === false) return "unauthorised";
+  if (params.balanceWei === 0n) return "unfunded";
+  return null;
+}
+
 export function anchorThesis(): {
   proves: string;
   doesNotProve: string;
