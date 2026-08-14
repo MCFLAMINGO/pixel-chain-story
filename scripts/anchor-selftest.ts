@@ -351,6 +351,51 @@ async function main(): Promise<void> {
   console.log("\n═══ PASS — anchoring is portable, append-only and venue-neutral ═══");
 }
 
+/**
+ * Which precondition wins when more than one is unmet.
+ *
+ * This ordering cost days: the deploy script checked funding before authorisation, so an
+ * unauthorised key was sent to a faucet, and funding it would have changed nothing because
+ * anchor() is gated on an owner-set allowlist.
+ */
+async function preflightOrdering(): Promise<void> {
+  const { anchorPreflight } = await import("../src/lib/pixel/anchor");
+  const assert = (c: unknown, m: string) => {
+    if (!c) {
+      console.error(`\u2717 ${m}`);
+      process.exit(1);
+    }
+  };
+
+  assert(
+    anchorPreflight({ authorised: false, balanceWei: 0n }) === "unauthorised",
+    "an unauthorised AND unfunded key must report the authorisation problem, " +
+      "because funding it would not help",
+  );
+  assert(
+    anchorPreflight({ authorised: false, balanceWei: 10n ** 18n }) === "unauthorised",
+    "a well-funded unauthorised key is still unauthorised",
+  );
+  assert(
+    anchorPreflight({ authorised: true, balanceWei: 0n }) === "unfunded",
+    "an authorised but broke key is the one the faucet advice is for",
+  );
+  assert(
+    anchorPreflight({ authorised: true, balanceWei: 1n }) === null,
+    "authorised and funded should not be blocked",
+  );
+  assert(
+    anchorPreflight({ authorised: null, balanceWei: 1n }) === null,
+    "a venue that will not answer is a venue problem, not a key problem",
+  );
+  console.log(
+    "\u25b8 preflight order: an unfixable failure outranks a fixable one, so an " +
+      "unauthorised key is never sent to a faucet \u2713",
+  );
+}
+
+await preflightOrdering();
+
 main().catch((e) => {
   console.error("FAIL", e);
   process.exit(1);
