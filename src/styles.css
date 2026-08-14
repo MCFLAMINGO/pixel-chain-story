@@ -982,3 +982,59 @@ html.kindling-projecting .wallet-phone-glow {
   color: oklch(0.85 0.14 155);
   background: oklch(0.78 0.16 155 / 0.12);
 }
+
+/**
+ * Fireflies. The picture must move between tips, not only when a block lands.
+ *
+ * Done in CSS rather than from a React clock on purpose. The cells carry a 700ms
+ * `transition`, so re-rendering inline opacity every frame just restarted the
+ * interpolation each time and the amplitude collapsed to nothing. Keyframes run on the
+ * compositor, cost nothing per cell, and cannot be swallowed by a transition.
+ *
+ * The properties are registered with `@property` and named `--pf-*`, both deliberately.
+ * The first attempt used `--tw-amp`, which is inside Tailwind's reserved `--tw-*`
+ * namespace: Tailwind v4 registers those with its own `syntax`, so the value `0.180` was
+ * coerced to `0.18%` and `brightness()` computed to 8.08 — a silently broken animation
+ * that still reported `animationPlayState: running`. Typing them ourselves also makes
+ * `calc()` inside `filter` resolve predictably instead of failing as a token substitution.
+ *
+ * `--pf-amp` is how hard a cell twinkles, set from the tip's wave amplitude — the
+ * consensus-bound part. `--pf-phase` and `--pf-dur` are both hashed from the pixel index,
+ * so neighbours share neither offset nor rhythm. A linear phase ramp was tried first and
+ * scrolled rigid diagonal bands across the grid, because a linear gradient over a
+ * row-major layout is a travelling wave; fireflies need cells to be uncorrelated.
+ *
+ * brightness() and scale() are used rather than opacity or box-shadow because those are
+ * set inline from the pixel's own colour, and an animation must not fight the value that
+ * says what actually happened.
+ */
+@property --pf-amp {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0.35;
+}
+
+@keyframes pixel-twinkle {
+  0%,
+  100% {
+    filter: brightness(calc(1 - var(--pf-amp) * 0.5));
+    transform: scale(calc(1 - var(--pf-amp) * 0.05));
+  }
+  50% {
+    filter: brightness(calc(1 + var(--pf-amp) * 1.9));
+    transform: scale(calc(1 + var(--pf-amp) * 0.07));
+  }
+}
+
+.pixel-firefly {
+  animation: pixel-twinkle var(--pf-dur, 2.3s) ease-in-out infinite;
+  animation-delay: var(--pf-phase, 0s);
+  will-change: filter;
+}
+
+/* Motion here is decoration. Anyone who asked for none keeps a still picture. */
+@media (prefers-reduced-motion: reduce) {
+  .pixel-firefly {
+    animation: none;
+  }
+}

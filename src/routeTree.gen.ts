@@ -16,6 +16,7 @@ import { Route as McflamingoRouteImport } from './routes/mcflamingo'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as DoorsRouteImport } from './routes/doors'
 import { Route as ContinuityRouteImport } from './routes/continuity'
+import { Route as BuildRouteImport } from './routes/build'
 import { Route as BillboardRouteImport } from './routes/billboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContinuityJoinTokenRouteImport } from './routes/continuity_.join.$token'
@@ -56,6 +57,11 @@ const ContinuityRoute = ContinuityRouteImport.update({
   path: '/continuity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BuildRoute = BuildRouteImport.update({
+  id: '/build',
+  path: '/build',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BillboardRoute = BillboardRouteImport.update({
   id: '/billboard',
   path: '/billboard',
@@ -80,6 +86,7 @@ const ContinuityBoothDomainRoute = ContinuityBoothDomainRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
+  '/build': typeof BuildRoute
   '/continuity': typeof ContinuityRoute
   '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
+  '/build': typeof BuildRoute
   '/continuity': typeof ContinuityRoute
   '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/billboard': typeof BillboardRoute
+  '/build': typeof BuildRoute
   '/continuity': typeof ContinuityRoute
   '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/billboard'
+    | '/build'
     | '/continuity'
     | '/doors'
     | '/lab'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/billboard'
+    | '/build'
     | '/continuity'
     | '/doors'
     | '/lab'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/billboard'
+    | '/build'
     | '/continuity'
     | '/doors'
     | '/lab'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BillboardRoute: typeof BillboardRoute
+  BuildRoute: typeof BuildRoute
   ContinuityRoute: typeof ContinuityRoute
   DoorsRoute: typeof DoorsRoute
   LabRoute: typeof LabRoute
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContinuityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/build': {
+      id: '/build'
+      path: '/build'
+      fullPath: '/build'
+      preLoaderRoute: typeof BuildRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/billboard': {
       id: '/billboard'
       path: '/billboard'
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillboardRoute: BillboardRoute,
+  BuildRoute: BuildRoute,
   ContinuityRoute: ContinuityRoute,
   DoorsRoute: DoorsRoute,
   LabRoute: LabRoute,

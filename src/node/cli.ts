@@ -9,7 +9,7 @@
  * People: open /wallet on the site (phone). Never init.
  */
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import {
   PIXEL_LEDGER_NAME,
   PUBLIC_TIP_RPC_DEFAULT,
@@ -61,6 +61,8 @@ async function main() {
   wallet from-node [NAME] [--datadir DIR]
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
   balance ADDR|--wallet NAME [--datadir DIR]
+  backup [--out FILE] [--include-key] [--datadir DIR]
+  restore --in FILE [--datadir DIR] [--force]
   interactions
 
 People (phone): /wallet — not this CLI.
@@ -305,6 +307,76 @@ Friends — join crowned tip:
     if (!chain) throw new Error("No ledger");
     const { balanceOf } = await import("../lib/pixel/index");
     console.log(`${address}: ${balanceOf(chain, address)} PIX`);
+    return;
+  }
+
+  /**
+   * One file you can hand to somebody. See src/node/backup.ts for why this exists:
+   * one volume currently holds the only copy of the history and the only key that
+   * can extend it.
+   */
+  if (cmd === "backup") {
+    const out = arg("out") ?? `./pixel-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const includeKey = flag("include-key");
+    const { loadChain, loadIdentity } = await import("./store");
+    const { createBackup, describeBackup } = await import("./backup");
+    const chain = await loadChain(datadir);
+    if (!chain) throw new Error(`No ledger in ${datadir}. Nothing to back up.`);
+    const identity = (await loadIdentity(datadir)) ?? undefined;
+
+    const bundle = await createBackup({ chain, identity, includeKey });
+    await writeFile(out, JSON.stringify(bundle), "utf8");
+    console.log(`Backup written — verified by replaying every pixel.`);
+    console.log(`  file       ${out}`);
+    for (const line of describeBackup(bundle.manifest)) console.log(`  ${line}`);
+    if (!includeKey) {
+      console.log("");
+      console.log("This file holds the history, not the key. Anyone can hold it safely,");
+      console.log("and the more people who do, the harder the chain is to lose.");
+      console.log("To hand over the ability to extend the chain too: --include-key");
+    } else {
+      console.log("");
+      console.log("THIS FILE CAN EXTEND THE CHAIN. Treat it like the key it contains:");
+      console.log("give it only to someone you would trust to sequence, and send it");
+      console.log("over something private.");
+    }
+    console.log("");
+    console.log(`Restore with:  bun run pixel -- restore --in ${out} --datadir ./restored`);
+    return;
+  }
+
+  if (cmd === "restore") {
+    const inFile = arg("in");
+    if (!inFile) throw new Error("restore needs --in FILE");
+    const { readBackup, describeBackup } = await import("./backup");
+    const { loadChain } = await import("./store");
+    const raw = await readFile(inFile, "utf8");
+    const { chain, manifest, identity } = await readBackup(raw);
+
+    const existing = await loadChain(datadir);
+    if (existing && !flag("force")) {
+      throw new Error(
+        `${datadir} already holds a chain at #${existing.pixels.length - 1}. ` +
+          `Restoring would replace it. Pass --force if that is what you want.`,
+      );
+    }
+
+    await ensureDatadir(datadir);
+    await saveChain(datadir, chain);
+    if (identity) {
+      const { saveIdentity } = await import("./store");
+      await saveIdentity(datadir, identity);
+    }
+    console.log("Restored — the chain replayed cleanly before anything was written.");
+    for (const line of describeBackup(manifest)) console.log(`  ${line}`);
+    console.log("");
+    if (identity) {
+      console.log("The sequencer key came with it, so this datadir can extend the chain.");
+      console.log(`  bun run pixel -- node --datadir ${datadir} --rpc 8546 --gossip 9002`);
+    } else {
+      console.log("History only — this datadir can serve and verify, not extend.");
+      console.log(`  bun run pixel -- node --datadir ${datadir} --rpc 8546 --gossip 9002`);
+    }
     return;
   }
 

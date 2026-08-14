@@ -111,6 +111,204 @@ So the pair rule is necessary but not sufficient: it stops one relationship beco
 a faucet, and it does nothing about a thousand relationships being bought. **A
 lifetime per-identity budget is the missing half.**
 
+### How the farm is actually run
+
+`farmYield()` prices a handset at $200 retail, which flatters the defence. No farm pays
+that. Phone farms are an existing industry — click fraud, install fraud, review farming
+— with known economics. For a million identities:
+
+| Hardware                                | Capex | Cost per PIX |
+| --------------------------------------- | ----- | ------------ |
+| Retail handsets                         | $200M | $200.00      |
+| Bulk used Android                       | $30M  | $30.00       |
+| One screen, many cheap tablets watching | $8M   | $8.00        |
+| Virtual camera fed a rendered frame     | $10k  | **$0.01**    |
+
+**Emulation is 20,000× cheaper than the number the defence assumed.** If the check is
+"a camera saw a pattern," software satisfies it at no marginal cost, and the whole
+hardware argument collapses.
+
+### And there is no forgery to detect
+
+The case that defeats every integrity check: **a room of a thousand devices genuinely
+_is_ present.** Nothing is faked. Every optical exchange is real. They all belong to one
+person.
+
+A presence proof proves presence, never personhood. So "detect the fake" is the wrong
+frame — there is no fake to find. This is why device attestation, liveness checks and
+better cameras do not answer it.
+
+### What separates a farm from a village is topology
+
+A farm is a clique whose edges all point inward. A village has edges into the rest of
+the graph. **An edge to a stranger cannot be manufactured without the stranger**, and
+strangers do not cooperate on request.
+
+So the defence is not to verify the meeting but to require a **path into the existing
+graph**: the mint needs a third party who was there and is not in the clique. Trust
+flows outward from people already in the picture.
+
+Two things follow, and the second is the one that matters:
+
+**Rooting fixes the exponent.** With the budget rooted in the graph, a million devices
+mint 10⁶ instead of 10¹² — linear, not quadratic. Necessary, and by itself worthless,
+because a million emulated identities still cost $10k.
+
+**The witness fixes the price.** Cost moves from hardware to _corrupting a witness_,
+which is the one input a farm cannot cheapen by buying worse parts. And it is a dial:
+
+| Witness regime                                | Cost per PIX |
+| --------------------------------------------- | ------------ |
+| Corrupt witness signs 100k welcomes unnoticed | $0.10        |
+| 100 welcomes before detection, quorum of 3    | **$300.00**  |
+
+Tightly dialled, that beats the best hardware assumption outright — $300 against $200 —
+and unlike hardware it does not fall to cheaper parts. The dials are exactly two: what a
+witness has to lose, and how fast a corrupt one is caught. Which is why rate limits per
+witness and a graph anyone can read are load-bearing rather than hygiene.
+
+### The farm cannot aggregate what it mints, and that is the real bound
+
+Everything above is about the meeting. This is about everything after it, and it is
+stronger than any of it — see `src/lib/pixel/farm-signature.ts`.
+
+**Minting shape separates nothing.** Under a mint-once-per-identity budget, every
+minting graph is a tree — farm and village alike, because each identity has exactly one
+incoming mint. So there is no anomaly to find there.
+
+**What separates them is the second meeting, and the flow afterwards.** A camera watching
+a screen has no second meeting. And light spread over a million addresses is useless
+until it is concentrated, which is a flow that all points one way:
+
+| Measure                          | Consolidating farm | Real economy |
+| -------------------------------- | ------------------ | ------------ |
+| Reciprocity                      | 0.00               | 0.67         |
+| Largest sink's share             | 1.00               | 0.11         |
+| Person-to-person in-degree       | 100,000            | 6            |
+| Addresses that only ever receive | 1.00               | 0.04         |
+
+**The farm cannot buy its way out of this, and that is the point.** Reciprocity is light
+sent back; consolidation is light kept. They are the same quantity pointing opposite
+ways, so a farm returning a fraction `r` to look alive keeps exactly `1 − r`. At a real
+economy's reciprocity of 0.67 it **keeps a third of what it minted**, and looking fully
+alive keeps nothing.
+
+That is why this beats detection. A detector can be evaded by a patient adversary; a
+trade-off cannot, because it is arithmetic on the attacker's own balance and **the payoff
+requires the very flow that exposes it.**
+
+Cadence is a third, weaker signal. A script runs at a flat rate with no day or night —
+0.000 burstiness, 4.2% in its peak hour, zero quiet hours. A concert is the opposite:
+99.8% of its light inside one hour and 22 hours dark, one issuer to many and then many
+turning to whoever is beside them.
+
+### A wallet is not the light, and wanting to mint is not an attack
+
+Everything above asks how to stop minting without ever asking what the minting costs
+anyone. Two things change the answer — see `src/lib/pixel/mint-harm.ts`.
+
+**Spending is how light is used, so wallets emptying destroys nothing.** A record pays one
+PIX into the picture, one to the counterparty, one to the witness. A puppet that hands its
+light back holds nothing and is finished _as a wallet_ — while the light it carried is
+still there, and ends up in the picture, permanent and nobody's. Following wallets is the
+wrong trace; follow the light.
+
+**People straining to obtain PIX are people who want to write to the picture.** That is a
+use case, not an attack. Adoption and farming differ in exactly one respect — whether a
+person is behind it — which is the one thing that cannot be checked. So a protocol whose
+users push against its issuance limit is succeeding, and treating that pressure as hostile
+is a category error.
+
+### Nobody is ever excluded — a correction
+
+An earlier version of this section said the harm was _exclusion_: that cap consumed by a
+farm was cap unavailable to humans not yet born, and one farmed PIX was one person who
+could never be welcomed. **That was wrong**, and recording the error matters because it
+overstated the stakes of the whole Sybil discussion.
+
+**A person can always be given light**, and whether it is newly minted is irrelevant to
+them. A welcome is somebody giving you light, by one of two routes: the giver has an unused
+mint-back budget, so the light is new and giving is free; or the giver has none left, so the
+light is theirs and giving costs them one PIX. Either way you are welcomed.
+
+**The cap gates minting, never welcoming.** An exhausted cap locks nobody out. It ends the
+subsidy that made giving free — after which welcoming somebody costs the giver one PIX,
+which is exactly how every gift after the first already works.
+
+**And the cap could never have subsidised everyone.** At 132 million births a year, a 10.3e9
+cap is **78 years** of free welcomes with zero farming. `PIX_HARD_CAP` equals peak
+_simultaneous_ population, but welcomes accumulate across generations — roughly 117 billion
+humans have ever lived, eleven times the cap. The cap is a subsidy with a horizon, not a
+seat for every person. Fine once named; not fine while being described as one PIX per human
+forever.
+
+So the honest unit of harm is years of subsidy: **1% of the cap farmed burns about nine
+months of free welcoming, with no victim.**
+
+### Holding the most light is not controlling the record
+
+The second thing this section got wrong. Having corrected "farming excludes people" to
+"farming captures the right to write," that was overstated too — and for a reason worth
+saying plainly: **a stock of light is not a share of the record.** The picture is made of
+what was _spent_, not of what is _held_.
+
+**Hoarding writes nothing.** A farm sitting on 99% of the light contributes zero records
+while real people keep being welcomed and keep writing. To control a static picture is to
+control nothing. It is the same reason a captured network is a worthless one: if holding
+Bitcoin were attainable only by the state, Bitcoin would be pointless. Whoever captures a
+network of participation destroys the thing they captured.
+
+**Writing liquidates the hoard, and funds the honest network doing it.** A record pays one
+PIX into the picture and one to the witness who sealed it. A puppet counterparty can recycle
+its share, but the picture's is gone and the witness's goes to somebody outside the farm. So
+every record costs the farm **two PIX it never gets back**:
+
+| Farm holding 1% of the cap              |           |
+| --------------------------------------- | --------- |
+| Share of holdings, idle                 | 99%       |
+| Share of the picture, idle              | **0%**    |
+| Records it can buy before going broke   | 51.5M     |
+| PIX handed to honest witnesses doing so | **51.5M** |
+
+Capture is therefore finite and self-terminating. It buys a burst, pays for the privilege,
+and ends broke — having subsidised the witnesses of the network it meant to capture.
+
+### Farming is still worth making hard, for the right reasons
+
+Two corrections in a row are not an argument that farming is harmless. What survives:
+
+**The on-ramp dies for the poorest.** Burning the subsidy ends free welcoming, so somebody
+whose only contacts also hold nothing cannot get in. The subsidy is precisely what serves
+people with no light yet. This is the harm that survives everything.
+
+**It is cheap undefended.** The whole 78-year subsidy costs about **$103M** to burn at
+emulated-camera prices — one rich enemy, not a nation-state programme. Witness-attested it
+costs **$3.1tn**. That difference is the entire case for the presence work.
+
+**The burst it does buy is permanent.** Records spend into the picture and the picture never
+forgets, so farmed records cannot be cleaned out afterwards. Bounded, but not reversible.
+
+### None of this may decide validity
+
+The selftest keeps a false positive on purpose: **the largest sink in an honest economy
+is the picture itself**, paid by everyone, with an in-degree of 500. A busy shop looks
+the same. Any one of these measures read as a verdict would convict the one address the
+design requires.
+
+So these are read-only measurements for **witness eligibility** and for anyone auditing
+the picture — never a validity rule. A heuristic in consensus would let a false positive
+confiscate a real person's light.
+
+### What this concedes
+
+A bound, not immunity. And it admits that **trust has a root**: either humans who vouch
+and can be de-elected, or the handset vendor. There is no third option in which identity
+costs something and nobody is trusted at all.
+
+Given the choice, humans are the answer consistent with everything else here — which
+makes "who witnesses" not a loose end but the load-bearing question the emission design
+rests on.
+
 ### Two things this rules out
 
 **Proof of work per mint does not substitute.** Cloud silicon beats handsets on cost
@@ -131,14 +329,23 @@ Generosity is free. Assertion is not. That split is what stops the record fillin
 with noise while leaving kindness unrationed — and it gives PIX a sink, which it
 has never had.
 
-## One gift per pair, ever
+## One gift per pair mints once — it does not forbid the second gift
 
-The rule that makes any of it work.
+The pair limit is a **minting** rule, not a validity rule. This is the correction that
+matters most, because the first version had it as a refusal.
 
-Without it, giving being free means PIX is free: a holder could gift the same
-person every pixel, forever, and nothing is scarce. With it, a person can be given
-light **once** by each other person. To hold three PIX you must be known to three
-people.
+You can give your wife light every day of your life. What happens once is being _made
+whole_: the first gift to a given person is minted back, and every gift after that is
+one you pay for — you are simply down a PIX. Nothing is refused.
+
+The refusal version was strictly worse, and obviously so once the mint-back is not yet
+implemented: with no minting to bound, blocking a second gift bounded nothing at all
+and only stopped people being generous. All of the cost, none of the benefit.
+
+`giftMintsBack()` is the predicate. It is also where the shape rules belong — a gift
+only has to be exactly one PIX to exactly one person _when it would mint_, since that
+is the only moment the shape could create something. An oversized or batched gift is
+not an error; it just moves light and mints nothing.
 
 ## A record needs three sources
 

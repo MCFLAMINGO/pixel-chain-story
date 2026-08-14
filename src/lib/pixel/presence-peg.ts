@@ -225,6 +225,91 @@ export function farmYield(params: {
   };
 }
 
+/**
+ * How the farm is actually run, and which defence changes its shape.
+ *
+ * `farmYield` prices a handset at retail, which flatters the defence. A real farm does
+ * none of that, and phone farms are an existing industry — click fraud, install fraud,
+ * review farming — with known economics:
+ *
+ *   - **retail** — what the optimistic model assumes
+ *   - **used** — bulk refurbished Android, the actual hardware of a real farm
+ *   - **shared screen** — one display showing the matrix with N cheap tablets watching
+ *     it. The expensive half of "two devices met" is paid once, not N times.
+ *   - **emulated** — a virtual camera fed a rendered screen. If the check is "a camera
+ *     saw a pattern", software satisfies it at no marginal cost.
+ *
+ * And the case no forgery detection can reach: a room of a thousand devices **is**
+ * present. Nothing is faked, every exchange is real, and they all belong to one person.
+ * A presence proof proves presence, never personhood — so "detect the fake" is the
+ * wrong frame, because there is no fake to find.
+ *
+ * What separates a farm from a village is not authenticity, it is **topology**. A farm
+ * is a clique whose edges all point inward. Real people have edges into the rest of the
+ * graph, and you cannot manufacture an edge to a stranger without the stranger. So the
+ * defence is to require a path into the existing graph rather than merely a meeting:
+ * the mint needs a third party who was there and is not in the clique.
+ *
+ * That moves the cost from hardware to **corrupting a witness**, which is the one input
+ * a farm cannot drive to zero by buying cheaper parts.
+ */
+export type FarmHardware = "retail" | "used" | "shared-screen" | "emulated";
+
+/** Cost per additional device-identity, in USD. */
+export const FARM_DEVICE_COST: Record<FarmHardware, number> = {
+  retail: 200,
+  used: 30,
+  // One screen amortised over many watchers: the marginal watcher is a cheap tablet.
+  "shared-screen": 8,
+  // A virtual camera and a rendered frame. Marginal cost is a rounding error.
+  emulated: 0.01,
+};
+
+/**
+ * Cost per minted PIX when a witness outside the pair must attest.
+ *
+ * The farm's outlay stops being hardware and becomes corruption: it must buy a witness,
+ * and that witness can only sign so many welcomes before the topology gives it away —
+ * a witness whose attestations all point into one clique is visible to anyone reading
+ * the graph.
+ *
+ * So cost per PIX is `corruptionCost / welcomesBeforeDetection`, and the two dials are
+ * making witnesses expensive to buy (they must have something to lose) and making
+ * detection fast (rate limits per witness, and a graph anyone can audit).
+ */
+export function witnessedMintCost(params: {
+  /** What it takes to buy one witness: stake at risk, or reputation, or both. */
+  corruptionCostUsd: number;
+  /** How many welcomes a corrupt witness signs before the topology exposes it. */
+  welcomesBeforeDetection: number;
+  /** Fraction of the witness set an attacker must corrupt for a quorum. */
+  quorum?: number;
+}): { costPerPixUsd: number; costPerPixWithQuorumUsd: number } {
+  const { corruptionCostUsd, welcomesBeforeDetection, quorum = 1 } = params;
+  const base = corruptionCostUsd / Math.max(1, welcomesBeforeDetection);
+  return { costPerPixUsd: base, costPerPixWithQuorumUsd: base * quorum };
+}
+
+/**
+ * What a closed clique yields under a per-identity budget rooted in the existing graph.
+ *
+ * Rooting fixes the exponent: trust flows outward from people already in the picture, so
+ * a farm of K devices strung into a chain mints K rather than K². That is the whole gain
+ * — and it is not enough on its own, because K devices at emulated prices is free.
+ */
+export function cliqueYield(params: {
+  devices: number;
+  hardware: FarmHardware;
+  giftsPerIdentity: number;
+}): FarmYield {
+  const { devices, hardware, giftsPerIdentity } = params;
+  return farmYield({
+    devices,
+    deviceCostUsd: FARM_DEVICE_COST[hardware],
+    giftsPerIdentity,
+  });
+}
+
 export function giftBudgetThesis(): {
   perPair: string;
   perIdentity: string;
@@ -250,6 +335,35 @@ export function giftBudgetThesis(): {
       "parties alone — they can always simulate the channel between them — so a real " +
       "presence proof needs a third party who was there, or hardware attestation and " +
       "the vendor as trust root. kindling.ts labels its seal `simulated` for this reason.",
+  };
+}
+
+export function farmDefenceThesis(): Record<string, string> {
+  return {
+    howItIsRun:
+      "Not with retail handsets. Bulk used Android at $30, or one screen with many " +
+      "cheap tablets watching it, or a virtual camera fed a rendered frame at no " +
+      "marginal cost. Phone farms are an existing industry with known economics.",
+    noForgery:
+      "A room of a thousand devices IS present. Nothing is faked and every exchange is " +
+      "real; they simply all belong to one person. A presence proof proves presence, " +
+      "never personhood, so looking for the forgery is the wrong frame — there is none.",
+    topology:
+      "A farm is a clique whose edges point inward; a village has edges into the rest " +
+      "of the graph. An edge to a stranger cannot be manufactured without the stranger, " +
+      "so the distinguishing signal is shape, not authenticity.",
+    defence:
+      "Require a path into the existing graph rather than merely a meeting: the mint " +
+      "needs a witness who was there and is not in the clique. Cost moves from hardware " +
+      "to corrupting a witness, the one input a farm cannot cheapen by buying worse parts.",
+    dials:
+      "Cost per PIX is corruption cost over welcomes-before-detection. So witnesses must " +
+      "have something to lose, and a corrupt one must be caught quickly — rate limits " +
+      "per witness, and a graph anyone can read.",
+    honest:
+      "This buys a bound, not immunity. It also concedes that trust has a root: either " +
+      "humans who vouch and can be de-elected, or the handset vendor. There is no third " +
+      "option in which identity costs something and nobody is trusted.",
   };
 }
 

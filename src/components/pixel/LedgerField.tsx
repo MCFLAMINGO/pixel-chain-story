@@ -3,10 +3,12 @@ import {
   cssRgb,
   isColorAbsent,
   proximityLinks,
+  twinkleAmplitude,
   type ObserverMode,
   type LedgerPixel,
   momentCount,
   pixelBrightness,
+  waveAmplitudeByCell,
 } from "@/lib/pixel";
 
 /**
@@ -33,6 +35,11 @@ export function LedgerField({
   fit?: "dense" | "cinema";
 }) {
   const [focus, setFocus] = useState<number | null>(null);
+
+  // The tip's wave says which cells light is moving through, and how strongly. This is the
+  // only part of the twinkle that is agreed — it is bound into waveDigest in PoLS.
+  const waveAmp = useMemo(() => waveAmplitudeByCell(pixels[pixels.length - 1]?.wave), [pixels]);
+
   const count = Math.max(pixels.length + pendingCount, 1);
   const cols =
     fit === "cinema"
@@ -57,8 +64,8 @@ export function LedgerField({
 
   const cellClass =
     fit === "cinema"
-      ? "transition-all duration-700 ease-out"
-      : "aspect-square min-h-[10px] transition-all duration-500";
+      ? "transition-[background-color,box-shadow,opacity] duration-700 ease-out"
+      : "aspect-square min-h-[10px] transition-[background-color,box-shadow,opacity] duration-500";
 
   return (
     <div className={`${className} ${fit === "cinema" ? "flex items-center justify-center" : ""}`}>
@@ -79,7 +86,14 @@ export function LedgerField({
           // What happened here, not what it is worth. A pixel carrying only the
           // sequencer's wage sits at 0; one full of moments burns.
           const moments = momentCount(pixel);
-          const heat = pixelBrightness(pixel);
+          // Ember is history and never dims. The wave is where light is moving now, and is
+          // the only agreed input — it is bound into waveDigest.
+          const ember = pixelBrightness(pixel);
+          const wave = waveAmp.get(pixel.index) ?? 0;
+          const heat = Math.max(ember, wave);
+          // How hard this cell twinkles, and how far out of step with its neighbours.
+          // CSS does the motion; this only says how much.
+          const tw = twinkleAmplitude({ ember, wave, index: pixel.index });
           return (
             <button
               key={pixel.hash}
@@ -88,15 +102,18 @@ export function LedgerField({
               title={
                 absent
                   ? `#${pixel.index} — no light, color absent`
-                  : `#${pixel.index} lit · ${moments} moment${moments === 1 ? "" : "s"} · proximity ${pixel.proximity.length} · ${observer}`
+                  : `#${pixel.index} lit · ${moments} moment${moments === 1 ? "" : "s"} · proximity ${pixel.proximity.length} · ${observer}${waveAmp.has(pixel.index) ? " · wave" : ""}`
               }
               onClick={() =>
                 interactive && setFocus((f) => (f === pixel.index ? null : pixel.index))
               }
               className={`${cellClass} ${interactive ? "cursor-pointer" : ""} ${
                 isFocus ? "z-10 scale-110" : ""
-              } ${isNear ? "ring-1 ring-accent" : ""}`}
+              } ${isNear ? "ring-1 ring-accent" : ""} ${absent ? "" : "pixel-firefly"}`}
               style={{
+                ["--pf-amp" as string]: tw.amplitude.toFixed(3),
+                ["--pf-phase" as string]: `${tw.phaseSeconds.toFixed(2)}s`,
+                ["--pf-dur" as string]: `${tw.periodSeconds.toFixed(2)}s`,
                 backgroundColor: absent ? "transparent" : cssRgb(pixel.color),
                 boxShadow:
                   !absent && (isFocus || isNear)
