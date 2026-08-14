@@ -1010,18 +1010,18 @@ html.kindling-projecting .wallet-phone-glow {
 @property --pf-amp {
   syntax: "<number>";
   inherits: false;
-  initial-value: 0.18;
+  initial-value: 0.35;
 }
 
 @keyframes pixel-twinkle {
   0%,
   100% {
-    filter: brightness(calc(1 - var(--pf-amp) * 0.35));
-    transform: scale(calc(1 - var(--pf-amp) * 0.04));
+    filter: brightness(calc(1 - var(--pf-amp) * 0.5));
+    transform: scale(calc(1 - var(--pf-amp) * 0.05));
   }
   50% {
-    filter: brightness(calc(1 + var(--pf-amp) * 1.1));
-    transform: scale(calc(1 + var(--pf-amp) * 0.05));
+    filter: brightness(calc(1 + var(--pf-amp) * 1.9));
+    transform: scale(calc(1 + var(--pf-amp) * 0.07));
   }
 }
 

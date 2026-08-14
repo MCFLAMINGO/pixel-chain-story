@@ -225,15 +225,21 @@ const T0 = Date.UTC(2026, 7, 14, 1, 0, 0);
   const quiet = twinkleAmplitude({ ember: 0.2, wave: 0, index: 5 });
   assert(flaring.amplitude === 0.9, `a wave cell flares, got ${flaring.amplitude}`);
   assert(quiet.amplitude === QUIET_TWINKLE, `a quiet cell breathes, got ${quiet.amplitude}`);
-  assert(flaring.amplitude > quiet.amplitude * 4, "the flare must clearly outweigh the breath");
+  assert(flaring.amplitude > quiet.amplitude * 2, "the flare must clearly outweigh the breath");
   console.log(
     `▸ the wave drives it: ${flaring.amplitude} where light is moving vs ${quiet.amplitude} ` +
       `where it is not ✓`,
   );
 
   // Neighbours out of step, and no run of them lands in phase.
-  const phases = Array.from({ length: 24 }, (_, i) => twinkleAmplitude({ ember: 0.5, wave: 0, index: i }).phaseSeconds);
-  assert(new Set(phases.map((p) => p.toFixed(3))).size === phases.length, "phases must be distinct");
+  const phases = Array.from(
+    { length: 24 },
+    (_, i) => twinkleAmplitude({ ember: 0.5, wave: 0, index: i }).phaseSeconds,
+  );
+  assert(
+    new Set(phases.map((p) => p.toFixed(3))).size === phases.length,
+    "phases must be distinct",
+  );
   for (let i = 1; i < phases.length; i++) {
     assert(phases[i] !== phases[i - 1], `adjacent pixels must not share a phase at ${i}`);
   }

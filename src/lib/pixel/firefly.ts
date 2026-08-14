@@ -150,7 +150,7 @@ export function isTwinkling(pixel: LedgerPixel, now: number): boolean {
  *
  * A dark pixel gets no amplitude at all. Decoration must never invent a moment.
  */
-export const QUIET_TWINKLE = 0.18;
+export const QUIET_TWINKLE = 0.35;
 export const TWINKLE_PERIOD_S = 2.3;
 
 export function twinkleAmplitude(params: { ember: number; wave: number; index: number }): {
@@ -160,7 +160,7 @@ export function twinkleAmplitude(params: { ember: number; wave: number; index: n
   const { ember, wave, index } = params;
   if (ember <= 0 && wave <= 0) return { amplitude: 0, phaseSeconds: 0 };
   // The wave dominates; history only ever breathes.
-  const amplitude = Math.min(1, Math.max(QUIET_TWINKLE, wave, ember * 0.35));
+  const amplitude = Math.min(1, Math.max(QUIET_TWINKLE, wave, ember * 0.6));
   // Irrational-ish stride so runs of adjacent indices do not land in step.
   const phaseSeconds = -((index * 0.618) % TWINKLE_PERIOD_S);
   return { amplitude, phaseSeconds };
