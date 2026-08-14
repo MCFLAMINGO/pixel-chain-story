@@ -151,19 +151,45 @@ export function isTwinkling(pixel: LedgerPixel, now: number): boolean {
  * A dark pixel gets no amplitude at all. Decoration must never invent a moment.
  */
 export const QUIET_TWINKLE = 0.35;
-export const TWINKLE_PERIOD_S = 2.3;
+/** Slowest and fastest a cell breathes. Real fireflies do not share a metronome. */
+export const TWINKLE_PERIOD_MIN_S = 1.6;
+export const TWINKLE_PERIOD_MAX_S = 3.4;
+
+/**
+ * Scramble an index to a stable number in [0,1).
+ *
+ * A *linear* phase ramp was the first attempt — `index * 0.618` — and it produced rigid
+ * diagonal bands scrolling across the grid, because a linear phase gradient over a
+ * row-major layout is the definition of a travelling wave. It looked like a loading
+ * spinner. Fireflies need neighbouring cells to be **uncorrelated**, not merely offset, so
+ * the index is hashed instead of scaled.
+ *
+ * Deterministic, so a cell keeps its own rhythm across re-renders rather than jumping
+ * whenever React reconciles.
+ */
+function hash01(n: number): number {
+  let x = (n + 0x9e3779b9) | 0;
+  x = (x ^ (x >>> 16)) * 0x21f0aaad;
+  x = (x ^ (x >>> 15)) * 0x735a2d97;
+  x = x ^ (x >>> 15);
+  return ((x >>> 0) % 100_000) / 100_000;
+}
 
 export function twinkleAmplitude(params: { ember: number; wave: number; index: number }): {
   amplitude: number;
   phaseSeconds: number;
+  periodSeconds: number;
 } {
   const { ember, wave, index } = params;
-  if (ember <= 0 && wave <= 0) return { amplitude: 0, phaseSeconds: 0 };
+  if (ember <= 0 && wave <= 0) return { amplitude: 0, phaseSeconds: 0, periodSeconds: 0 };
   // The wave dominates; history only ever breathes.
   const amplitude = Math.min(1, Math.max(QUIET_TWINKLE, wave, ember * 0.6));
-  // Irrational-ish stride so runs of adjacent indices do not land in step.
-  const phaseSeconds = -((index * 0.618) % TWINKLE_PERIOD_S);
-  return { amplitude, phaseSeconds };
+  // Both rhythm and offset are hashed, with different seeds: shared period plus scattered
+  // phase still beats visibly, so the cells must not agree on either.
+  const periodSeconds =
+    TWINKLE_PERIOD_MIN_S + hash01(index * 7919) * (TWINKLE_PERIOD_MAX_S - TWINKLE_PERIOD_MIN_S);
+  const phaseSeconds = -(hash01(index) * periodSeconds);
+  return { amplitude, phaseSeconds, periodSeconds };
 }
 
 export function livingBrightness(params: {

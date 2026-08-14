@@ -113,6 +113,7 @@ export function LedgerField({
               style={{
                 ["--pf-amp" as string]: tw.amplitude.toFixed(3),
                 ["--pf-phase" as string]: `${tw.phaseSeconds.toFixed(2)}s`,
+                ["--pf-dur" as string]: `${tw.periodSeconds.toFixed(2)}s`,
                 backgroundColor: absent ? "transparent" : cssRgb(pixel.color),
                 boxShadow:
                   !absent && (isFocus || isNear)

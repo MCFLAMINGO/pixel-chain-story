@@ -25,7 +25,8 @@ import {
   livingBrightness,
   twinkleAmplitude,
   QUIET_TWINKLE,
-  TWINKLE_PERIOD_S,
+  TWINKLE_PERIOD_MAX_S,
+  TWINKLE_PERIOD_MIN_S,
   waveAmplitudeByCell,
   conduitConserved,
   fireflyBrightness,
@@ -231,25 +232,47 @@ const T0 = Date.UTC(2026, 7, 14, 1, 0, 0);
       `where it is not ✓`,
   );
 
-  // Neighbours out of step, and no run of them lands in phase.
-  const phases = Array.from(
-    { length: 24 },
-    (_, i) => twinkleAmplitude({ ember: 0.5, wave: 0, index: i }).phaseSeconds,
+  // Neighbours must be UNCORRELATED, not merely offset. A linear ramp (index * 0.618) was
+  // the first attempt and produced rigid diagonal bands scrolling across the grid — a
+  // travelling wave, which is what a linear phase gradient over a row-major layout is.
+  const n = 400;
+  const cells = Array.from({ length: n }, (_, i) =>
+    twinkleAmplitude({ ember: 0.5, wave: 0, index: i }),
   );
-  assert(
-    new Set(phases.map((p) => p.toFixed(3))).size === phases.length,
-    "phases must be distinct",
-  );
-  for (let i = 1; i < phases.length; i++) {
-    assert(phases[i] !== phases[i - 1], `adjacent pixels must not share a phase at ${i}`);
+  const phases = cells.map((c) => c.phaseSeconds);
+  const periods = cells.map((c) => c.periodSeconds);
+
+  for (const c of cells) {
+    assert(
+      c.periodSeconds >= TWINKLE_PERIOD_MIN_S && c.periodSeconds <= TWINKLE_PERIOD_MAX_S,
+      `period must sit in range, got ${c.periodSeconds}`,
+    );
+    assert(
+      c.phaseSeconds <= 0 && c.phaseSeconds > -c.periodSeconds,
+      "a negative delay inside one period starts the animation mid-cycle",
+    );
   }
+
+  // The banding test: successive phase deltas must NOT be near-constant.
+  const deltas = phases.slice(1).map((p, i) => p - phases[i]!);
+  const meanAbs = deltas.reduce((s, d) => s + Math.abs(d), 0) / deltas.length;
+  const variance = deltas.reduce((s, d) => s + (Math.abs(d) - meanAbs) ** 2, 0) / deltas.length;
+  const spread = Math.sqrt(variance) / meanAbs;
   assert(
-    phases.every((p) => p <= 0 && p > -TWINKLE_PERIOD_S),
-    "a negative delay inside one period starts the animation mid-cycle",
+    spread > 0.4,
+    `phase deltas must be irregular or the field scrolls as a wave; spread ${spread.toFixed(3)}`,
+  );
+
+  // And cells must not share a rhythm, or a beat pattern emerges anyway.
+  assert(new Set(periods.map((p) => p.toFixed(3))).size > n * 0.9, "cells must not share a period");
+  assert(new Set(phases.map((p) => p.toFixed(3))).size > n * 0.9, "phases must be distinct");
+  console.log(
+    `▸ ${n} cells uncorrelated, not merely offset: phase-delta spread ` +
+      `${spread.toFixed(2)} (a linear ramp scores 0 and scrolls as diagonal bands) ✓`,
   );
   console.log(
-    `▸ ${phases.length} neighbours all out of step, delays spread across the ` +
-      `${TWINKLE_PERIOD_S}s period ✓`,
+    `▸ and they do not share a rhythm: periods spread across ` +
+      `${TWINKLE_PERIOD_MIN_S}-${TWINKLE_PERIOD_MAX_S}s ✓`,
   );
 }
 
