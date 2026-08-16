@@ -745,6 +745,20 @@ export async function validateAndApplyBlockTxs(params: {
    */
   sequence?: number;
   /**
+   * History, for the gift-and-record rules.
+   *
+   * Those rules ask questions a UTXO set cannot answer — whether this pair has ever
+   * exchanged a gift, whose light a record is spending — so they need the chain, not
+   * just the current balances. Omitted by callers that have no history to give, in
+   * which case the rules are not applied rather than guessed at.
+   *
+   * `docs/GIFT-AND-RECORD.md` described these as code that refuses. Until now they
+   * were enforced in a producer's mempool filter and absent from `acceptBlock`, so a
+   * malicious producer bypassed them entirely and the documentation was wrong. Rules
+   * that live only in prose are the thing that module was written to prevent.
+   */
+  history?: PixelChainState;
+  /**
    * Signature rules to apply. Omitted ⇒ current rules, which is right for every
    * produce path and for `acceptBlock` (a new block is always current-era).
    * `verifyChain` passes an era-aware policy because it replays history that
@@ -805,6 +819,11 @@ export async function validateAndApplyBlockTxs(params: {
   let fees = 0;
   let coinbaseTotal = 0;
 
+  // Gift-and-record, where the docs say it lives. Same flag, same function, same
+  // history as the producer's mempool filter uses — so produce and accept apply one
+  // rule rather than two that happen to agree today.
+  const enforceMoments = params.history != null && giftAndRecordEnabled();
+
   for (const tx of txs) {
     // Identity: a transaction's txid and commitment must derive from its own body.
     //
@@ -846,6 +865,9 @@ export async function validateAndApplyBlockTxs(params: {
       coinbaseTotal = outputTotalOf(tx);
       creditOutputs(working, tx);
     } else {
+      // Rules before spendability: a moment that breaks them must not reach a block
+      // even when the money would have moved cleanly.
+      if (enforceMoments) await assertMomentAllowed(params.history!, tx);
       fees += await applySpendTx(working, tx, params.policy);
     }
   }
@@ -1016,6 +1038,7 @@ export async function sequenceBlock(
     txs: revealed,
     index: nextIndex,
     sequence,
+    history: state,
   });
 
   // Reject OTS leaf reuse in pending txs before burning a sequencer leaf.
@@ -1278,6 +1301,7 @@ export async function acceptBlock(
     txs: block.transactions,
     index: block.index,
     sequence: block.sequence,
+    history: state,
   });
 
   const usedOtsLeaves = assertAndMergeOtsLeaves(
@@ -1589,6 +1613,9 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
         txs: block.transactions,
         index: block.index,
         sequence: block.sequence,
+        // Replay sees only the history that existed below this pixel, which is what
+        // the rules were evaluated against when it was produced.
+        history: { ...state, pixels: state.pixels.slice(0, i) },
         policy: policyAt(i),
       });
       replayUtxos = applied.utxos;
