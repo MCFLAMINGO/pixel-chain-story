@@ -223,11 +223,35 @@ for (const pixel of pixels) {
 }
 check(rootsOk === pixels.length, "merkle root recomputes on every pixel");
 
-// Privacy must be signable: T1.10 adds it to the signed body, which is only safe
-// if every live transaction carries the value the field defaults to.
+// Privacy: RETRACTED FINDING, kept as a measurement.
+//
+// This was reported as "privacy is omitted from canonicalTxBody, so it is unsigned and
+// a relay can flip a transaction between public and private without invalidating
+// anything." The first half is true and the conclusion is false. `privacy` feeds
+// `privacyPolarization` inside `light-color.ts`, and a block's colour is recomputed and
+// compared by `acceptBlock`, so flipping it on an included transaction is refused with
+// "Color does not match light composition" — asserted in `test:adversarial` (T1.10c).
+//
+// Adding it to `canonicalTxBody` would therefore have been actively harmful: the field
+// is absent from the preimage every live transaction was hashed under, so the change
+// would have orphaned all 93 of them. Being "public" does not help when the key is not
+// in the object at all. Measured here rather than assumed, because this is exactly the
+// kind of "obviously safe" change that forks a chain.
 check(
   pixels.every((p) => p.transactions.every((t) => t.privacy === "public")),
-  "T1.10 — every live transaction is privacy: public",
+  "every live transaction is privacy: public (bound via colour, not via the txid)",
+);
+
+// lightSequence must already agree with the pixel that carries it, or T1.3 orphans it.
+check(
+  pixels.every((p) => p.transactions.every((t) => t.lightSequence === p.sequence)),
+  "T1.3 — every transaction's lightSequence equals its pixel's sequence",
+);
+
+// Every light proof's declared scheme must match its signature, or T1.10b orphans it.
+check(
+  pixels.every((p) => p.lightProof.scheme != null),
+  "T1.10b — every light proof declares a scheme, so removing the default is safe",
 );
 
 // Metadata must survive a strict schema: T1.8 removes .passthrough().

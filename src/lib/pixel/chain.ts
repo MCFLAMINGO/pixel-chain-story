@@ -44,6 +44,7 @@ import {
   finalizeTransaction,
   revealTransaction,
   signTransaction,
+  txIdentityProblem,
   verifyTransactionSignaturesForOwners,
   type ReadableMeta,
   type SignaturePolicy,
@@ -362,6 +363,7 @@ export async function createGenesis(
     utxos: new Map<string, Utxo>(),
     txs: [revealed],
     index: 0,
+    sequence: 0,
   });
 
   const usedOtsLeaves = assertAndMergeOtsLeaves(new Set(), collectOtsUsages([revealed], proof));
@@ -729,6 +731,14 @@ export async function validateAndApplyBlockTxs(params: {
   txs: Transaction[];
   index: number;
   /**
+   * PoLS sequence of the pixel these transactions belong to.
+   *
+   * Needed so `lightSequence` can be checked against the block that carries it.
+   * Optional for callers that predate the check; when omitted the check is skipped
+   * rather than guessed, because guessing here would invent a rule.
+   */
+  sequence?: number;
+  /**
    * Signature rules to apply. Omitted ⇒ current rules, which is right for every
    * produce path and for `acceptBlock` (a new block is always current-era).
    * `verifyChain` passes an era-aware policy because it replays history that
@@ -776,6 +786,42 @@ export async function validateAndApplyBlockTxs(params: {
   const working = new Map(params.utxos);
   let fees = 0;
   let coinbaseTotal = 0;
+
+  for (const tx of txs) {
+    // Identity: a transaction's txid and commitment must derive from its own body.
+    //
+    // Nothing checked this. The merkle root committed to whatever txid a transaction
+    // claimed and the UTXO set was keyed under it, so a producer could put a
+    // transaction with txid X and body Y into a block and no rule anywhere tied X to
+    // Y. A receiver computing the txid it expected would disagree with the chain
+    // about what had happened to its money.
+    const identity = await txIdentityProblem(tx);
+    if (identity) {
+      throw new BlockValidationError(`Transaction identity does not match content: ${identity}`);
+    }
+
+    // Lifecycle: on-chain means light has already revealed it. `verifyChain` required
+    // this and `acceptBlock` did not, so a block could be accepted live and then fail
+    // as history — the produce/accept/replay asymmetry this gate exists to remove.
+    if (tx.state !== "final" && tx.state !== "revealed") {
+      throw new BlockValidationError(
+        `Transaction ${tx.txid.slice(0, 12)}… is ${tx.state}; a pixel only carries revealed light`,
+      );
+    }
+
+    // `lightSequence` records which sequence revealed it, so it must be this one. It
+    // was unbound, letting a transaction claim it was revealed somewhere it was not.
+    if (
+      params.sequence != null &&
+      tx.lightSequence != null &&
+      tx.lightSequence !== params.sequence
+    ) {
+      throw new BlockValidationError(
+        `Transaction ${tx.txid.slice(0, 12)}… claims lightSequence ${tx.lightSequence}, ` +
+          `but this pixel is sequence ${params.sequence}`,
+      );
+    }
+  }
 
   for (const tx of txs) {
     if (tx.inputs.length === 0) {
@@ -940,6 +986,7 @@ export async function sequenceBlock(
     utxos: state.utxos,
     txs: revealed,
     index: nextIndex,
+    sequence,
   });
 
   // Reject OTS leaf reuse in pending txs before burning a sequencer leaf.
@@ -1193,6 +1240,7 @@ export async function acceptBlock(
     utxos: state.utxos,
     txs: block.transactions,
     index: block.index,
+    sequence: block.sequence,
   });
 
   const usedOtsLeaves = assertAndMergeOtsLeaves(
@@ -1490,16 +1538,13 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     }
     if (proximity.join(",") !== block.proximity.join(",")) return false;
 
-    for (const tx of block.transactions) {
-      if (tx.state !== "final" && tx.state !== "revealed") return false;
-    }
-
     // Full state replay — ownership, supply and conservation at every height.
     try {
       const applied = await validateAndApplyBlockTxs({
         utxos: replayUtxos,
         txs: block.transactions,
         index: block.index,
+        sequence: block.sequence,
         policy: policyAt(i),
       });
       replayUtxos = applied.utxos;

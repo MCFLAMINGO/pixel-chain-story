@@ -429,6 +429,153 @@ scenario("T1.10", "light proof bound to a different parent than the block", asyn
   exploited("block accepted with a light proof bound to a different parent");
 });
 
+// ── T1.3 ──────────────────────────────────────────────────────────────────────
+scenario("T1.3", "transaction identity is not derived from its content", async () => {
+  // Nothing recomputed txid or commitment. The merkle root committed to whatever a
+  // transaction claimed and the UTXO set was keyed under it, so a producer could put
+  // a transaction with txid X and body Y into a block with no rule tying X to Y.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "identity probe" },
+  });
+  spend = await signTransaction(spend, seq);
+  // Same signature, same body, a txid that describes nothing.
+  const relabelled = { ...spend, txid: "de".repeat(64) };
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), relabelled],
+  });
+  await acceptBlock(state, forged);
+  exploited("block accepted a transaction whose txid does not derive from its body");
+});
+
+// ── T1.3b ─────────────────────────────────────────────────────────────────────
+scenario("T1.3b", "transaction claims it was revealed by another pixel", async () => {
+  // `lightSequence` records which sequence revealed a transaction, and it was unbound.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "lightSequence probe" },
+  });
+  spend = await signTransaction(spend, seq);
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), spend],
+  });
+  const lying: LedgerPixel = {
+    ...forged,
+    transactions: forged.transactions.map((t) =>
+      t.inputs.length ? { ...t, lightSequence: (t.lightSequence ?? 0) + 99 } : t,
+    ),
+  };
+  await acceptBlock(state, lying);
+  exploited("block accepted a transaction claiming a different revealing sequence");
+});
+
+// ── T1.3c ─────────────────────────────────────────────────────────────────────
+scenario("T1.3c", "unrevealed transaction rides into a pixel", async () => {
+  // On-chain means light has already revealed it. verifyChain required this and
+  // acceptBlock did not, so a block could be accepted live and fail as history.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "superposition probe" },
+  });
+  spend = await signTransaction(spend, seq);
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), spend],
+  });
+  const unrevealed: LedgerPixel = {
+    ...forged,
+    transactions: forged.transactions.map((t) =>
+      t.inputs.length ? { ...t, state: "superposition" as const } : t,
+    ),
+  };
+  await acceptBlock(state, unrevealed);
+  exploited("block accepted a transaction still in superposition");
+});
+
+// ── T1.10b ────────────────────────────────────────────────────────────────────
+scenario("T1.10b", "light proof omits its scheme and defaults to the weaker one", async () => {
+  // verifyLightProof read `proof.scheme ?? "PIX-HASH-OTS-128"`, so an absent field
+  // silently selected a scheme. A default that picks cryptography is a failure that
+  // renders as an ordinary state.
+  const seq = await generatePixelKeypair("PIX-ML-DSA-65");
+  const state = await createGenesis(seq);
+  const honest = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1")],
+  });
+  const schemeless = { ...honest.lightProof } as Record<string, unknown>;
+  delete schemeless.scheme;
+  await acceptBlock(state, {
+    ...honest,
+    lightProof: schemeless as typeof honest.lightProof,
+  });
+  exploited("block accepted with a light proof that declares no scheme");
+});
+
+// ── T1.10c ────────────────────────────────────────────────────────────────────
+scenario("T1.10c", "flip a transaction between public and private", async () => {
+  // A reported finding that dissolved on measurement, kept as a permanent test.
+  //
+  // `privacy` really is absent from `canonicalTxBody`, so it is not covered by the
+  // signature — from which it seemed to follow that a relay could flip it freely. It
+  // cannot: `privacy` feeds privacyPolarization in light-color.ts, and a block's colour
+  // is recomputed and compared by acceptBlock. Adding it to the signed body would have
+  // orphaned all 93 live transactions, since the key is absent from the preimage they
+  // were hashed under. Worth a scenario precisely because the wrong fix looked obvious.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "privacy probe" },
+  });
+  spend = await signTransaction(spend, seq);
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), spend],
+  });
+  const flipped: LedgerPixel = {
+    ...forged,
+    transactions: forged.transactions.map((t) =>
+      t.inputs.length ? { ...t, privacy: "private" as const } : t,
+    ),
+  };
+  await acceptBlock(state, flipped);
+  exploited("block accepted after a transaction's privacy level was flipped");
+});
+
 // ── PIX-05 ────────────────────────────────────────────────────────────────────
 scenario("PIX-05", "verifyChain validates a history containing a stolen coin", async () => {
   const victim = await generateLightKeypair();

@@ -10,7 +10,13 @@
  */
 
 import { sha512Hex, sha512SyncHex, type Hex, type LightKeypair } from "./crypto";
-import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
+import {
+  addressForScheme,
+  schemeFromSignature,
+  signPixel,
+  verifyPixel,
+  type SchemeId,
+} from "./scheme";
 import { opticalBeacon } from "./optical";
 
 /** Tip silent this long ⇒ skip justified (lab clock; not BFT). */
@@ -248,7 +254,25 @@ export async function verifyLightProof(
 ): Promise<boolean> {
   if (proof.sequencerAddress !== expectedSequencer) return false;
   const skipCount = proof.skipCount ?? 0;
-  const scheme = (proof.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
+
+  // The declared scheme must be present and must be what the signature actually is.
+  //
+  // This used to read `proof.scheme ?? "PIX-HASH-OTS-128"` — a silent default that
+  // picked a scheme when the field was missing, which is a failure that renders as an
+  // ordinary state. Worse, the declared scheme was used to derive the address while
+  // `verifyPixel` read the algorithm from inside the signature envelope, and nothing
+  // reconciled the two. A proof could therefore claim one scheme for address
+  // derivation and carry a signature in another. Whether that was exploitable depended
+  // on address-derivation domain separation holding, which is exactly the kind of
+  // thing that should be enforced rather than relied upon.
+  if (!proof.scheme) return false;
+  const scheme = proof.scheme as SchemeId;
+  const signatureScheme = schemeFromSignature(proof.signature);
+  // A pre-PIX-10 OTS envelope is unreadable to the current strict parser, and the
+  // legacy era verifies those separately; treat "unreadable" as "not current", never
+  // as "trust the declared field".
+  if (signatureScheme !== null && signatureScheme !== scheme) return false;
+
   // Bind address ↔ master public key (closes forged-pubkey-with-elected-address).
   if ((await addressForScheme(proof.sequencerPublicKey, scheme)) !== proof.sequencerAddress) {
     return false;
