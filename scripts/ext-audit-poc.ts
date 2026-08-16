@@ -16,6 +16,7 @@ import {
   createGenesis,
   electableAt,
   noteSequencerKey,
+  nextSequencerAddress,
   replaceTipIfBetter,
   sequenceBlock,
   verifyChain,
@@ -30,7 +31,8 @@ import {
   type Transaction,
 } from "../src/lib/pixel/transaction";
 import { generateLightKeypair, sha512Hex, type LightKeypair } from "../src/lib/pixel/crypto";
-import { generatePixelKeypair } from "../src/lib/pixel/scheme";
+import { generatePixelKeypair, signPixel } from "../src/lib/pixel/scheme";
+import { createSequencerJoin, MEMBERSHIP_ACTIVATION_DELAY } from "../src/lib/pixel/membership";
 import { createLightProof, merkleRoot, selectSequencerWithSkip } from "../src/lib/pixel/pol";
 import { composePixelColor, revealProximity } from "../src/lib/pixel/light-color";
 import {
@@ -51,11 +53,13 @@ async function forgeBlock(params: {
   electable?: string[];
   skipCount?: number;
   timestamp?: number;
+  /** Grind the lottery input: pick a sequence that makes `sequencer` win (T1.2). */
+  sequence?: number;
 }): Promise<LedgerPixel> {
   const { state, sequencer } = params;
   const tip = state.pixels[state.pixels.length - 1]!;
   const index = tip.index + 1;
-  const sequence = tip.sequence + 1;
+  const sequence = params.sequence ?? tip.sequence + 1;
   const skipCount = params.skipCount ?? 0;
   const timestamp = params.timestamp ?? Date.now();
   const transactions = params.transactions.map((t) =>
@@ -339,6 +343,90 @@ scenario("T1.1", "stranger grinds a keypair and extends the tip", async () => {
   exploited(
     `stranger ${stranger.address.slice(0, 12)}… extended the tip and minted the light reward`,
   );
+});
+
+// ── T1.2 ──────────────────────────────────────────────────────────────────────
+scenario("T1.2", "grind block.sequence until the lottery picks you", async () => {
+  // `sequence` is the lottery's input — the leader is argmin over
+  // sha512(pols-lottery|prevHash|sequence|address). Height was checked and sequence
+  // was not, even though the two are produced in lockstep, so a producer could pick
+  // whichever number made it the winner and staple it to the next height.
+  const founder = await generateLightKeypair();
+  const second = await generateLightKeypair();
+  let state = await createGenesis(founder);
+
+  // Admit a second member legitimately, so there is a lottery to lose.
+  const joinAt = state.pixels.length;
+  const join = await createSequencerJoin({
+    joiner: { address: second.address, publicKey: second.publicKey, scheme: second.scheme },
+    authorizer: { address: founder.address },
+    includedAt: joinAt,
+    sign: (message, who) => signPixel(message, who === "joiner" ? second : founder),
+  });
+  const junk = async () =>
+    createTransaction({
+      inputs: [{ txid: "00".repeat(64), vout: 0 }],
+      outputs: [{ amount: 1, address: founder.address }],
+      metadata: { description: "opens the mempool" },
+    });
+  state = await sequenceBlock({ ...state, pending: [await junk()] }, founder, {
+    membership: [join],
+  });
+  for (let i = 0; i < MEMBERSHIP_ACTIVATION_DELAY; i++) {
+    const elected = nextSequencerAddress(state, 0);
+    state = await sequenceBlock(
+      { ...state, pending: [await junk()] },
+      elected === founder.address ? founder : second,
+    );
+  }
+
+  const tip = state.pixels[state.pixels.length - 1]!;
+  const electable = electableAt(state, tip.index + 1);
+  const rightful = selectSequencerWithSkip(tip.hash, tip.sequence + 1, electable, 0);
+  const cheat = rightful === founder.address ? second : founder;
+
+  // Find a sequence where the loser wins. With two members this takes a few tries.
+  let ground = -1;
+  for (let candidate = tip.sequence + 1; candidate < tip.sequence + 5000; candidate++) {
+    if (selectSequencerWithSkip(tip.hash, candidate, electable, 0) === cheat.address) {
+      ground = candidate;
+      break;
+    }
+  }
+  if (ground === -1) throw new Error("could not grind a winning sequence");
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: cheat,
+    transactions: [await coinbaseOf(50, cheat.address, `LIGHT-${tip.index + 1}`)],
+    electable,
+    sequence: ground,
+  });
+  await acceptBlock(state, forged);
+  exploited(
+    `ground sequence ${ground} let ${cheat.address.slice(0, 12)}… steal the turn from ` +
+      `${rightful.slice(0, 12)}…`,
+  );
+});
+
+// ── T1.10 ─────────────────────────────────────────────────────────────────────
+scenario("T1.10", "light proof bound to a different parent than the block", async () => {
+  // The full node never compared lightProof.prevHash to block.prevHash — while the
+  // light client and the bridge both did, which made the phone-capable client a
+  // stricter validator than the node with final authority.
+  const seq = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const honest = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1")],
+  });
+  const forged: LedgerPixel = {
+    ...honest,
+    lightProof: { ...honest.lightProof, prevHash: "ab".repeat(64) },
+  };
+  await acceptBlock(state, forged);
+  exploited("block accepted with a light proof bound to a different parent");
 });
 
 // ── PIX-05 ────────────────────────────────────────────────────────────────────

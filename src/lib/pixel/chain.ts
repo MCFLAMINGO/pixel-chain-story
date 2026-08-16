@@ -12,6 +12,7 @@ import {
   POLS_MAX_SKIP,
   POLS_STALL_MS,
   preferPixel,
+  proofBindingProblem,
   selectSequencerWithSkip,
   verifyLightProof,
   type LightProof,
@@ -1061,6 +1062,26 @@ export async function acceptBlock(
     throw new Error("Block does not link to tip");
   }
 
+  // Sequence must advance by exactly one, and the proof must be about this block.
+  //
+  // Neither was checked. `sequence` is the lottery's input — the leader is
+  // `argmin sha512(pols-lottery|prevHash|sequence|address)` — so an unbound sequence
+  // is a free grinding lever: a producer picks the number that makes it the winner.
+  // Height was checked and sequence was not, even though they are produced in
+  // lockstep, so the two could disagree and only the unchecked one decided elections.
+  //
+  // `proof.sequence` was likewise never compared to the block's own. The proof's copy
+  // feeds `opticalBeacon`, so a proof could be signed about a different position than
+  // the block claims to occupy. It also made the full node a weaker validator than
+  // the light client, which already checks its sibling field `lightProof.prevHash`.
+  if (block.sequence !== tip.sequence + 1) {
+    throw new Error(
+      `Block sequence ${block.sequence} must be exactly one past the tip's ${tip.sequence}`,
+    );
+  }
+  const binding = proofBindingProblem(block);
+  if (binding) throw new Error(binding);
+
   // Timestamps: strictly increasing, bounded drift — consensus-checkable stall.
   if (!Number.isFinite(block.timestamp)) throw new Error("Block timestamp not finite");
   if (block.timestamp <= tip.timestamp) {
@@ -1376,6 +1397,14 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
   for (let i = 0; i < state.pixels.length; i++) {
     const block = state.pixels[i];
     if (i > 0 && block.prevHash !== state.pixels[i - 1].hash) return false;
+    // Height, sequence and the proof's own view of both must agree — the same rules
+    // acceptBlock applies, so history and the live path cannot disagree about one
+    // block. verifyChain never checked any of the three: not that block.index equals
+    // its position, not that sequence advances by one, and not that the light proof is
+    // about this block at all.
+    if (block.index !== i) return false;
+    if (i > 0 && block.sequence !== state.pixels[i - 1].sequence + 1) return false;
+    if (proofBindingProblem(block)) return false;
 
     const skipCount = block.lightProof.skipCount ?? 0;
     const prevHash = i === 0 ? "0".repeat(128) : state.pixels[i - 1].hash;

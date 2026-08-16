@@ -277,6 +277,40 @@ export async function verifyLightProof(
 }
 
 /**
+ * Does a pixel's light proof describe the pixel it is attached to?
+ *
+ * A PoLS proof carries its own `sequence` and `prevHash`, and both feed the signed
+ * message — `prevHash` also feeds `opticalBeacon`. Nothing tied either of them to the
+ * block's own fields, so a proof could be signed about one position in the chain and
+ * stapled to a block claiming another.
+ *
+ * This existed in two places and not in the one that mattered. `verifyHeaderChain` in
+ * light-client.ts checked `lightProof.prevHash`, and so did `bridge.ts` — which meant
+ * the phone-capable light client was a **stricter validator than the full node with
+ * final authority.** That is backwards, and it is the shape of bug that survives
+ * review for years because each file looks reasonable on its own.
+ *
+ * So the check lives here now, once, and all three call it. The missing `if` in
+ * `acceptBlock` was the symptom; three implementations of one rule was the disease.
+ *
+ * Returns a reason or null, so callers that return verdicts and callers that throw can
+ * each do their own thing with it.
+ */
+export function proofBindingProblem(pixel: {
+  prevHash: Hex;
+  sequence?: number;
+  lightProof: LightProof;
+}): string | null {
+  if (pixel.lightProof.prevHash !== pixel.prevHash) {
+    return "light proof binds a different parent than the block links to";
+  }
+  if (pixel.sequence != null && pixel.lightProof.sequence !== pixel.sequence) {
+    return `light proof is for sequence ${pixel.lightProof.sequence}, block claims ${pixel.sequence}`;
+  }
+  return null;
+}
+
+/**
  * Fork-choice at equal height: prefer lower skipCount (on-time light),
  * then lower hash. Depth-1 tip replace only — not a reorg market.
  */

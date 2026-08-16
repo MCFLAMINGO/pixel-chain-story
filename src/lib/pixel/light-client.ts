@@ -9,7 +9,7 @@
  */
 
 import { sha512SyncHex, type Hex } from "./crypto";
-import { verifyLightProof, type LightProof } from "./pol";
+import { proofBindingProblem, verifyLightProof, type LightProof } from "./pol";
 import type { LedgerPixel, PixelChainState } from "./chain";
 import { balanceOf } from "./chain";
 import {
@@ -189,8 +189,12 @@ export async function verifyHeaderChain(
     if (i > 0 && h.prevHash !== headers[i - 1].hash) {
       return { ok: false, reason: `prevHash break at ${h.index}` };
     }
-    if (h.lightProof.prevHash !== h.prevHash) {
-      return { ok: false, reason: `lightProof.prevHash mismatch at ${h.index}` };
+    // Shared with acceptBlock and bridge.ts (pol.ts). The full node used to lack
+    // this check while the light client had it, which made the light client the
+    // stricter validator; one implementation removes the whole class.
+    const binding = proofBindingProblem(h);
+    if (binding) {
+      return { ok: false, reason: `${binding} at ${h.index}` };
     }
     const elected = h.sequencerAddress;
     if (trustedSequencers && !trustedSequencers.includes(elected)) {
