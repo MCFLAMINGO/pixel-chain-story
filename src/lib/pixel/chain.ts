@@ -751,7 +751,19 @@ export async function validateAndApplyBlockTxs(params: {
    * predates PIX-10/PIX-16 — see `sig-era.ts`.
    */
   policy?: SignaturePolicy;
-}): Promise<{ utxos: Map<string, Utxo>; fees: number; coinbaseTotal: number }> {
+}): Promise<{
+  utxos: Map<string, Utxo>;
+  fees: number;
+  coinbaseTotal: number;
+  /**
+   * New PIX this block brings into existence — the coinbase minus recycled fees.
+   *
+   * The number the cap and the emission schedule are about. `coinbaseTotal` is not:
+   * it also contains fees, which are light that already existed and merely changed
+   * hands.
+   */
+  issuance: number;
+}> {
   const { txs, index } = params;
   if (txs.length === 0) throw new BlockValidationError("Block carries no transactions");
 
@@ -844,9 +856,20 @@ export async function validateAndApplyBlockTxs(params: {
       `Coinbase must equal light reward + fees at #${index} (got ${coinbaseTotal}, expected ${reward + fees})`,
     );
   }
-  assertUnderCap(mintedThrough(index), coinbaseTotal);
+  // Fees are recycled light, not new light.
+  //
+  // The cap check counted the whole coinbase as issuance, and `verifyChain` summed the
+  // same figure and compared it against `mintedThrough` — a pure emission schedule that
+  // knows nothing about fees. Both were harmless only because BASE_REVELATION_FEE_UNITS
+  // is 0. The first nonzero fee would have made verifyChain reject a perfectly valid
+  // chain, and the failure would have surfaced as "your history is invalid" rather than
+  // "your accounting is wrong", which is the worst possible way to learn it.
+  //
+  // Issuance is what the schedule mints. A fee is light the payer already owned.
+  const issuance = coinbaseTotal - fees;
+  assertUnderCap(mintedThrough(index), issuance);
 
-  return { utxos: working, fees, coinbaseTotal };
+  return { utxos: working, fees, coinbaseTotal, issuance };
 }
 
 /**
@@ -1569,7 +1592,8 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
         policy: policyAt(i),
       });
       replayUtxos = applied.utxos;
-      replayMinted += applied.coinbaseTotal;
+      // Issuance, not the coinbase: see the note in validateAndApplyBlockTxs.
+      replayMinted += applied.issuance;
     } catch {
       return false;
     }
