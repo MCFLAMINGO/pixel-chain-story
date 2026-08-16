@@ -576,6 +576,61 @@ scenario("T1.10c", "flip a transaction between public and private", async () => 
   exploited("block accepted after a transaction's privacy level was flipped");
 });
 
+// ── T1.9 ──────────────────────────────────────────────────────────────────────
+//
+// acceptBlock recomputed field witnesses and wave hits from state and compared only the
+// DIGESTS in the light proof. It never looked at block.field or block.wave — the arrays a
+// node serves at /wave/tip, fans out to waveBus subscribers, and the UI renders. So the
+// digests were unforgeable and the arrays anyone actually reads were unconstrained.
+//
+// This is the project's sharpest claim rather than a footnote: the picture is not a
+// dashboard over the chain, it partly IS the chain. That was true of the digests and
+// false of the bytes.
+
+/** A pixel produced honestly, plus the state it was produced against. */
+async function honestTip(seq: LightKeypair) {
+  let state = await createGenesis(seq);
+  const junk = await createTransaction({
+    inputs: [{ txid: "00".repeat(64), vout: 0 }],
+    outputs: [{ amount: 1, address: seq.address }],
+    metadata: { description: "opens the mempool" },
+  });
+  state = await sequenceBlock({ ...state, pending: [junk] }, seq);
+  const tip = state.pixels[state.pixels.length - 1]!;
+  const parent: PixelChainState = { ...state, pixels: state.pixels.slice(0, -1) };
+  return { tip, parent };
+}
+
+scenario("T1.9", "tamper the wave hits a block carries, keeping the digest", async () => {
+  const seq = await generateLightKeypair();
+  const { tip, parent } = await honestTip(seq);
+  const lying: LedgerPixel = {
+    ...tip,
+    wave: (tip.wave ?? []).map((h) => ({ ...h, amplitudeMilli: 9999 })),
+  };
+  await acceptBlock(parent, lying);
+  exploited("block accepted with wave hits that contradict its own digest");
+});
+
+scenario("T1.9b", "tamper the field witnesses a block carries", async () => {
+  const seq = await generateLightKeypair();
+  const { tip, parent } = await honestTip(seq);
+  const lying: LedgerPixel = {
+    ...tip,
+    field: tip.field.map((f) => ({ ...f, opacity: "lit" as const, color: "#ffffff" })),
+  };
+  await acceptBlock(parent, lying);
+  exploited("block accepted with field witnesses that contradict its own digest");
+});
+
+scenario("T1.9c", "drop the carried arrays entirely", async () => {
+  const seq = await generateLightKeypair();
+  const { tip, parent } = await honestTip(seq);
+  const stripped = { ...tip, field: [], wave: [] } as LedgerPixel;
+  await acceptBlock(parent, stripped);
+  exploited("block accepted with its field and wave arrays emptied");
+});
+
 // ── PIX-05 ────────────────────────────────────────────────────────────────────
 scenario("PIX-05", "verifyChain validates a history containing a stolen coin", async () => {
   const victim = await generateLightKeypair();

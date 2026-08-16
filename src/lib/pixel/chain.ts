@@ -18,13 +18,19 @@ import {
   type LightProof,
 } from "./pol";
 import {
+  assertFieldWitnessesBodyMatch,
   assertFieldWitnessesMatch,
   buildFieldWitnesses,
   computeFieldDigest,
   priorFieldColors,
   type FieldWitness,
 } from "./field-witness";
-import { assertWaveDigestMatch, computeTipWaveField, type WaveHit } from "./wave";
+import {
+  assertWaveDigestMatch,
+  assertWaveHitsBodyMatch,
+  computeTipWaveField,
+  type WaveHit,
+} from "./wave";
 import { assertSpatialRootMatch, buildSpatialPicture } from "./spatial-picture";
 import { opticalBeacon } from "./optical";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
@@ -1187,14 +1193,22 @@ export async function acceptBlock(
     block.index,
     priorFieldColors(state.pixels),
   );
+  // …and the array the block actually carries, not only the digest it binds. Those were
+  // different things: `block.field` and `block.wave` are what a node serves at
+  // `/wave/tip`, fans out to waveBus subscribers and the UI renders, and neither was
+  // constrained by consensus. The recomputation is already happening for the digests, so
+  // this is the difference between "the picture is the chain" being nearly true and true.
+  assertFieldWitnessesBodyMatch(block.field, block.index, priorFieldColors(state.pixels));
   // Lead wave — recompute lattice propagation; reject tampered neighbor physics.
-  assertWaveDigestMatch(block.lightProof.waveDigest, {
+  const waveParams = {
     tipIndex: block.index,
     sequence: block.sequence,
     prevHash: block.prevHash,
     merkleRoot: block.merkleRoot,
     priorTipHashes: state.pixels.map((p) => p.hash),
-  });
+  };
+  assertWaveDigestMatch(block.lightProof.waveDigest, waveParams);
+  assertWaveHitsBodyMatch(block.wave, waveParams);
   if (skipCount > 0 && block.timestamp < tip.timestamp + POLS_STALL_MS) {
     throw new Error("Skip pixel rejected — stall window not elapsed");
   }
@@ -1491,13 +1505,20 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
         block.index,
         priorFieldColors(state.pixels.slice(0, i)),
       );
-      assertWaveDigestMatch(block.lightProof.waveDigest, {
+      assertFieldWitnessesBodyMatch(
+        block.field,
+        block.index,
+        priorFieldColors(state.pixels.slice(0, i)),
+      );
+      const replayWaveParams = {
         tipIndex: block.index,
         sequence: block.sequence,
         prevHash: block.prevHash,
         merkleRoot: block.merkleRoot,
         priorTipHashes: state.pixels.slice(0, i).map((p) => p.hash),
-      });
+      };
+      assertWaveDigestMatch(block.lightProof.waveDigest, replayWaveParams);
+      assertWaveHitsBodyMatch(block.wave, replayWaveParams);
       const picture = await buildSpatialPicture(state.pixels.slice(0, i + 1));
       assertSpatialRootMatch(block.lightProof.spatialRoot, picture.spatialRoot, block.index);
     } catch {
