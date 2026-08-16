@@ -78,9 +78,22 @@ export const txOutputSchema = z.object({
   amount: z.number().finite().positive().max(Number.MAX_SAFE_INTEGER),
 });
 
-export const transactionSchema = z.object({
+/**
+ * Everything a transaction is, except how many inputs it must have.
+ *
+ * That one field differs by context and the difference is load-bearing. A
+ * transaction *submitted* to `/tx` or gossiped as a `tx` must have at least one
+ * input, because a transaction with none is a coinbase and coinbases are minted by
+ * the elected sequencer inside a block — never accepted from outside. A transaction
+ * *inside a block* must be allowed zero inputs, because exactly one of them is that
+ * coinbase.
+ *
+ * Sharing the base is deliberate: two hand-written schemas for one wire format would
+ * drift, and the first symptom of the drift would be a block that a peer accepts and
+ * we reject.
+ */
+const transactionBase = {
   txid: z.string().min(1).max(256),
-  inputs: z.array(txInputSchema).min(1).max(64),
   outputs: z.array(txOutputSchema).min(1).max(64),
   /**
    * Strict, not passthrough.
@@ -110,6 +123,29 @@ export const transactionSchema = z.object({
   timestamp: z.number().finite(),
   lightSequence: z.number().int().optional(),
   revealedAt: z.number().finite().optional(),
+} as const;
+
+/**
+ * A transaction arriving from outside — `POST /tx` or a `tx` gossip message.
+ *
+ * At least one input, so a coinbase can never be submitted. `mempool.ts` refuses it
+ * again on the same grounds; a rule this consequential is worth stating twice.
+ */
+export const transactionSchema = z.object({
+  ...transactionBase,
+  inputs: z.array(txInputSchema).min(1).max(64),
+});
+
+/**
+ * A transaction inside a block.
+ *
+ * Zero inputs is allowed here and only here, because exactly one transaction per
+ * block is the coinbase. `validateAndApplyBlockTxs` enforces that it is exactly one
+ * and that it comes first — the schema's job is shape, not count.
+ */
+export const blockTransactionSchema = z.object({
+  ...transactionBase,
+  inputs: z.array(txInputSchema).max(64),
 });
 
 export const jsonRpcRequestSchema = z.object({

@@ -18,6 +18,8 @@ import {
   type KemKeypair,
 } from "../lib/pixel/transport-kem";
 import type { GossipNet, MessageHandler, PeerMessage } from "./p2p";
+import { MAX_GOSSIP_FRAME_BYTES } from "../lib/pixel/limits";
+import { parseWireFrame, parseWireMessage } from "../lib/pixel/wire-schema";
 
 interface PeerSock {
   url: string;
@@ -47,6 +49,8 @@ export function createBunGossip(opts: {
   /** Opt-in PQ transport identity — when set, seal application frames */
   transportKem?: KemKeypair;
   onMessage: MessageHandler;
+  /** Called when a frame is refused, so the caller can score the peer down. */
+  onMalformed?: (peerUrl: string, reason: string) => void;
   seeds?: string[];
 }): GossipNet & { server: ReturnType<typeof Bun.serve>; transportKemEnabled: boolean } {
   const peers = new Map<string, PeerSock>();
@@ -165,19 +169,44 @@ export function createBunGossip(opts: {
   }
 
   async function handleRaw(peerUrl: string, raw: string) {
-    const wire = JSON.parse(raw) as PeerMessage;
     const peer = peers.get(peerUrl);
     if (!peer) return;
 
+    // Size, then JSON, then shape — in that order, because parsing is where an
+    // attacker gets leverage. Until this existed the wire did `JSON.parse` and a
+    // cast, so every protection on the HTTP door was absent on the path a peer
+    // actually uses. Never throws: a peer must not be able to raise an exception
+    // through a socket handler.
+    const framed = parseWireFrame(raw, MAX_GOSSIP_FRAME_BYTES);
+    if (!framed.ok) {
+      opts.onMalformed?.(peerUrl, framed.reason);
+      console.warn(
+        `[pixel-ledger] dropped malformed gossip frame from ${peerUrl}: ${framed.reason}`,
+      );
+      return;
+    }
+    const wire = framed.value as PeerMessage;
+
     if (wire.type === "sealed") {
       if (!peer.aeadKey) return;
-      let inner: PeerMessage;
+      let opened: unknown;
       try {
-        inner = JSON.parse(openFrameText(peer.aeadKey, wire.nonce, wire.ciphertext)) as PeerMessage;
+        opened = JSON.parse(openFrameText(peer.aeadKey, wire.nonce, wire.ciphertext));
       } catch {
         console.error("gossip sealed open failed", peerUrl);
         return;
       }
+      // A sealed frame is authenticated, not trusted: the peer that sealed it is
+      // still a peer. Shape-check the payload with the same schema.
+      const innerParsed = parseWireMessage(opened);
+      if (!innerParsed.ok) {
+        opts.onMalformed?.(peerUrl, `sealed payload: ${innerParsed.reason}`);
+        console.warn(
+          `[pixel-ledger] dropped malformed sealed payload from ${peerUrl}: ${innerParsed.reason}`,
+        );
+        return;
+      }
+      const inner = innerParsed.value as PeerMessage;
       if (!shouldHandle(inner)) return;
       await opts.onMessage(inner, peerUrl);
       return;

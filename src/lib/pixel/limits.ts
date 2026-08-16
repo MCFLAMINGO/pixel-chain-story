@@ -85,16 +85,34 @@ export const MAX_PENDING_TX = 4096;
  * Catch-up is paged. A joining node asking for history should not be able to make
  * a peer serialize the entire chain into a single frame, and should not be able to
  * make itself the reason that peer stops answering anyone else.
+ *
+ * A *count* is not enough on its own, which is why `MAX_PIXEL_PAGE_BYTES` exists
+ * beside it: real pixels on the crowned chain run around 29 KB each, so 512 of them
+ * is roughly 15 MB — well over any sane frame. Whichever bound is reached first ends
+ * the page.
  */
 export const MAX_PIXELS_PER_MESSAGE = 512;
 
 /**
+ * POLICY. Serialized bytes of one page of pixels.
+ *
+ * The bound that actually binds. Deliberately smaller than
+ * `MAX_GOSSIP_FRAME_BYTES` so a full page plus envelope always fits in a frame,
+ * with room for the roughly 2x expansion of hex-encoded sealed transport.
+ */
+export const MAX_PIXEL_PAGE_BYTES = 2_097_152; // 2 MiB
+
+/**
  * POLICY. Raw bytes of one inbound gossip frame, checked before `JSON.parse`.
  *
- * Parsing is where an attacker gets leverage, so the length check has to come
- * first. Matches the HTTP body cap so the two doors are the same size.
+ * Parsing is where an attacker gets leverage, so the length check comes first.
+ *
+ * Larger than the HTTP body cap on purpose. A single valid block may be up to
+ * `MAX_BLOCK_TX_BYTES`, and a block that consensus accepts but the wire cannot
+ * carry would be a chain that cannot replicate itself — so the frame budget has to
+ * clear the largest legal block with room for sealed-transport expansion.
  */
-export const MAX_GOSSIP_FRAME_BYTES = 1_048_576; // 1 MiB
+export const MAX_GOSSIP_FRAME_BYTES = 8_388_608; // 8 MiB
 
 /**
  * POLICY. Sequencer identities accepted from one `hello`.
@@ -123,6 +141,37 @@ export const RATE_LIMIT_REFILL_PER_SEC = 3;
 /** POLICY. Distinct client buckets tracked before the table is pruned. */
 export const RATE_LIMIT_MAX_CLIENTS = 4096;
 
+/**
+ * One page of pixels from `from`, bounded by both count and bytes.
+ *
+ * Shared by the gossip `get_pixels` reply and `GET /pixels` so the two cannot page
+ * differently — a joiner that syncs over one and not the other is the kind of
+ * asymmetry that only shows up on a chain long enough to matter.
+ *
+ * Always returns at least one pixel when one exists, even if that single pixel is
+ * over the byte budget. A block big enough to exceed the page budget still has to be
+ * deliverable, or history could contain something that cannot be replicated.
+ */
+export function pixelPage<T>(
+  pixels: readonly T[],
+  from: number,
+  opts: { maxCount?: number; maxBytes?: number } = {},
+): { page: T[]; hasMore: boolean; nextFrom: number } {
+  const maxCount = opts.maxCount ?? MAX_PIXELS_PER_MESSAGE;
+  const maxBytes = opts.maxBytes ?? MAX_PIXEL_PAGE_BYTES;
+  const start = Math.max(0, from);
+  const page: T[] = [];
+  let bytes = 0;
+  for (let i = start; i < pixels.length && page.length < maxCount; i++) {
+    const size = JSON.stringify(pixels[i]).length;
+    if (page.length > 0 && bytes + size > maxBytes) break;
+    page.push(pixels[i]!);
+    bytes += size;
+  }
+  const nextFrom = start + page.length;
+  return { page, hasMore: nextFrom < pixels.length, nextFrom };
+}
+
 /** Everything above, for `/health` and the truth badges. */
 export function limitsSnapshot(): {
   consensus: Record<string, number>;
@@ -138,6 +187,7 @@ export function limitsSnapshot(): {
     policy: {
       maxPendingTx: MAX_PENDING_TX,
       maxPixelsPerMessage: MAX_PIXELS_PER_MESSAGE,
+      maxPixelPageBytes: MAX_PIXEL_PAGE_BYTES,
       maxGossipFrameBytes: MAX_GOSSIP_FRAME_BYTES,
       maxHelloSequencers: MAX_HELLO_SEQUENCERS,
       rateLimitBurst: RATE_LIMIT_BURST,

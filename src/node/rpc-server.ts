@@ -20,7 +20,7 @@ import {
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
 import { MempoolRejected } from "../lib/pixel/mempool";
 import { clientIdFromRequest, createRateLimiter } from "../lib/pixel/rate-limit";
-import { MAX_PIXELS_PER_MESSAGE } from "../lib/pixel/limits";
+import { pixelPage } from "../lib/pixel/limits";
 import { evmBridgeHealth, readEvmBridgeConfig } from "../lib/pixel/eth-usdc-lock";
 
 const CORS: Record<string, string> = {
@@ -214,8 +214,11 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
           }
         }
         const matching = node.chain.pixels.filter((p) => p.index > since);
-        const page = matching.slice(0, MAX_PIXELS_PER_MESSAGE);
-        if (matching.length <= MAX_PIXELS_PER_MESSAGE) {
+        // Same helper the gossip reply uses, so the two doors cannot page
+        // differently — a joiner that syncs over one and not the other is the kind
+        // of asymmetry that only appears on a chain long enough to matter.
+        const { page, hasMore } = pixelPage(matching, 0);
+        if (!hasMore) {
           // Unchanged shape for the common case, so the field poller and every
           // existing client keep working exactly as before.
           return json(page);

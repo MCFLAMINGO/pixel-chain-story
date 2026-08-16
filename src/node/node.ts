@@ -48,6 +48,9 @@ import {
   type WaveFanoutSource,
   admitTransaction,
   MempoolRejected,
+  MAX_HELLO_SEQUENCERS,
+  MAX_PIXELS_PER_MESSAGE,
+  pixelPage,
 } from "../lib/pixel/index";
 import { createBunGossip } from "./gossip-bun";
 import type { GossipNet, PeerMessage } from "./p2p";
@@ -228,6 +231,13 @@ export class PixelLedgerNode {
         return this.helloSig ? { helloSig: this.helloSig } : null;
       },
       onMessage: (msg, peer) => this.onPeerMessage(msg, peer),
+      // A peer that sends frames we cannot parse is not a protocol error to crash
+      // on, it is a peer worth trusting less. Scoring walks a persistent offender
+      // out without dropping a session that may still be serving us history.
+      onMalformed: (peer, reason) => {
+        punishPeer(this.peerBook, peer, 4);
+        console.warn(`[pixel-ledger] malformed frame from ${peer}: ${reason}`);
+      },
     });
 
     const ms = this.opts.autoSequenceMs ?? 2000;
@@ -719,6 +729,12 @@ export class PixelLedgerNode {
       }
     }
     if (n) this.queuePersist();
+    // Replies are paged now, so a full page almost certainly means there is more
+    // behind it. Asking again immediately keeps catch-up at wire speed instead of
+    // one page per 5s catch-up tick — paging must bound the reply, not the sync.
+    if (n > 0 && pixels.length > 1) {
+      this.requestCatchUp(this.chain.pixels.length);
+    }
     return n;
   }
 
@@ -755,7 +771,10 @@ export class PixelLedgerNode {
             });
             learned = this.chain.sequencers.length > before;
           }
-          for (const s of msg.sequencers ?? []) {
+          // Bounded: a hello is display metadata, not authority, but an unbounded
+          // array is still a bucket of someone else's memory. The wire schema caps
+          // it too; this is the belt to that braces.
+          for (const s of (msg.sequencers ?? []).slice(0, MAX_HELLO_SEQUENCERS)) {
             const before = this.chain.sequencers.length;
             this.chain = registerSequencer(this.chain, s);
             if (this.chain.sequencers.length > before) learned = true;
@@ -784,13 +803,15 @@ export class PixelLedgerNode {
               punishPeer(this.peerBook, peerUrl, 2);
             }
           } else if (msg.tip < this.chain.pixels.length - 1) {
-            const headers = extractHeaders(this.chain.pixels.slice(msg.tip + 1));
+            const headers = extractHeaders(
+              this.chain.pixels.slice(msg.tip + 1, msg.tip + 1 + MAX_PIXELS_PER_MESSAGE),
+            );
             if (headers.length) {
               this.gossip.sendTo(peerUrl, { type: "headers", headers });
             }
-            const slice = this.chain.pixels.slice(msg.tip + 1);
-            if (slice.length) {
-              this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
+            const { page } = pixelPage(this.chain.pixels, msg.tip + 1);
+            if (page.length) {
+              this.gossip.sendTo(peerUrl, { type: "pixels", pixels: page });
             }
           }
           const dial = msg.gossipUrl;
@@ -848,14 +869,20 @@ export class PixelLedgerNode {
           break;
         }
         case "get_pixels": {
-          const slice = this.chain.pixels.slice(msg.from);
-          if (slice.length) {
-            this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
+          // Paged. An unbounded reply is a resource the *asker* controls: one
+          // request should not make us serialize the whole chain into a single
+          // frame while we answer nobody else. The joiner keeps asking from its
+          // new tip, which is what catch-up already does.
+          const { page } = pixelPage(this.chain.pixels, msg.from);
+          if (page.length) {
+            this.gossip.sendTo(peerUrl, { type: "pixels", pixels: page });
           }
           break;
         }
         case "get_headers": {
-          const headers = extractHeaders(this.chain.pixels.slice(msg.from));
+          const headers = extractHeaders(
+            this.chain.pixels.slice(msg.from, msg.from + MAX_PIXELS_PER_MESSAGE),
+          );
           if (headers.length) {
             this.gossip.sendTo(peerUrl, { type: "headers", headers });
           }
