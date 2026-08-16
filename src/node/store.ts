@@ -17,6 +17,14 @@ import {
   type SchemeId,
   type SerializedChain,
 } from "../lib/pixel/index";
+import {
+  isSealedIdentity,
+  nodePassphrase,
+  openNodeSeed,
+  sealNodeSeed,
+  type KeyAtRest,
+  type SealedNodeIdentity,
+} from "./key-seal";
 
 export interface NodeIdentity {
   seed: string;
@@ -33,6 +41,17 @@ export interface NodeIdentity {
 
 export interface PeerBook {
   peers: string[]; // ws://host:port
+}
+
+/**
+ * Was the seed we just loaded encrypted on disk?
+ *
+ * Reported by `/health` as `keyAtRest` and printed at every start when plaintext. An
+ * unsealed key that never mentions itself is a failure rendering as an ordinary state.
+ */
+let lastKeyAtRest: KeyAtRest = "plaintext";
+export function keyAtRest(): KeyAtRest {
+  return lastKeyAtRest;
 }
 
 export async function ensureDatadir(datadir: string): Promise<void> {
@@ -60,14 +79,71 @@ export async function loadChain(datadir: string): Promise<PixelChainState | null
   }
 }
 
+/**
+ * Write `nodekey.json`, sealing the seed when a passphrase is configured.
+ *
+ * Only the seed is encrypted. Address, public key, label, scheme and the OTS cursor stay
+ * readable because they are public by construction, and an operator needs to be able to
+ * see whose datadir this is without typing a passphrase. The ML-DSA secret key is no
+ * longer written at all — it derives from the seed, so storing it kept one secret twice.
+ */
 export async function saveIdentity(datadir: string, id: NodeIdentity): Promise<void> {
-  await writeJsonAtomic(join(datadir, "nodekey.json"), id);
+  const passphrase = nodePassphrase();
+  if (!passphrase) {
+    await writeJsonAtomic(join(datadir, "nodekey.json"), id);
+    return;
+  }
+  const sealed: SealedNodeIdentity = {
+    v: 2,
+    sealedSeed: await sealNodeSeed(id.seed, passphrase),
+    address: id.address,
+    publicKey: id.publicKey,
+    label: id.label,
+    nextLeaf: id.nextLeaf,
+    scheme: id.scheme,
+  };
+  await writeJsonAtomic(join(datadir, "nodekey.json"), sealed);
 }
 
+/**
+ * Read `nodekey.json` in either form.
+ *
+ * Legacy plaintext keeps loading, deliberately: refusing to start on an unsealed datadir
+ * would lock out every existing operator and every CI run, and a security change that
+ * strands the person it protects gets reverted. The mode is recorded instead, and said
+ * out loud.
+ */
 export async function loadIdentity(datadir: string): Promise<NodeIdentity | null> {
+  let parsed: unknown;
   try {
-    const raw = await readFile(join(datadir, "nodekey.json"), "utf8");
-    return JSON.parse(raw) as NodeIdentity;
+    parsed = JSON.parse(await readFile(join(datadir, "nodekey.json"), "utf8"));
+  } catch {
+    return null;
+  }
+  if (isSealedIdentity(parsed)) {
+    // A wrong or missing passphrase must throw rather than return null: null reads as
+    // "there is no key here", and a node that believes that forges a new genesis over
+    // a datadir whose key is merely locked.
+    const seed = await openNodeSeed(parsed.sealedSeed, nodePassphrase());
+    lastKeyAtRest = "sealed";
+    return {
+      seed,
+      address: parsed.address,
+      publicKey: parsed.publicKey,
+      label: parsed.label,
+      nextLeaf: parsed.nextLeaf,
+      scheme: parsed.scheme,
+    };
+  }
+  lastKeyAtRest = "plaintext";
+  return parsed as NodeIdentity;
+}
+
+/** Which form is on disk, without decrypting. For `key seal` and for reporting. */
+export async function identityAtRest(datadir: string): Promise<KeyAtRest | null> {
+  try {
+    const parsed = JSON.parse(await readFile(join(datadir, "nodekey.json"), "utf8"));
+    return isSealedIdentity(parsed) ? "sealed" : "plaintext";
   } catch {
     return null;
   }

@@ -19,6 +19,7 @@ import {
 } from "../lib/pixel/validators";
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
 import { MempoolRejected } from "../lib/pixel/mempool";
+import { keyAtRest } from "./store";
 import { clientIdFromRequest, createRateLimiter } from "../lib/pixel/rate-limit";
 import { pixelPage } from "../lib/pixel/limits";
 import { evmBridgeHealth, readEvmBridgeConfig } from "../lib/pixel/eth-usdc-lock";
@@ -116,6 +117,9 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         const snap = node.syncSnapshot();
         return json({
           ok: true,
+          // Truthful, always. An unsealed key that never mentions itself is a failure
+          // rendering as an ordinary state, which is the thing this repo refuses to ship.
+          keyAtRest: keyAtRest(),
           name: "Pixel Ledger",
           address: snap.address,
           publicKey: snap.publicKey,

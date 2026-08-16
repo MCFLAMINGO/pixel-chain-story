@@ -23,6 +23,13 @@ import {
 import { PixelLedgerNode } from "./node";
 import { startRpcServer } from "./rpc-server";
 import { ensureDatadir, loadOrCreateIdentity, loadWallet, saveChain, saveWallet } from "./store";
+import { keyAtRest } from "./store";
+import {
+  assertNodePassphrase,
+  NODE_KEY_ENV,
+  nodePassphrase,
+  plaintextKeyWarning,
+} from "./key-seal";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -57,6 +64,7 @@ async function main() {
     console.log(`${PIXEL_LEDGER_NAME} CLI
   join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip] [--require-crowned]
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
+  key status|seal [--datadir DIR]        seal the node key at rest (PIXEL_KEY_PASSPHRASE)
   wallet create NAME [--datadir DIR]
   wallet from-node [NAME] [--datadir DIR]
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
@@ -181,6 +189,64 @@ Friends — join crowned tip:
     return;
   }
 
+  if (cmd === "key") {
+    const sub = process.argv[3];
+    const { identityAtRest, loadIdentity, saveIdentity } = await import("./store");
+    const at = await identityAtRest(datadir);
+    if (at === null) {
+      console.error(`No nodekey.json in ${datadir}.`);
+      process.exit(1);
+    }
+
+    if (sub === "status") {
+      console.log(`node key at rest: ${at}`);
+      if (at === "plaintext") console.log(plaintextKeyWarning(datadir));
+      return;
+    }
+
+    if (sub === "seal") {
+      if (at === "sealed") {
+        console.log("Already sealed. Nothing to do.");
+        return;
+      }
+      const passphrase = nodePassphrase();
+      if (!passphrase) {
+        console.error(
+          `Set ${NODE_KEY_ENV} to the passphrase you want to seal with, then run this again:\n` +
+            `  ${NODE_KEY_ENV}='<passphrase>' bun run pixel -- key seal --datadir ${datadir}\n` +
+            `The same variable must be present when the node starts, or it cannot open its key.`,
+        );
+        process.exit(1);
+      }
+      assertNodePassphrase(passphrase);
+      // Read plaintext first, then write sealed. saveIdentity seals whenever the
+      // passphrase is set, so this is a read-then-write rather than a special path —
+      // one sealing implementation, exercised by normal operation.
+      const identity = await loadIdentity(datadir);
+      if (!identity) {
+        console.error("Could not read the existing key.");
+        process.exit(1);
+      }
+      await saveIdentity(datadir, identity);
+      const now = await identityAtRest(datadir);
+      if (now !== "sealed") {
+        console.error("Seal did not take effect — the key is unchanged.");
+        process.exit(1);
+      }
+      console.log(
+        `Sealed ${datadir}/nodekey.json.\n` +
+          `  address: ${identity.address}\n` +
+          `Keep ${NODE_KEY_ENV} somewhere you will still have it after losing this machine.\n` +
+          `Without it the key cannot be opened, and on a single-sequencer chain that key\n` +
+          `is the only address permitted to produce.`,
+      );
+      return;
+    }
+
+    console.error("usage: pixel key status|seal [--datadir DIR]");
+    process.exit(1);
+  }
+
   if (cmd === "node") {
     const rpcPort = Number(arg("rpc", process.env.PORT || process.env.PIXEL_RPC_PORT || "8545"));
     const gossipPort = Number(arg("gossip", process.env.PIXEL_GOSSIP_PORT || "9001"));
@@ -210,6 +276,13 @@ Friends — join crowned tip:
     });
     await node.start();
     startRpcServer(node, rpcPort);
+    // Said out loud at every start, not once at seal time. An operator who has been
+    // meaning to seal it for three months should be reminded on the three-month-th day.
+    if (keyAtRest() === "plaintext") {
+      console.warn(plaintextKeyWarning(datadir));
+    } else {
+      console.log(`[pixel-ledger] node key is sealed at rest ✓`);
+    }
     console.log(`${PIXEL_LEDGER_NAME} node running. Ctrl+C to stop.`);
     await new Promise(() => {});
     return;
