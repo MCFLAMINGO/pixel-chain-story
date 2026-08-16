@@ -109,6 +109,42 @@ export async function createTransaction(params: {
   };
 }
 
+/**
+ * Recompute a transaction's identity from its content.
+ *
+ * `txid` and `commitment` are both derived from the canonical body, but until this
+ * function existed nothing ever checked that — consensus trusted whatever
+ * identifiers a transaction claimed. That let a producer put a transaction with
+ * txid X and body Y into a block: the merkle root would commit to X, the UTXO set
+ * would be keyed under X, and no rule anywhere tied X to Y. A receiver computing the
+ * txid it expected would disagree with the chain about what happened.
+ *
+ * Returns null when the identity is sound, or a reason when it is not, so callers on
+ * the admission path can turn it into a rejection message and callers on the
+ * consensus path can turn it into a thrown error.
+ *
+ * Note this is cheap but **not sufficient on its own** as a spam defence: an
+ * attacker can compute a correct txid for junk content just by hashing it. It is a
+ * free first filter, not the gate. The gate is ownership and signature.
+ */
+export async function txIdentityProblem(tx: Transaction): Promise<string | null> {
+  const body = canonicalTxBody(tx);
+  const commitment = await lightDigest("superposition", body);
+  if (commitment !== tx.commitment) {
+    return `commitment does not derive from the transaction body (claimed ${String(
+      tx.commitment,
+    ).slice(0, 16)}…, computed ${commitment.slice(0, 16)}…)`;
+  }
+  const txid = await lightDigest("txid", commitment, body);
+  if (txid !== tx.txid) {
+    return `txid does not derive from the transaction body (claimed ${String(tx.txid).slice(
+      0,
+      16,
+    )}…, computed ${txid.slice(0, 16)}…)`;
+  }
+  return null;
+}
+
 export async function signTransaction(
   tx: Transaction,
   keypair: LightKeypair,

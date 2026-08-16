@@ -46,6 +46,8 @@ import {
   type WaveBus,
   type WaveFanoutListener,
   type WaveFanoutSource,
+  admitTransaction,
+  MempoolRejected,
 } from "../lib/pixel/index";
 import { createBunGossip } from "./gossip-bun";
 import type { GossipNet, PeerMessage } from "./p2p";
@@ -393,15 +395,20 @@ export class PixelLedgerNode {
     return this.withChainLock(() => this.submitTxLocked(tx));
   }
 
-  /** Caller must hold `withChainLock` (or be the sole mutator). */
+  /**
+   * Caller must hold `withChainLock` (or be the sole mutator).
+   *
+   * Everything that arrives from outside — HTTP `/tx` and the `tx` gossip message —
+   * passes `admitTransaction` first. This used to append, gossip and persist on the
+   * strength of a zod shape check alone, which made the public endpoint an
+   * unauthenticated way to grow the volume holding the only copy of history. See
+   * `mempool.ts` for the full admission order and why it is ordered that way.
+   *
+   * Rejections throw. Callers turn that into a 4xx (HTTP) or a peer score penalty
+   * (gossip); nothing is stored, gossiped, or persisted on the way out.
+   */
   private async submitTxLocked(tx: Transaction): Promise<void> {
-    if (this.chain.pending.some((p) => p.txid === tx.txid)) return;
-    this.chain = {
-      ...this.chain,
-      pending: [...this.chain.pending, tx],
-      pendingSince:
-        this.chain.pending.length === 0 ? Date.now() : (this.chain.pendingSince ?? Date.now()),
-    };
+    this.chain = await admitTransaction(this.chain, tx);
     this.gossip.broadcast({ type: "tx", tx });
     this.queuePersist();
   }
@@ -803,7 +810,25 @@ export class PixelLedgerNode {
         }
         case "tx":
           // Already under withChainLock — do not call submitTx (re-entrant deadlock).
-          await this.submitTxLocked(msg.tx);
+          //
+          // A peer that relays junk is not a protocol error, it is a peer worth
+          // trusting less. Refusing without throwing keeps one bad transaction from
+          // tearing down a session that is otherwise serving us history, while the
+          // score still walks a persistent offender out.
+          try {
+            await this.submitTxLocked(msg.tx);
+          } catch (err) {
+            if (err instanceof MempoolRejected) {
+              // `duplicate` means the peer told us something we already knew, which
+              // is ordinary gossip and not misbehaviour.
+              if (err.code !== "duplicate") {
+                punishPeer(this.peerBook, peerUrl, 2);
+                console.warn(`[pixel-ledger] refused gossiped tx (${err.code}): ${err.message}`);
+              }
+            } else {
+              throw err;
+            }
+          }
           break;
         case "pixel": {
           const tip = this.chain.pixels[this.chain.pixels.length - 1];

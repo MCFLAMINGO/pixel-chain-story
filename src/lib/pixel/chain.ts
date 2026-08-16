@@ -27,6 +27,7 @@ import { assertWaveDigestMatch, computeTipWaveField, type WaveHit } from "./wave
 import { assertSpatialRootMatch, buildSpatialPicture } from "./spatial-picture";
 import { opticalBeacon } from "./optical";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
+import { MAX_BLOCK_TX_BYTES, MAX_BLOCK_TXS, MAX_METADATA_BYTES } from "./limits";
 import { assertMomentAllowed, giftAndRecordEnabled } from "./gift-and-record";
 import {
   createTransaction,
@@ -189,7 +190,12 @@ export function advancePastUsedOtsLeaves(keypair: LightKeypair, used: Set<string
   }
 }
 
-function utxoKey(txid: string, vout: number): string {
+/**
+ * Canonical UTXO key. Exported because the mempool has to ask the same question
+ * consensus asks — "does this input exist?" — and a second encoding of the same
+ * answer is how the two paths drift apart.
+ */
+export function utxoKey(txid: string, vout: number): string {
   return `${txid}:${vout}`;
 }
 
@@ -534,7 +540,7 @@ function creditOutputs(working: Map<string, Utxo>, tx: Transaction): void {
 }
 
 /** Every output must be a positive safe integer; returns the total. */
-function outputTotalOf(tx: Transaction): number {
+export function outputTotalOf(tx: Transaction): number {
   let total = 0;
   for (const out of tx.outputs) {
     if (!Number.isSafeInteger(out.amount) || out.amount <= 0) {
@@ -623,6 +629,32 @@ export async function validateAndApplyBlockTxs(params: {
 }): Promise<{ utxos: Map<string, Utxo>; fees: number; coinbaseTotal: number }> {
   const { txs, index } = params;
   if (txs.length === 0) throw new BlockValidationError("Block carries no transactions");
+
+  // Bounds first, before a single signature is verified. The ordering is the
+  // defence: an oversized block must cost a length comparison, not thousands of
+  // lattice operations under the chain lock. A count alone does not bound the work,
+  // so bytes are checked too — 4,096 transactions each carrying maximal metadata is
+  // still a large object to hash.
+  if (txs.length > MAX_BLOCK_TXS) {
+    throw new BlockValidationError(
+      `Block carries ${txs.length} transactions, over the ${MAX_BLOCK_TXS} limit`,
+    );
+  }
+  const txBytes = JSON.stringify(txs).length;
+  if (txBytes > MAX_BLOCK_TX_BYTES) {
+    throw new BlockValidationError(
+      `Block transaction set is ${txBytes} bytes, over the ${MAX_BLOCK_TX_BYTES} limit`,
+    );
+  }
+  for (const tx of txs) {
+    const metadataBytes = JSON.stringify(tx.metadata ?? {}).length;
+    if (metadataBytes > MAX_METADATA_BYTES) {
+      throw new BlockValidationError(
+        `Transaction ${tx.txid.slice(0, 12)}… carries ${metadataBytes} bytes of metadata, ` +
+          `over the ${MAX_METADATA_BYTES} limit`,
+      );
+    }
+  }
 
   const coinbaseCount = txs.filter((t) => t.inputs.length === 0).length;
   if (coinbaseCount !== 1) {

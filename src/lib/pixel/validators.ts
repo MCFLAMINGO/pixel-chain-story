@@ -82,13 +82,28 @@ export const transactionSchema = z.object({
   txid: z.string().min(1).max(256),
   inputs: z.array(txInputSchema).min(1).max(64),
   outputs: z.array(txOutputSchema).min(1).max(64),
+  /**
+   * Strict, not passthrough.
+   *
+   * `.passthrough()` accepted arbitrary unknown keys **and preserved them**, and
+   * `canonicalTxBody` JSON-stringifies the whole metadata object — so junk was
+   * signed, committed into the txid, and written into every copy of the chain
+   * forever. It was also what let a single request approach the 1 MiB body cap
+   * despite the sensible per-field limits right here.
+   *
+   * Safe against real history: no transaction on the crowned chain carries an
+   * unknown metadata key and the largest metadata object is 136 bytes, both
+   * asserted by `scripts/crowned-replay-selftest.ts`.
+   */
   metadata: z
     .object({
       description: z.string().max(2048).optional(),
       recipientLabel: z.string().max(256).optional(),
       reference: z.string().max(256).optional(),
+      /** Declared act, for the gift-and-record rules. */
+      kind: z.enum(["gift", "record"]).optional(),
     })
-    .passthrough(),
+    .strict(),
   commitment: hexString,
   state: z.enum(["superposition", "revealed", "final"]),
   privacy: z.enum(["public", "private", "selective"]).optional(),

@@ -70,3 +70,7 @@ export * from "./light-client";
 export * from "./peer-score";
 export * from "./rpc";
 export * from "./benchmark";
+export * from "./limits";
+export * from "./rate-limit";
+export * from "./mempool";
+export * from "./sig-era";

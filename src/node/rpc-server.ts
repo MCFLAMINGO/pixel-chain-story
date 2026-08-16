@@ -18,6 +18,9 @@ import {
   ValidationError,
 } from "../lib/pixel/validators";
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
+import { MempoolRejected } from "../lib/pixel/mempool";
+import { clientIdFromRequest, createRateLimiter } from "../lib/pixel/rate-limit";
+import { MAX_PIXELS_PER_MESSAGE } from "../lib/pixel/limits";
 import { evmBridgeHealth, readEvmBridgeConfig } from "../lib/pixel/eth-usdc-lock";
 
 const CORS: Record<string, string> = {
@@ -46,7 +49,32 @@ export interface RpcServerOpts {
   continuityWebhookSecret?: string;
 }
 
+/**
+ * Endpoints that change state and therefore consume the operator's storage.
+ *
+ * Listed explicitly rather than inferred from the method, because being wrong in the
+ * permissive direction here is how the mempool flood stayed open. A new write route
+ * that is not in this list is unthrottled, so `scripts/bounds-selftest.ts` asserts
+ * every non-GET route in this file appears here.
+ */
+const WRITE_PATHS = [
+  "/tx",
+  "/faucet",
+  "/bridge/shine-in-lock",
+  "/bridge/shine-in",
+  "/rpc",
+  "/",
+  "/continuity/join",
+  "/continuity/order",
+  "/continuity/ops",
+] as const;
+
+export function isWritePath(pathname: string): boolean {
+  return (WRITE_PATHS as readonly string[]).includes(pathname);
+}
+
 export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcServerOpts = {}) {
+  const writeLimiter = createRateLimiter();
   const continuityCtx: ContinuityHttpCtx = {
     datadir: opts.continuityDatadir ?? node.datadir,
     webhookSecret: opts.continuityWebhookSecret ?? process.env.CONTINUITY_WEBHOOK_SECRET ?? "",
@@ -54,12 +82,32 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
 
   const server = Bun.serve({
     port,
-    async fetch(req) {
+    async fetch(req, srv) {
       if (req.method === "OPTIONS") {
         return text("", { status: 204 });
       }
 
       const url = new URL(req.url);
+
+      /**
+       * Write paths only. A read is how a stranger verifies the chain without
+       * asking us, so throttling reads would cost the property the ledger exists
+       * to have. A write consumes storage the operator pays for.
+       */
+      if (req.method !== "GET" && isWritePath(url.pathname)) {
+        const clientId = clientIdFromRequest(req, srv.requestIP(req)?.address ?? "unknown");
+        if (!writeLimiter.take(clientId)) {
+          const retryAfter = writeLimiter.retryAfterSec(clientId);
+          return json(
+            {
+              ok: false,
+              error: `Too many writes; retry in ${retryAfter}s`,
+              code: "rate-limited",
+            },
+            { status: 429, headers: { "Retry-After": String(retryAfter) } },
+          );
+        }
+      }
 
       const continuity = await handleContinuityHttp(req, url, continuityCtx);
       if (continuity) return continuity;
@@ -152,13 +200,32 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
         // a thousand: the field polls this every 2s, so each viewer re-downloads
         // all of history twice a second. `?since=N` returns only what is new.
         // Omitting it still returns everything, so older clients keep working.
+        //
+        // Paged either way. An unbounded response is a resource an asker controls:
+        // one request should not be able to make a node serialize a million pixels
+        // into a single string while it answers nobody else. Callers page with
+        // `since` until `hasMore` is false, which is what the joiners already do.
         const sinceRaw = url.searchParams.get("since");
-        if (sinceRaw === null) return json(node.chain.pixels);
-        const since = Number(sinceRaw);
-        if (!Number.isInteger(since) || since < -1) {
-          return json({ ok: false, error: "since must be an integer >= -1" }, { status: 400 });
+        let since = -1;
+        if (sinceRaw !== null) {
+          since = Number(sinceRaw);
+          if (!Number.isInteger(since) || since < -1) {
+            return json({ ok: false, error: "since must be an integer >= -1" }, { status: 400 });
+          }
         }
-        return json(node.chain.pixels.filter((p) => p.index > since));
+        const matching = node.chain.pixels.filter((p) => p.index > since);
+        const page = matching.slice(0, MAX_PIXELS_PER_MESSAGE);
+        if (matching.length <= MAX_PIXELS_PER_MESSAGE) {
+          // Unchanged shape for the common case, so the field poller and every
+          // existing client keep working exactly as before.
+          return json(page);
+        }
+        return json(page, {
+          headers: {
+            "X-Pixel-Has-More": "1",
+            "X-Pixel-Next-Since": String(page[page.length - 1]!.index),
+          },
+        });
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/balance/")) {
@@ -302,7 +369,30 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
           const msg = e instanceof ValidationError ? e.message : "bad tx";
           return json({ ok: false, error: msg }, { status: 400 });
         }
-        await node.submitTx(tx);
+        try {
+          await node.submitTx(tx);
+        } catch (err) {
+          if (err instanceof MempoolRejected) {
+            // Already held is success from the sender's point of view: the thing they
+            // asked for is true. Anything else is a refusal they need to see, with the
+            // reason, because a write that silently does nothing is the failure mode
+            // this whole endpoint used to have.
+            if (err.code === "duplicate") {
+              return json({
+                ok: true,
+                duplicate: true,
+                tip: node.chain.pixels.length - 1,
+                pending: node.chain.pending.length,
+                txid: tx.txid,
+              });
+            }
+            return json(
+              { ok: false, error: err.message, code: err.code },
+              { status: err.code === "mempool-full" ? 503 : 400 },
+            );
+          }
+          throw err;
+        }
         // Elected sequencer may be this node — try illuminate
         await node.trySequence();
         return json({
