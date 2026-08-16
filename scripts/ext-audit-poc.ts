@@ -14,7 +14,8 @@ import {
   acceptBlock,
   balanceOf,
   createGenesis,
-  registerSequencer,
+  electableAt,
+  noteSequencerKey,
   replaceTipIfBetter,
   sequenceBlock,
   verifyChain,
@@ -276,18 +277,25 @@ scenario("PIX-03c", "same UTXO spent twice inside one block", async () => {
 scenario("PIX-04", "PoLS lottery bypass via self-declared electable set", async () => {
   const genesisSeq = await generateLightKeypair();
   let state = await createGenesis(genesisSeq);
+
+  // Note several keys locally, the way gossip hellos used to. Since T1.1 this confers
+  // nothing — membership is a fold over records committed in pixels — so the baseline
+  // for "who may produce" has to come from `electableAt`, not from this table. The
+  // earlier version of this scenario derived `rightful` from the key table and then
+  // picked an "attacker" that turned out to be the founder itself, so it measured a
+  // legitimate block and called it an exploit.
   const others: LightKeypair[] = [];
   for (let i = 0; i < 7; i++) {
     const kp = await generateLightKeypair();
     others.push(kp);
-    state = registerSequencer(state, kp);
+    state = noteSequencerKey(state, kp);
   }
-  const registry = state.sequencers.map((s) => s.address);
   const tip = state.pixels[state.pixels.length - 1]!;
-  const rightful = selectSequencerWithSkip(tip.hash, tip.sequence + 1, registry, 0);
+  const electable = electableAt(state, tip.index + 1);
+  const rightful = selectSequencerWithSkip(tip.hash, tip.sequence + 1, electable, 0);
 
-  // Pick a registered sequencer who is NOT the rightful proposer.
-  const attacker = [genesisSeq, ...others].find((k) => k.address !== rightful)!;
+  // A genuine non-member: noted locally, never admitted by a membership record.
+  const attacker = others.find((k) => k.address !== rightful)!;
   const forged = await forgeBlock({
     state,
     sequencer: attacker,
@@ -296,7 +304,40 @@ scenario("PIX-04", "PoLS lottery bypass via self-declared electable set", async 
   });
   await acceptBlock(state, forged);
   exploited(
-    `non-elected ${attacker.address.slice(0, 12)}… produced height 1 (rightful ${rightful.slice(0, 12)}…)`,
+    `non-member ${attacker.address.slice(0, 12)}… produced height 1 (rightful ${rightful.slice(0, 12)}…)`,
+  );
+});
+
+// ── T1.1 ──────────────────────────────────────────────────────────────────────
+scenario("T1.1", "stranger grinds a keypair and extends the tip", async () => {
+  // The takeover. node.ts used to register a block's *claimed* producer before
+  // validating it, so the electable set was whatever the block said. Grinding one
+  // keypair until it won the lottery was enough to extend the tip, mint the light
+  // reward, and become permanently electable — with verifyChain returning true.
+  const founder = await generateLightKeypair();
+  const state = await createGenesis(founder);
+  const tip = state.pixels[state.pixels.length - 1]!;
+
+  let stranger = await generateLightKeypair();
+  for (let i = 0; i < 400; i++) {
+    const set = [founder.address, stranger.address].sort();
+    if (selectSequencerWithSkip(tip.hash, tip.sequence + 1, set, 0) === stranger.address) break;
+    stranger = await generateLightKeypair();
+  }
+
+  // Bind exactly what the poisoned registry would have derived: founder + self.
+  const forged = await forgeBlock({
+    state,
+    sequencer: stranger,
+    transactions: [await coinbaseOf(50, stranger.address, "LIGHT-1")],
+    electable: [founder.address, stranger.address].sort(),
+  });
+  // Simulate the deleted "learn producer before accept" line as faithfully as
+  // possible: even with the stranger's key noted locally, the block must be refused.
+  const poisonedView = noteSequencerKey(state, stranger);
+  await acceptBlock(poisonedView, forged);
+  exploited(
+    `stranger ${stranger.address.slice(0, 12)}… extended the tip and minted the light reward`,
   );
 });
 

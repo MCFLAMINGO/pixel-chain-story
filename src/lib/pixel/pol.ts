@@ -71,6 +71,15 @@ export interface LightProof {
    * Invent (SPATIAL S3): verifiable illuminated picture fragment.
    */
   spatialRoot: Hex;
+  /**
+   * Digest over this pixel's sequencer membership records (T1.1).
+   *
+   * Absent when the pixel changes no membership, which keeps the signed message
+   * byte-identical to what it was before membership existed — the same technique
+   * `electable` uses with its `el=` segment. That is why all 47 pixels of the
+   * crowned chain still verify.
+   */
+  membershipDigest?: Hex;
 }
 
 /** Commitment over ordered electable addresses (bound into PoLS message). */
@@ -138,12 +147,17 @@ export function polsMessage(
   fieldDigest?: string,
   waveDigest?: string,
   spatialRoot?: string,
+  membershipDigest?: string,
 ): string {
   const el = electable && electable.length > 0 ? `|el=${electableCommitment(electable)}` : "";
   const field = `|field=${fieldDigest ?? ""}`;
   const wave = `|wave=${waveDigest ?? ""}`;
   const spatial = `|spatial=${spatialRoot ?? ""}`;
-  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}${wave}${spatial}`;
+  // Appended only when present, so a pixel that changes no membership signs exactly
+  // the message it would have signed before this field existed. Every light proof on
+  // the crowned chain keeps verifying because of this one conditional.
+  const membership = membershipDigest ? `|members=${membershipDigest}` : "";
+  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}${wave}${spatial}${membership}`;
 }
 
 export async function createLightProof(params: {
@@ -159,6 +173,8 @@ export async function createLightProof(params: {
   waveDigest: Hex;
   /** Sparse occupancy Merkle — required for tip picture (SPATIAL S3). */
   spatialRoot: Hex;
+  /** Membership digest — omitted when this pixel changes no membership (T1.1). */
+  membershipDigest?: Hex;
 }): Promise<LightProof> {
   const skipCount = params.skipCount ?? 0;
   const electable =
@@ -191,6 +207,7 @@ export async function createLightProof(params: {
     fieldDigest,
     waveDigest,
     spatialRoot,
+    params.membershipDigest,
   );
   const signature = await signPixel(message, params.sequencer);
   const scheme = (params.sequencer.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
@@ -208,6 +225,7 @@ export async function createLightProof(params: {
     fieldDigest,
     waveDigest,
     spatialRoot,
+    ...(params.membershipDigest ? { membershipDigest: params.membershipDigest } : {}),
   };
 }
 
@@ -253,6 +271,7 @@ export async function verifyLightProof(
     proof.fieldDigest,
     proof.waveDigest,
     proof.spatialRoot,
+    proof.membershipDigest,
   );
   return verify(message, proof.signature, proof.sequencerPublicKey);
 }

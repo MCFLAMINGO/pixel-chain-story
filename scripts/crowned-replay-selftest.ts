@@ -22,6 +22,7 @@
 
 import {
   deserializeChain,
+  electableAt,
   verifyChain,
   type LedgerPixel,
   type SequencerId,
@@ -171,6 +172,32 @@ check(
 check(
   pixels.every((p) => p.lightProof.sequencerAddress === founder),
   "T1.1 — one producer signed all 47 pixels",
+);
+
+// The load-bearing one: the membership fold must reproduce every bound electable set
+// byte for byte. This is what makes T1.1 a tightening rather than a fork — if the
+// fold disagreed with history anywhere, the real chain would stop validating.
+const foldMismatches = pixels
+  .map((p, i) => ({
+    index: i,
+    bound: (p.lightProof.electable ?? []).join("|"),
+    folded: electableAt(state, i).join("|"),
+  }))
+  .filter((r) => r.bound !== r.folded);
+check(
+  foldMismatches.length === 0,
+  `T1.1 — the membership fold reproduces all ${pixels.length} bound electable sets` +
+    (foldMismatches.length
+      ? ` (first mismatch at #${foldMismatches[0]!.index}: bound ${foldMismatches[0]!.bound} vs folded ${foldMismatches[0]!.folded})`
+      : ""),
+);
+check(
+  pixels.every((p) => p.membership == null || p.membership.length === 0),
+  "T1.1 — no pixel carries a membership record, so the fold is the founder throughout",
+);
+check(
+  pixels.every((p) => p.lightProof.membershipDigest == null),
+  "T1.1 — no light proof binds a membership digest, so the PoLS preimage is unchanged",
 );
 check(
   pixels.every((p) => (p.lightProof.skipCount ?? 0) === 0),

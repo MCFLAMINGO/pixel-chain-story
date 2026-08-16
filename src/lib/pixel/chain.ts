@@ -28,6 +28,15 @@ import { assertSpatialRootMatch, buildSpatialPicture } from "./spatial-picture";
 import { opticalBeacon } from "./optical";
 import { assertUnderCap, lightReward, mintedThrough } from "./economics";
 import { MAX_BLOCK_TX_BYTES, MAX_BLOCK_TXS, MAX_METADATA_BYTES } from "./limits";
+import {
+  canonicalMembers,
+  memberKeysAt,
+  membersAt,
+  membershipDigest,
+  membershipListProblem,
+  sequencerRecordProblem,
+  type SequencerRecord,
+} from "./membership";
 import { assertMomentAllowed, giftAndRecordEnabled } from "./gift-and-record";
 import {
   createTransaction,
@@ -43,6 +52,7 @@ import {
   type Utxo,
 } from "./transaction";
 import { assertSovereignIfLive, type NodeProvider } from "./sovereignty";
+import type { SchemeId } from "./scheme";
 import { signaturePolicyAtHeight } from "./sig-era";
 
 export interface LedgerPixel {
@@ -63,6 +73,14 @@ export interface LedgerPixel {
   field: FieldWitness[];
   /** Lead wave hits (lattice multi-hop); digest bound in lightProof.waveDigest. */
   wave?: WaveHit[];
+  /**
+   * Sequencer membership changes committed by this pixel (T1.1).
+   *
+   * Absent or empty on every pixel of the crowned chain, which is why introducing
+   * the field forks nothing: `membershipDigest` returns null for an empty list, so
+   * the PoLS preimage is byte-identical to what it was.
+   */
+  membership?: SequencerRecord[];
 }
 
 /** Public sequencer identity — safe to gossip / persist. */
@@ -357,7 +375,20 @@ export async function createGenesis(
   };
 }
 
-export function registerSequencer(
+/**
+ * Note a sequencer's public key for display and hello bookkeeping.
+ *
+ * **This confers no authority.** It used to: `state.sequencers` was the electable
+ * set, gossip could add to it, and `acceptPixels` added a block's claimed producer
+ * to it before validating that block. Membership is now folded from chain history
+ * (`electableAt`), and validation never reads this map, so a hello — or a hostile
+ * block — cannot change who may produce a pixel.
+ *
+ * Kept under the old name as an alias below, because a great deal of test and demo
+ * code calls it to mean "this node wants turns", which on a lab chain it forges
+ * itself still works: a lab genesis makes its own producer the founder.
+ */
+export function noteSequencerKey(
   state: PixelChainState,
   sequencer: Pick<LightKeypair, "address" | "publicKey">,
 ): PixelChainState {
@@ -370,6 +401,15 @@ export function registerSequencer(
     ],
   };
 }
+
+/**
+ * Historical name for `noteSequencerKey`.
+ *
+ * Retained because the name appears throughout tests and demos, but it no longer
+ * registers anything in the consensus sense — see the note above. Renaming every
+ * caller would be a large diff that hides the one line that mattered.
+ */
+export const registerSequencer = noteSequencerKey;
 
 /** Attach / replace provider registry; enforces diversity when set is live (≥7). */
 export function setProviderRegistry(
@@ -482,18 +522,86 @@ export async function proposeTransfer(
 }
 
 /**
- * Canonical electable set — sorted, de-duplicated registry addresses.
+ * Canonical electable set — sorted, de-duplicated.
  *
- * The lottery must not depend on local registration order, and a producer must
- * not be able to choose the set it is elected from (PIX-04).
+ * The lottery must not depend on ordering, and a producer must not be able to
+ * choose the set it is elected from (PIX-04).
  */
 export function canonicalElectable(addresses: string[]): string[] {
-  return [...new Set(addresses)].sort();
+  return canonicalMembers(addresses);
 }
 
-/** Electable set derived from consensus-visible registry state, never from a block. */
+/** Genesis' producer — the seed of every membership fold, and never evictable. */
+export function founderOf(state: PixelChainState): string {
+  const genesis = state.pixels[0];
+  if (!genesis) throw new Error("Cannot derive membership without a genesis pixel");
+  return genesis.lightProof.sequencerAddress;
+}
+
+/**
+ * Who may produce the pixel at `height` — folded from history alone.
+ *
+ * This used to read `state.sequencers`, a set that gossip could mutate and that
+ * `acceptPixels` populated from the very block being validated. That made membership
+ * an input to validation, which is what let a stranger with one ground keypair
+ * extend the tip and mint the light reward. Now it is an output of history: the same
+ * pixels always produce the same answer, on every node, forever.
+ *
+ * `state.sequencers` survives as a public-key lookup for display and hello
+ * bookkeeping. It has no authority and validation never consults it.
+ */
+export function electableAt(state: PixelChainState, height: number): string[] {
+  return membersAt({
+    founder: founderOf(state),
+    height,
+    recordsAt: (index) => state.pixels[index]?.membership,
+  });
+}
+
+/**
+ * The key genesis' producer signs with — the seed of the key fold.
+ *
+ * Read from the genesis light proof rather than from any registry, for the same
+ * reason the address is: a key that validation trusts must come from history.
+ */
+export function founderKeyOf(pixels: LedgerPixel[]): { publicKey: Hex; scheme: SchemeId } {
+  const genesis = pixels[0];
+  if (!genesis) throw new Error("Cannot derive membership without a genesis pixel");
+  return {
+    publicKey: genesis.lightProof.sequencerPublicKey,
+    scheme: (genesis.lightProof.scheme ?? "PIX-HASH-OTS-128") as SchemeId,
+  };
+}
+
+/**
+ * Active members at `height` with the key each signs with.
+ *
+ * Authorizing a join means verifying a signature, and the authorizer's public key has
+ * to come from history — not from the record asking to be admitted. Folded from the
+ * same pixels and the same activation delay as membership itself, so a member's key
+ * and its eligibility can never disagree.
+ */
+export function electableKeysFromPixels(pixels: LedgerPixel[], height: number) {
+  const genesis = pixels[0];
+  if (!genesis) return new Map();
+  return memberKeysAt({
+    founder: genesis.lightProof.sequencerAddress,
+    founderKey: founderKeyOf(pixels),
+    height,
+    recordsAt: (index) => pixels[index]?.membership,
+  });
+}
+
+export function electableKeysAt(state: PixelChainState, height: number) {
+  return electableKeysFromPixels(state.pixels, height);
+}
+
+/**
+ * Electable set for the *next* pixel. Kept for callers that mean "right now".
+ */
 export function derivedElectable(state: PixelChainState): string[] {
-  return canonicalElectable(state.sequencers.map((s) => s.address));
+  const tip = state.pixels[state.pixels.length - 1];
+  return electableAt(state, (tip?.index ?? -1) + 1);
 }
 
 /** Who should sequence next — deterministic from tip hash (+ optional Gate C skip). */
@@ -752,6 +860,15 @@ export interface SequenceOpts {
   skipCount?: number;
   /** Injected clock for tests. */
   now?: number;
+  /**
+   * Sequencer membership changes to commit in this pixel (T1.1).
+   *
+   * Validated here on the produce side with the same function the accept side uses,
+   * so a producer cannot build a block that only it considers valid. They take effect
+   * `MEMBERSHIP_ACTIVATION_DELAY` pixels later, so including a record never changes
+   * the set that elected this block's producer.
+   */
+  membership?: SequencerRecord[];
 }
 
 /** Shine light locally: elected sequencer (or skip-elected after stall) may produce. */
@@ -768,7 +885,12 @@ export async function sequenceBlock(
   const now = opts.now ?? Date.now();
   const tip = state.pixels[state.pixels.length - 1];
   const sequence = tip.sequence + 1;
-  const addresses = derivedElectable(state);
+  const nextHeight = tip.index + 1;
+  // Same fold the accept path uses, at the same height. Produce and accept sharing
+  // one source is the point: the old code read a gossip-mutable registry here and
+  // compared against it there, which is how one block became valid on one node and
+  // invalid on another.
+  const addresses = electableAt(state, nextHeight);
   const chosen = selectSequencerWithSkip(tip.hash, sequence, addresses, skipCount);
   if (localSequencer.address !== chosen) {
     throw new Error(`Not this node's turn to sequence (need ${chosen}, skip=${skipCount})`);
@@ -823,6 +945,22 @@ export async function sequenceBlock(
   const afterTxs = assertAndMergeOtsLeaves(state.usedOtsLeaves, collectOtsUsages(revealed));
   advancePastUsedOtsLeaves(localSequencer, afterTxs);
 
+  // Validate membership records with the accept path's own checker, so a producer
+  // cannot ship a record only it would accept.
+  const membership = opts.membership ?? [];
+  const listProblem = membershipListProblem(membership);
+  if (listProblem) throw new Error(listProblem);
+  for (const record of membership) {
+    if (record.includedAt !== nextIndex) {
+      throw new Error(
+        `Membership record claims includedAt #${record.includedAt} but this pixel is #${nextIndex}`,
+      );
+    }
+    const problem = await sequencerRecordProblem(record, electableKeysAt(state, nextHeight));
+    if (problem) throw new Error(problem);
+  }
+  const membershipDigestValue = (await membershipDigest(membership)) ?? undefined;
+
   const root = await merkleRoot(revealed.map((t) => t.txid));
   const field = buildFieldWitnesses(nextIndex, priorFieldColors(state.pixels));
   const fieldDigest = computeFieldDigest(field);
@@ -865,6 +1003,7 @@ export async function sequenceBlock(
     fieldDigest,
     waveDigest: waveField.waveDigest as Hex,
     spatialRoot: picture.spatialRoot,
+    membershipDigest: membershipDigestValue as Hex | undefined,
   });
   if (proof.beacon !== beacon) throw new Error("beacon drift");
   if (!(await verifyLightProof(proof, chosen))) {
@@ -890,6 +1029,7 @@ export async function sequenceBlock(
     proximity,
     field,
     wave: waveField.hits,
+    ...(membership.length > 0 ? { membership } : {}),
   };
 
   return {
@@ -935,25 +1075,40 @@ export async function acceptBlock(
   }
 
   const skipCount = block.lightProof.skipCount ?? 0;
-  const registry = new Set(state.sequencers.map((s) => s.address));
-  // The electable set comes from local registry state, never from the block
-  // under validation; the bound claim must match it exactly (PIX-04).
-  const derived = derivedElectable(state);
+  // The electable set is folded from history at this height — not read from local
+  // gossip state, and above all not read from the block under validation. That
+  // asymmetry is what let a stranger with one ground keypair extend the tip: node.ts
+  // used to register a block's *claimed* producer before validating it, so the set
+  // was whatever the block said it should be. Membership is now an output of the
+  // chain (see membership.ts), which makes both the takeover and the two-operator
+  // drift unrepresentable rather than merely fixed.
+  const electable = electableAt(state, block.index);
   const claimed = block.lightProof.electable ?? [];
   if (claimed.length === 0) {
     throw new Error("Block must bind its electable set (PIX-04)");
   }
-  if (claimed.join("|") !== derived.join("|")) {
+  if (claimed.join("|") !== electable.join("|")) {
     throw new Error(
-      `Electable set mismatch — block claims ${claimed.length} of ${derived.length} registered sequencers (PIX-04)`,
+      `Electable set mismatch — block binds ${claimed.length} address(es), history says ` +
+        `${electable.length} at #${block.index} (PIX-04)`,
     );
   }
-  const electable = derived;
-  for (const addr of electable) {
-    if (!registry.has(addr)) {
-      throw new Error(`Electable sequencer ${addr} not in local registry`);
+
+  // Membership records this block commits. Validated before the block is accepted,
+  // and they take effect only after the activation delay — so a producer can never
+  // be elected by a set it wrote itself.
+  const listProblem = membershipListProblem(block.membership);
+  if (listProblem) throw new Error(listProblem);
+  for (const record of block.membership ?? []) {
+    if (record.includedAt !== block.index) {
+      throw new Error(
+        `Membership record claims includedAt #${record.includedAt} inside pixel #${block.index}`,
+      );
     }
+    const problem = await sequencerRecordProblem(record, electableKeysAt(state, block.index));
+    if (problem) throw new Error(problem);
   }
+
   const chosen = selectSequencerWithSkip(tip.hash, block.sequence, electable, skipCount);
   if (!(await verifyLightProof(block.lightProof, chosen))) {
     throw new Error("Invalid PoLS light proof");
@@ -1177,44 +1332,32 @@ export function stateFromPixels(
 }
 
 /**
- * Legacy fallback when a pixel has no bound `lightProof.electable`.
- * Prefer proof-bound sets — registry growth must not rewrite lottery history.
+ * Electable set for a pixel, folded from history.
+ *
+ * Replaces three ways of guessing. This function used to prefer the set the block
+ * itself claimed, fall back to local gossip state, then fall back again to the
+ * distinct producers seen so far — and `acceptBlock` used a fourth rule. Four
+ * answers to one question is how a chain becomes valid as history and invalid live,
+ * which `electable-drift-selftest.ts` demonstrated on purpose.
+ *
+ * There is now exactly one answer, and both paths call it.
  */
-export function electableSequencersAt(pixels: LedgerPixel[], height: number): string[] {
-  if (height <= 0) {
-    return pixels[0] ? [pixels[0].lightProof.sequencerAddress] : [];
-  }
-  const seen: string[] = [];
-  const set = new Set<string>();
-  for (let j = 0; j < height; j++) {
-    const a = pixels[j].lightProof.sequencerAddress;
-    if (!set.has(a)) {
-      set.add(a);
-      seen.push(a);
-    }
-  }
-  return seen;
-}
-
-/** Electable set for a pixel: proof-bound first, else legacy producer prefix. */
 export function resolveElectable(
-  block: LedgerPixel,
+  _block: LedgerPixel,
   pixels: LedgerPixel[],
   height: number,
-  state?: PixelChainState,
 ): string[] {
-  const bound = block.lightProof.electable;
-  if (bound && bound.length > 0) return [...bound];
-  if (state && height > 0) {
-    // Pre-binding pixels: tip-era used full registry; keep accept path working.
-    return state.sequencers.map((s) => s.address);
-  }
-  return electableSequencersAt(pixels, height);
+  const genesis = pixels[0];
+  if (!genesis) return [];
+  return membersAt({
+    founder: genesis.lightProof.sequencerAddress,
+    height,
+    recordsAt: (index) => pixels[index]?.membership,
+  });
 }
 
 export async function verifyChain(state: PixelChainState): Promise<boolean> {
   if (state.pixels.length === 0) return false;
-  const registry = new Set(state.sequencers.map((s) => s.address));
   /**
    * Signature rules are a function of height, not of now.
    *
@@ -1238,18 +1381,21 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
     const prevHash = i === 0 ? "0".repeat(128) : state.pixels[i - 1].hash;
     const electable = resolveElectable(block, state.pixels, i);
     if (!electable.includes(block.lightProof.sequencerAddress)) return false;
-    if (!registry.has(block.lightProof.sequencerAddress)) return false;
-    for (const addr of electable) {
-      if (!registry.has(addr)) return false;
-    }
-    // The electable set may only grow: a producer cannot shrink the lottery to
-    // itself at some height and still chain to its parent (PIX-04).
-    const parentBound = i > 0 ? state.pixels[i - 1].lightProof.electable : undefined;
-    if (parentBound && parentBound.length > 0 && block.lightProof.electable) {
-      const current = new Set(block.lightProof.electable);
-      for (const addr of parentBound) {
-        if (!current.has(addr)) return false;
-      }
+    // The bound claim must equal the fold exactly. This used to only require that
+    // the set never shrank relative to the parent, which accepted any superset a
+    // producer cared to invent; the fold is a single answer, so equality is the
+    // check and `acceptBlock` applies the identical one.
+    const bound = block.lightProof.electable ?? [];
+    if (bound.length === 0) return false;
+    if (bound.join("|") !== electable.join("|")) return false;
+
+    // Membership records are validated as history too, against the set that was
+    // active when they were included.
+    if (membershipListProblem(block.membership)) return false;
+    for (const record of block.membership ?? []) {
+      if (record.includedAt !== block.index) return false;
+      if (await sequencerRecordProblem(record, electableKeysFromPixels(state.pixels, i)))
+        return false;
     }
     // Timestamps must strictly increase (PIX-14).
     if (i > 0 && !(block.timestamp > state.pixels[i - 1].timestamp)) return false;

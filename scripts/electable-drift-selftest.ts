@@ -1,110 +1,170 @@
 #!/usr/bin/env bun
 /**
- * Sequencer-set drift between two operators.
+ * Sequencer-set drift between two operators — now impossible by construction.
  *
- * `registerSequencer` mutates local state from gossip hellos. It is not a
- * transaction, is not carried in a block, and is not signed into consensus. But
- * `acceptBlock` requires a block's bound electable set to equal the validator's
- * own derived set *exactly*.
+ * ## What this file used to say
  *
- * With one operator that never matters. With two it is the first thing to break:
- * a node that has not yet heard a peer's hello rejects that peer's blocks.
+ * It used to demonstrate the defect, deliberately, and it was right to:
  *
- * Worse, the two validation paths disagree with each other. `verifyChain` takes
- * the electable set from the block and only checks that it grows monotonically,
- * so the same block is valid as history and invalid live. A chain whose live
- * validity depends on out-of-band gossip state is not independently verifiable,
- * which is the property the whole project rests on.
+ *   > `registerSequencer` mutates local state from gossip hellos. It is not a
+ *   > transaction, is not carried in a block, and is not signed into consensus. But
+ *   > `acceptBlock` requires a block's bound electable set to equal the validator's
+ *   > own derived set *exactly*.
+ *   >
+ *   > With one operator that never matters. With two it is the first thing to break:
+ *   > a node that has not yet heard a peer's hello rejects that peer's blocks.
  *
- * This test documents the gap. It asserts the drift is real, not that it is
- * acceptable.
+ * And it closed with the fix, which is the sentence this rewrite implements:
+ *
+ *   > sequencer membership must be carried by the chain, not by gossip, before more
+ *   > operators can help. Until then, adding operators adds disagreement rather than
+ *   > network.
+ *
+ * ## What it says now
+ *
+ * Membership is a fold over the records committed in pixels (`membership.ts`), seeded
+ * with genesis' producer. `state.sequencers` survives only as a public-key lookup for
+ * display, and validation never reads it. So the question this file was written to ask
+ * — *does whose hello arrived first change whether a block is valid?* — no longer has
+ * a way to be answered yes.
+ *
+ * The tests are therefore inverted rather than deleted. Deleting them would lose the
+ * record of what was wrong, and the inverted assertions are the strongest possible
+ * statement that it is fixed: the *same scenario*, the *same drifted views*, and now
+ * one verdict.
  */
 
 import {
   acceptBlock,
   createGenesis,
+  electableAt,
+  noteSequencerKey,
   proposeTransfer,
-  nextSequencerAddress,
-  registerSequencer,
   sequenceBlock,
   verifyChain,
+  type PixelChainState,
 } from "../src/lib/pixel/chain";
-import { generateLightKeypair } from "../src/lib/pixel/crypto";
+import { generatePixelKeypair } from "../src/lib/pixel/scheme";
 
-function assert(cond: unknown, msg: string): void {
-  if (!cond) {
+let failures = 0;
+function check(cond: unknown, msg: string): void {
+  if (cond) console.log(`▸ ${msg} ✓`);
+  else {
     console.error(`✗ ${msg}`);
-    process.exit(1);
+    failures++;
   }
 }
 
-console.log("═══ ELECTABLE DRIFT ═══\n");
+console.log("═══ ELECTABLE DRIFT — membership is history, so drift cannot happen ═══\n");
 
-const alice = await generateLightKeypair();
-const bob = await generateLightKeypair();
+const alice = await generatePixelKeypair("PIX-ML-DSA-65");
+const bob = await generatePixelKeypair("PIX-ML-DSA-65");
 
 // Operator A has heard from both. Operator B has only heard itself — a hello in
-// flight, a restart, or simply joining a minute later.
+// flight, a restart, or simply joining a minute later. Exactly the original setup.
 let a = await createGenesis(alice);
-a = registerSequencer(a, bob);
+a = noteSequencerKey(a, bob);
 
-let b = structuredClone(a) as typeof a;
-b = { ...b, sequencers: b.sequencers.filter((s) => s.address !== bob.address) };
-b = registerSequencer(b, bob);
-b = { ...b, sequencers: b.sequencers.filter((s) => s.address !== alice.address) };
+let b = structuredClone(a) as PixelChainState;
+b = { ...b, utxos: new Map(a.utxos), usedOtsLeaves: new Set(a.usedOtsLeaves) };
+b = { ...b, sequencers: b.sequencers.filter((s) => s.address === bob.address) };
 
-console.log(`▸ A knows ${a.sequencers.length} sequencer(s), B knows ${b.sequencers.length} ✓`);
-assert(a.sequencers.length === 2, "A must know both operators");
-assert(b.sequencers.length === 1, "B must know only itself — the drifted view");
+console.log(`▸ A's key table lists ${a.sequencers.length}, B's lists ${b.sequencers.length}`);
+check(a.sequencers.length === 2, "A notes both operators' keys");
+check(b.sequencers.length === 1, "B notes only its own — the drifted view");
 
-// A produces an honest block under its own view.
+// The point: those tables no longer decide anything. Both nodes fold the same
+// membership from the same history.
+const aElectable = electableAt(a, 1);
+const bElectable = electableAt(b, 1);
+check(
+  aElectable.join("|") === bElectable.join("|"),
+  `both nodes fold the SAME electable set despite opposite key tables (${aElectable.length} member)`,
+);
+check(
+  aElectable.length === 1 && aElectable[0] === alice.address,
+  "and it is genesis' producer, because no membership record has been committed",
+);
+
+// Bob is noted by A but is not electable, because being known is not being a member.
+check(
+  !aElectable.includes(bob.address),
+  "B is in A's key table yet NOT electable — a hello confers no authority",
+);
+
+// A produces an honest block. Only the founder can, so there is no lottery to lose.
 ({ state: a } = await proposeTransfer(a, alice, [{ amount: 1, address: bob.address }], {
   description: "a real moment",
 }));
-// Whoever the lottery picks produces it; the point is the bound set, not who won.
-const turn = nextSequencerAddress(a);
-const producer = turn === alice.address ? alice : bob;
-a = await sequenceBlock(a, producer);
+a = await sequenceBlock(a, alice);
 const block = a.pixels[a.pixels.length - 1]!;
 console.log(
-  `▸ A sequenced #${block.index} binding ${block.lightProof.electable?.length} electable ✓`,
+  `▸ A sequenced #${block.index} binding ${block.lightProof.electable?.length} electable address`,
 );
 
-// The chain A holds is valid history by the chain's own rules.
-assert(await verifyChain(a), "A's chain must verify as history");
-console.log("▸ verifyChain accepts it — history takes the electable set from the block ✓");
+check(await verifyChain(a), "A's chain verifies as history");
 
-// B rejects the very same block, because acceptBlock compares against gossip state.
-let rejected = "";
+// The original defect: B rejected this very block. Now it accepts it.
+let bRejection = "";
+let accepted: PixelChainState | null = null;
 try {
-  await acceptBlock(b, block);
-} catch (e) {
-  rejected = (e as Error).message;
+  accepted = await acceptBlock(b, block);
+} catch (err) {
+  bRejection = (err as Error).message;
 }
-assert(rejected !== "", "B must reject a block bound to an electable set it does not share");
-assert(
-  /[Ee]lectable/.test(rejected),
-  `rejection must be about the electable set, got: ${rejected}`,
+check(
+  accepted !== null,
+  `B accepts the same block live${bRejection ? ` — but rejected it: ${bRejection}` : ""}`,
 );
-console.log(`▸ B rejects the same block live: "${rejected.slice(0, 72)}…" ✓`);
+check(
+  accepted?.pixels.length === block.index + 1,
+  "…and lands on the same height, with no hello having been exchanged",
+);
 
-// The two paths disagree about one block. That is the defect.
+// The two paths must agree about the one block — that was the actual defect.
+check(accepted != null && (await verifyChain(accepted)), "B's resulting chain also verifies");
+
+// A node that knows nobody at all still agrees, which is the strongest form of the
+// property: validity depends on history alone.
+const knowsNobody: PixelChainState = { ...b, sequencers: [] };
+let blindAccepted = false;
+try {
+  const next = await acceptBlock(knowsNobody, block);
+  blindAccepted = next.pixels.length === block.index + 1;
+} catch {
+  blindAccepted = false;
+}
+check(blindAccepted, "a node with an EMPTY key table accepts it too");
+
+// And the inverse: a node that has been told about a hundred strangers agrees as well,
+// so gossip can neither add nor remove electability.
+let noisy: PixelChainState = { ...b };
+for (let i = 0; i < 100; i++) {
+  const noise = await generatePixelKeypair("PIX-ML-DSA-65");
+  noisy = noteSequencerKey(noisy, noise);
+}
+check(
+  electableAt(noisy, 1).length === 1,
+  "100 gossiped strangers do not widen the electable set by one",
+);
+let noisyAccepted = false;
+try {
+  const next = await acceptBlock(noisy, block);
+  noisyAccepted = next.pixels.length === block.index + 1;
+} catch {
+  noisyAccepted = false;
+}
+check(noisyAccepted, "and that node accepts the same block");
+
 console.log(
-  "\n▸ DRIFT CONFIRMED — one block, valid as history and invalid live, decided by\n" +
-    "  who had heard whose hello. Membership is gossip state; block validity\n" +
-    "  depends on it. Two operators is where this starts to bite.",
+  "\n▸ DRIFT CLOSED — membership is a fold over committed records, so a block's\n" +
+    "  validity cannot depend on which hello arrived first. Adding operators now\n" +
+    "  adds network rather than disagreement.",
 );
 
-// Convergence is the current mitigation, and it is worth stating that it works
-// once the hello lands — the problem is the window, not permanence.
-const converged = registerSequencer(b, alice);
-const accepted = await acceptBlock(converged, block);
-assert(accepted.pixels.length === block.index + 1, "once B hears the hello, the block accepts");
-console.log("▸ after B hears A's hello, the same block accepts — the window closes, late ✓");
-
-console.log(
-  "\nwhat this means: sequencer membership must be carried by the chain, not by\n" +
-    "gossip, before more operators can help. Until then, adding operators adds\n" +
-    "disagreement rather than network.",
-);
-console.log("\n═══ PASS — the drift is real and reproducible ═══");
+console.log();
+if (failures > 0) {
+  console.error(`═══ FAIL — ${failures} check(s) failed ═══`);
+  process.exit(1);
+}
+console.log("═══ PASS — one history, one verdict ═══");

@@ -18,6 +18,7 @@ import {
   proposeTransfer,
   punishPeer,
   registerSequencer,
+  noteSequencerKey,
   replaceTipIfBetter,
   rewardPeer,
   sequenceBlock,
@@ -713,12 +714,21 @@ export class PixelLedgerNode {
         break;
       }
       try {
-        // Learn producer before accept — electable ⊆ registry requires it.
-        this.chain = registerSequencer(this.chain, {
+        // No "learn producer before accept" here any more. That line registered a
+        // block's *claimed* producer into the local registry before validating the
+        // block, and acceptBlock then checked the block's electable set against that
+        // just-poisoned registry — so a stranger who ground one keypair until it won
+        // the lottery could extend the tip, mint the light reward, and become
+        // permanently electable, with verifyChain returning true afterwards.
+        //
+        // The electable set is now folded from history inside acceptBlock, so there
+        // is nothing to learn and nothing to poison. Producer keys are still noted
+        // *after* acceptance, for display only.
+        this.chain = await acceptBlock(this.chain, pixel);
+        this.chain = noteSequencerKey(this.chain, {
           address: pixel.lightProof.sequencerAddress,
           publicKey: pixel.lightProof.sequencerPublicKey,
         });
-        this.chain = await acceptBlock(this.chain, pixel);
         n++;
         this.noteTipProgress();
         this.fanoutWave(pixel, "accept");
