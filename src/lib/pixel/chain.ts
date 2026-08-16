@@ -35,11 +35,14 @@ import {
   signTransaction,
   verifyTransactionSignaturesForOwners,
   type ReadableMeta,
+  type SignaturePolicy,
+  type SignatureVerifier,
   type Transaction,
   type TxOutput,
   type Utxo,
 } from "./transaction";
 import { assertSovereignIfLive, type NodeProvider } from "./sovereignty";
+import { signaturePolicyAtHeight } from "./sig-era";
 
 export interface LedgerPixel {
   index: number;
@@ -555,7 +558,11 @@ function outputTotalOf(tx: Transaction): number {
  * repeated inside the transaction, and value is conserved. Returns the fee.
  * Mutates `working` only on success.
  */
-async function applySpendTx(working: Map<string, Utxo>, tx: Transaction): Promise<number> {
+async function applySpendTx(
+  working: Map<string, Utxo>,
+  tx: Transaction,
+  policy?: SignaturePolicy,
+): Promise<number> {
   const outputTotal = outputTotalOf(tx);
   const seen = new Set<string>();
   let inputTotal = 0;
@@ -576,6 +583,7 @@ async function applySpendTx(working: Map<string, Utxo>, tx: Transaction): Promis
   const authorized = await verifyTransactionSignaturesForOwners(
     tx,
     (txid, vout) => working.get(utxoKey(txid, vout))?.address,
+    policy,
   );
   if (!authorized) {
     throw new BlockValidationError(
@@ -605,6 +613,13 @@ export async function validateAndApplyBlockTxs(params: {
   utxos: Map<string, Utxo>;
   txs: Transaction[];
   index: number;
+  /**
+   * Signature rules to apply. Omitted ⇒ current rules, which is right for every
+   * produce path and for `acceptBlock` (a new block is always current-era).
+   * `verifyChain` passes an era-aware policy because it replays history that
+   * predates PIX-10/PIX-16 — see `sig-era.ts`.
+   */
+  policy?: SignaturePolicy;
 }): Promise<{ utxos: Map<string, Utxo>; fees: number; coinbaseTotal: number }> {
   const { txs, index } = params;
   if (txs.length === 0) throw new BlockValidationError("Block carries no transactions");
@@ -626,7 +641,7 @@ export async function validateAndApplyBlockTxs(params: {
       coinbaseTotal = outputTotalOf(tx);
       creditOutputs(working, tx);
     } else {
-      fees += await applySpendTx(working, tx);
+      fees += await applySpendTx(working, tx, params.policy);
     }
   }
 
@@ -1168,6 +1183,17 @@ export function resolveElectable(
 export async function verifyChain(state: PixelChainState): Promise<boolean> {
   if (state.pixels.length === 0) return false;
   const registry = new Set(state.sequencers.map((s) => s.address));
+  /**
+   * Signature rules are a function of height, not of now.
+   *
+   * PIX-10/PIX-16 replaced three signature constructions in one commit, so pixels
+   * produced before it were signed under rules no later code could check. Replaying
+   * history therefore has to ask "what was true here", which is the only reason this
+   * closure exists. New blocks never touch it — `acceptBlock` keeps the current rules
+   * unconditionally. See `sig-era.ts`.
+   */
+  const policyAt = (height: number): SignaturePolicy =>
+    signaturePolicyAtHeight({ networkId: state.networkId, height });
   let usedOts = new Set<string>();
   let replayUtxos = new Map<string, Utxo>();
   let replayMinted = 0;
@@ -1202,7 +1228,8 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
       skipCount,
     );
     if (block.lightProof.sequencerAddress !== expectedSequencer) return false;
-    if (!(await verifyLightProof(block.lightProof, expectedSequencer))) return false;
+    if (!(await verifyLightProof(block.lightProof, expectedSequencer, policyAt(i).verify)))
+      return false;
     try {
       assertFieldWitnessesMatch(
         block.lightProof.fieldDigest,
@@ -1266,6 +1293,7 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
         utxos: replayUtxos,
         txs: block.transactions,
         index: block.index,
+        policy: policyAt(i),
       });
       replayUtxos = applied.utxos;
       replayMinted += applied.coinbaseTotal;

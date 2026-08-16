@@ -211,9 +211,22 @@ export async function createLightProof(params: {
   };
 }
 
+/**
+ * Verify a PoLS proof.
+ *
+ * `verify` is injectable for the same reason it is on transactions: the signature
+ * construction changed once (PIX-10/PIX-16), so replaying a pixel from before that
+ * change needs the rule that applied then. `sig-era.ts` decides which; the default
+ * is the current one, so every produce path and `acceptBlock` are unaffected.
+ */
 export async function verifyLightProof(
   proof: LightProof,
   expectedSequencer: string,
+  verify: (
+    message: string,
+    signatureJson: string,
+    publicKey: Hex,
+  ) => Promise<boolean> = verifyPixel,
 ): Promise<boolean> {
   if (proof.sequencerAddress !== expectedSequencer) return false;
   const skipCount = proof.skipCount ?? 0;
@@ -241,7 +254,7 @@ export async function verifyLightProof(
     proof.waveDigest,
     proof.spatialRoot,
   );
-  return verifyPixel(message, proof.signature, proof.sequencerPublicKey);
+  return verify(message, proof.signature, proof.sequencerPublicKey);
 }
 
 /**

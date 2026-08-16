@@ -55,17 +55,8 @@ interface Fixture {
  * typecheck ratchet: a ceiling you may lower and must never raise.
  */
 const KNOWN_GAPS = new Map<string, string>([
-  // Remove this entry in the commit that lands the fix, never by editing it.
-  [
-    "verifyChain accepts real history",
-    "Pixels 0-12 were signed before PIX-10/PIX-16 (commit c8d5d54) changed three things at " +
-      "once: ML-DSA domain separation moved from a message prefix into the FIPS-204 ctx " +
-      "parameter, the OTS signed-digest width went 128 -> 256 bits, and OTS payloads gained a " +
-      "length-prefixed domain tag. Each change was right on its own; together they shipped " +
-      "with no migration, so history signed under the old rules cannot verify under the new " +
-      "ones. Nothing noticed because deserializeChain never calls verifyChain and acceptBlock " +
-      "only ever sees new blocks. Fix in progress: T1.0, a bounded legacy verification era.",
-  ],
+  // Empty, and the only acceptable direction. Add an entry only with a reason and a
+  // named fix in flight; delete it in the commit that lands the fix.
 ]);
 
 let failures = 0;
