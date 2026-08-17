@@ -157,7 +157,7 @@ export const blockTransactionSchema = z.object({
  */
 export const sequencerRecordSchema = z
   .object({
-    kind: z.enum(["sequencer-join", "sequencer-leave"]),
+    kind: z.enum(["sequencer-join", "sequencer-leave", "sequencer-bond-join"]),
     address: pixAddress,
     publicKey: hexString,
     scheme: z.enum(["PIX-HASH-OTS-128", "PIX-ML-DSA-65"]),
@@ -165,6 +165,7 @@ export const sequencerRecordSchema = z
     possession: z.string().min(1).max(262_144),
     authorizedBy: pixAddress,
     authorization: z.string().min(1).max(262_144),
+    bondUnits: z.number().int().min(0).optional(),
   })
   .strict();
 

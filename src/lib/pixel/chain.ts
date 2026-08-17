@@ -44,6 +44,7 @@ import {
   sequencerRecordProblem,
   type SequencerRecord,
 } from "./membership";
+import { bondDoorAt, bondLockPaidInTxs } from "./membership-bond";
 import { assertMomentAllowed, giftAndRecordEnabled } from "./gift-and-record";
 import {
   createTransaction,
@@ -558,7 +559,52 @@ export function canonicalElectable(addresses: string[]): string[] {
   return canonicalMembers(addresses);
 }
 
-/** Genesis' producer — the seed of every membership fold, and never evictable. */
+/**
+ * Validate every membership record on a pixel against invitation and (when enabled)
+ * hybrid bond-door rules. Shared by sequence / accept / verify so the three paths
+ * cannot diverge.
+ */
+async function assertMembershipRecords(params: {
+  state: PixelChainState;
+  height: number;
+  records: readonly SequencerRecord[] | undefined;
+  txs: readonly Transaction[];
+  atTimestamp: number;
+}): Promise<void> {
+  const listProblem = membershipListProblem(params.records);
+  if (listProblem) throw new Error(listProblem);
+  const door = bondDoorAt({
+    networkId: params.state.networkId,
+    founder: founderOf(params.state),
+    height: params.height,
+    recordsAt: (index) => params.state.pixels[index]?.membership,
+    timestampAt: (index) => params.state.pixels[index]?.timestamp ?? 0,
+    atTimestamp: params.atTimestamp,
+  });
+  for (const record of params.records ?? []) {
+    if (record.includedAt !== params.height) {
+      throw new Error(
+        `Membership record claims includedAt #${record.includedAt} inside pixel #${params.height}`,
+      );
+    }
+    const burnOk =
+      record.kind === "sequencer-bond-join"
+        ? bondLockPaidInTxs({
+            txs: params.txs,
+            utxoOwner: (txid, vout) => params.state.utxos.get(utxoKey(txid, vout))?.address,
+            joiner: record.address,
+            bondUnits: record.bondUnits ?? 0,
+          })
+        : false;
+    const problem = await sequencerRecordProblem(record, electableKeysAt(params.state, params.height), {
+      networkId: params.state.networkId,
+      bondDoorOpen: door.open,
+      bondBurnSatisfied: burnOk,
+    });
+    if (problem) throw new Error(problem);
+  }
+}
+
 export function founderOf(state: PixelChainState): string {
   const genesis = state.pixels[0];
   if (!genesis) throw new Error("Cannot derive membership without a genesis pixel");
@@ -1070,17 +1116,13 @@ export async function sequenceBlock(
   // Validate membership records with the accept path's own checker, so a producer
   // cannot ship a record only it would accept.
   const membership = opts.membership ?? [];
-  const listProblem = membershipListProblem(membership);
-  if (listProblem) throw new Error(listProblem);
-  for (const record of membership) {
-    if (record.includedAt !== nextIndex) {
-      throw new Error(
-        `Membership record claims includedAt #${record.includedAt} but this pixel is #${nextIndex}`,
-      );
-    }
-    const problem = await sequencerRecordProblem(record, electableKeysAt(state, nextHeight));
-    if (problem) throw new Error(problem);
-  }
+  await assertMembershipRecords({
+    state,
+    height: nextIndex,
+    records: membership,
+    txs: revealed,
+    atTimestamp: timestamp,
+  });
   const membershipDigestValue = (await membershipDigest(membership)) ?? undefined;
 
   const root = await merkleRoot(revealed.map((t) => t.txid));
@@ -1239,17 +1281,13 @@ export async function acceptBlock(
   // Membership records this block commits. Validated before the block is accepted,
   // and they take effect only after the activation delay — so a producer can never
   // be elected by a set it wrote itself.
-  const listProblem = membershipListProblem(block.membership);
-  if (listProblem) throw new Error(listProblem);
-  for (const record of block.membership ?? []) {
-    if (record.includedAt !== block.index) {
-      throw new Error(
-        `Membership record claims includedAt #${record.includedAt} inside pixel #${block.index}`,
-      );
-    }
-    const problem = await sequencerRecordProblem(record, electableKeysAt(state, block.index));
-    if (problem) throw new Error(problem);
-  }
+  await assertMembershipRecords({
+    state,
+    height: block.index,
+    records: block.membership,
+    txs: block.transactions,
+    atTimestamp: block.timestamp,
+  });
 
   const chosen = selectSequencerWithSkip(tip.hash, block.sequence, electable, skipCount);
   if (!(await verifyLightProof(block.lightProof, chosen))) {
@@ -1551,11 +1589,22 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
 
     // Membership records are validated as history too, against the set that was
     // active when they were included.
-    if (membershipListProblem(block.membership)) return false;
-    for (const record of block.membership ?? []) {
-      if (record.includedAt !== block.index) return false;
-      if (await sequencerRecordProblem(record, electableKeysFromPixels(state.pixels, i)))
-        return false;
+    try {
+      await assertMembershipRecords({
+        state: {
+          ...state,
+          // Keep genesis in the pixel list so founderOf works at height 0; records
+          // below `height` are what the door / fold consult, never the pixel under check.
+          pixels: state.pixels.slice(0, Math.max(i, 1)),
+          utxos: replayUtxos,
+        },
+        height: block.index,
+        records: block.membership,
+        txs: block.transactions,
+        atTimestamp: block.timestamp,
+      });
+    } catch {
+      return false;
     }
     // Timestamps must strictly increase (PIX-14).
     if (i > 0 && !(block.timestamp > state.pixels[i - 1].timestamp)) return false;

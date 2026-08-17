@@ -35,7 +35,7 @@ not Bitcoin-class survival.
 | Permissionless **verification** | **Yellow** | `verify:crowned` + ceremony pack; discovery uses mirrors but only one live host listed |
 | Many independent full copies | **Yellow** | Backup + `test:tip-failover` prove restore; still need a second human holding a copy |
 | Tip discovery without one magic host | **Yellow** | `tip-mirrors.json` + `join --mirrors` / `--public-tip`; add more live mirrors to leave Yellow |
-| Permissionless **sequencing** | **Red** | Membership needs an active member’s authorization |
+| Permissionless **sequencing** | **Yellow** | Invitation on 20553; hybrid PIX-bond door live on lab network `0x5042` (`test:bond-door`) — not on crowned Earth |
 | Economic recruitment of strangers | **Red** | Coinbase exists; strangers cannot claim seats |
 | Hosting independence (GitHub/Railway = convenience) | **Yellow** | Runbook in [`HOSTING-INDEPENDENCE.md`](./HOSTING-INDEPENDENCE.md); still one live mirror listed |
 | Finality without maintained cron | **Red** | Anchors help; finality flag off; venues are testnets |

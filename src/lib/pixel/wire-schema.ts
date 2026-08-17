@@ -129,7 +129,7 @@ const lightProofSchema = z
 /** A sequencer membership record as it travels inside a pixel. */
 const sequencerRecordWireSchema = z
   .object({
-    kind: z.enum(["sequencer-join", "sequencer-leave"]),
+    kind: z.enum(["sequencer-join", "sequencer-leave", "sequencer-bond-join"]),
     address,
     publicKey: hex,
     scheme: z.enum(["PIX-HASH-OTS-128", "PIX-ML-DSA-65"]),
@@ -137,6 +137,7 @@ const sequencerRecordWireSchema = z
     possession: z.string().max(262_144),
     authorizedBy: address,
     authorization: z.string().max(262_144),
+    bondUnits: z.number().int().min(0).optional(),
   })
   .strict();
 

@@ -199,21 +199,20 @@ compute the same set, so a block's validity cannot depend on which hello arrived
 Invariant: a block must bind an `electable` set byte-identical to the fold at its own
 height. Enforced identically by `acceptBlock` and `verifyChain`.
 
-#### 4.2.1 Hybrid bond door (DRAFT — not normative on network 20553)
+#### 4.2.1 Hybrid bond door (lab — network `0x5042` only)
 
-**Status:** designed in [`DURABILITY.md`](./DURABILITY.md); **not shipped**. Invitation-only
-(§4.2) remains the only electable path on the crowned network until vectors and a fresh
-network id land.
+**Normative on** `HYBRID_BOND_NETWORK_ID` (`0x5042`). **Not active** on crowned Earth
+(`20553`) — invitation-only (§4.2) remains the only electable path there.
 
-Intent (locked 2026-08-17):
-
-- Sequencer seats are for **bonded full verifiers** (or invitees), not a separate miner caste.
-- **Rejected:** proof-of-work admission; Light-Credits-gated seats.
-- While electable count ≥ `K`, invitation (possession + authorization) remains available.
-- If electable count < `K` for longer than `T`, one PIX-bond claim may enter per window.
-- Phones may lock bonds as light verifiers; only a **carry**-opted reachable subset enters
-  the producer lottery (`POLS_MAX_SKIP` cannot cover millions of asleep devices).
-- Provisional lab parameters (inactive): `K=2`, `T=10080` minutes, bond floor `50 PIX`.
+- While electable count ≥ `BOND_DOOR_K` (2), invitation (possession + authorization) is
+  the path; the bond door is closed.
+- If electable count < K for chain-time ≥ `BOND_DOOR_T_MS` (7 days), one
+  `sequencer-bond-join` may be included per vacancy, locking ≥ `BOND_FLOOR_PIX` (50) to
+  `BOND_LOCK_ADDRESS`.
+- Bond joins carry possession + a self-bond signature (`pix-membership-bond|…`); no
+  living authorizer.
+- **Rejected forever:** proof-of-work admission; Light-Credits-gated seats.
+- Vectors: `fixtures/vectors/bond-door-v1.json`. Evidence: `test:bond-door`.
 
 ### 4.3 Block validity
 

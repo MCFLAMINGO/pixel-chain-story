@@ -72,7 +72,7 @@ import { addressForScheme, schemeFromSignature, verifyPixel, type SchemeId } fro
  */
 export const MEMBERSHIP_ACTIVATION_DELAY = 8;
 
-export type SequencerRecordKind = "sequencer-join" | "sequencer-leave";
+export type SequencerRecordKind = "sequencer-join" | "sequencer-leave" | "sequencer-bond-join";
 
 export interface SequencerRecord {
   kind: SequencerRecordKind;
@@ -90,10 +90,18 @@ export interface SequencerRecord {
   includedAt: number;
   /** Signature by `publicKey` — proves the subject consented. */
   possession: string;
-  /** Address of the active member that authorised this. */
+  /**
+   * Address of the active member that authorised this.
+   * For `sequencer-bond-join`, this is the joiner's own address (self-bond attestation).
+   */
   authorizedBy: string;
-  /** Signature by `authorizedBy`'s key over the same claim. */
+  /** Signature by `authorizedBy`'s key over the auth / bond message. */
   authorization: string;
+  /**
+   * PIX base units locked for a bond join. Required when kind is `sequencer-bond-join`;
+   * omitted for invitation joins so crowned history stays byte-identical.
+   */
+  bondUnits?: number;
 }
 
 export class MembershipError extends Error {
@@ -112,10 +120,10 @@ export function canonicalMembers(addresses: readonly string[]): string[] {
 export function membershipClaim(
   record: Pick<
     SequencerRecord,
-    "kind" | "address" | "publicKey" | "scheme" | "includedAt" | "authorizedBy"
+    "kind" | "address" | "publicKey" | "scheme" | "includedAt" | "authorizedBy" | "bondUnits"
   >,
 ): string {
-  return [
+  const parts = [
     "pix-membership",
     record.kind,
     record.address,
@@ -123,7 +131,11 @@ export function membershipClaim(
     record.scheme,
     String(record.includedAt),
     record.authorizedBy,
-  ].join("|");
+  ];
+  if (record.kind === "sequencer-bond-join") {
+    parts.push(String(record.bondUnits ?? 0));
+  }
+  return parts.join("|");
 }
 
 /** Domain-separated possession message — distinct preimage from the authorization. */
@@ -180,8 +192,17 @@ export interface MemberKey {
 export async function sequencerRecordProblem(
   record: SequencerRecord,
   activeAtInclusion: ReadonlyMap<string, MemberKey>,
+  opts?: {
+    networkId?: number;
+    bondDoorOpen?: boolean;
+    bondBurnSatisfied?: boolean;
+  },
 ): Promise<string | null> {
-  if (record.kind !== "sequencer-join" && record.kind !== "sequencer-leave") {
+  if (
+    record.kind !== "sequencer-join" &&
+    record.kind !== "sequencer-leave" &&
+    record.kind !== "sequencer-bond-join"
+  ) {
     return `unknown membership record kind ${String(record.kind)}`;
   }
   if (!/^pix1[a-f0-9]{38}$/.test(record.address)) {
@@ -207,6 +228,39 @@ export async function sequencerRecordProblem(
   }
   if (!(await verifyPixel(possessionMessage(record), record.possession, record.publicKey))) {
     return `membership record for ${record.address} has an invalid possession signature`;
+  }
+
+  if (record.kind === "sequencer-bond-join") {
+    const { hybridBondDoorEnabled, BOND_FLOOR_UNITS, bondAuthorizationMessage } = await import(
+      "./membership-bond"
+    );
+    if (opts?.networkId == null || !hybridBondDoorEnabled(opts.networkId)) {
+      return "sequencer-bond-join is refused on this network (invitation-only)";
+    }
+    if (!opts.bondDoorOpen) {
+      return "sequencer-bond-join refused — bond door is not open at this height";
+    }
+    if (
+      record.bondUnits == null ||
+      !Number.isInteger(record.bondUnits) ||
+      record.bondUnits < BOND_FLOOR_UNITS
+    ) {
+      return `sequencer-bond-join bondUnits must be ≥ ${BOND_FLOOR_UNITS} PIX`;
+    }
+    if (record.authorizedBy !== record.address) {
+      return "sequencer-bond-join must be self-authorised (authorizedBy === address)";
+    }
+    const bondMsg = bondAuthorizationMessage(record);
+    if (!(await verifyPixel(bondMsg, record.authorization, record.publicKey))) {
+      return `membership record for ${record.address} has an invalid bond authorization signature`;
+    }
+    if (record.authorization === record.possession) {
+      return "membership bond authorization must not be a copy of the possession signature";
+    }
+    if (!opts.bondBurnSatisfied) {
+      return `sequencer-bond-join requires a lock of ≥ ${record.bondUnits} base units to the bond lock address in this pixel`;
+    }
+    return null;
   }
 
   // Authorization: signed by an address already active at the height of inclusion,
@@ -260,7 +314,9 @@ export function membersAt(params: {
   const cutoff = params.height - MEMBERSHIP_ACTIVATION_DELAY;
   for (let i = 0; i <= cutoff; i++) {
     for (const record of params.recordsAt(i) ?? []) {
-      if (record.kind === "sequencer-join") active.add(record.address);
+      if (record.kind === "sequencer-join" || record.kind === "sequencer-bond-join") {
+        active.add(record.address);
+      }
       // The founder cannot be removed. A chain that can evict its own genesis
       // producer can be emptied, and an empty electable set is a dead chain with no
       // way back — there would be nobody left who could authorise a join.
@@ -291,7 +347,7 @@ export function memberKeysAt(params: {
   const cutoff = params.height - MEMBERSHIP_ACTIVATION_DELAY;
   for (let i = 0; i <= cutoff; i++) {
     for (const record of params.recordsAt(i) ?? []) {
-      if (record.kind === "sequencer-join") {
+      if (record.kind === "sequencer-join" || record.kind === "sequencer-bond-join") {
         active.set(record.address, { publicKey: record.publicKey, scheme: record.scheme });
       } else if (record.address !== params.founder) {
         active.delete(record.address);
@@ -382,6 +438,33 @@ export async function createSequencerLeave(params: {
   };
 }
 
+/**
+ * Build a bond join — no living authorizer. The door must be open on a hybrid-bond
+ * network; the carrying pixel must lock `bondUnits` to the bond lock address.
+ */
+export async function createSequencerBondJoin(params: {
+  joiner: { address: string; publicKey: Hex; scheme?: SchemeId };
+  includedAt: number;
+  bondUnits: number;
+  sign: (message: string) => Promise<string>;
+}): Promise<SequencerRecord> {
+  const { bondAuthorizationMessage } = await import("./membership-bond");
+  const claim = {
+    kind: "sequencer-bond-join" as const,
+    address: params.joiner.address,
+    publicKey: params.joiner.publicKey,
+    scheme: (params.joiner.scheme ?? "PIX-ML-DSA-65") as SchemeId,
+    includedAt: params.includedAt,
+    authorizedBy: params.joiner.address,
+    bondUnits: params.bondUnits,
+  };
+  return {
+    ...claim,
+    possession: await params.sign(possessionMessage(claim)),
+    authorization: await params.sign(bondAuthorizationMessage(claim)),
+  };
+}
+
 export function membershipThesis(): {
   rule: string;
   activationDelay: number;
@@ -391,14 +474,17 @@ export function membershipThesis(): {
     rule:
       "The electable set at a height is a fold over membership records committed before it, " +
       "seeded with genesis' producer. Membership is an output of history, never an input to " +
-      "validation.",
+      "validation. On hybrid-bond networks a PIX bond may open when the set would go extinct; " +
+      "crowned Earth stays invitation-only.",
     activationDelay: MEMBERSHIP_ACTIVATION_DELAY,
     refusals: [
       "A block cannot bring its own producer into the electable set",
       "A join needs possession by the subject AND authorization by an active member",
+      "A bond join needs possession, a self-bond signature, an open door, and a lock payment",
       "A record takes effect only after the activation delay, so no producer is elected by a set it just wrote",
       "Gossip cannot change who may produce — a hello is display metadata",
       "The founding producer cannot be evicted, so the set can never be emptied",
+      "PoW and Light-Credits seats do not exist",
     ],
   };
 }
