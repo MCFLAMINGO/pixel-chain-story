@@ -14,9 +14,11 @@ import {
   jsonRpcRequestSchema,
   parseJsonWithSchema,
   readBodyWithLimit,
+  sequencerRecordSchema,
   transactionSchema,
   ValidationError,
 } from "../lib/pixel/validators";
+import { MEMBERSHIP_ACTIVATION_DELAY, type SequencerRecord } from "../lib/pixel/membership";
 import { handleContinuityHttp, type ContinuityHttpCtx } from "./continuity-http";
 import { MempoolRejected } from "../lib/pixel/mempool";
 import { keyAtRest } from "./store";
@@ -60,6 +62,7 @@ export interface RpcServerOpts {
  */
 const WRITE_PATHS = [
   "/tx",
+  "/membership",
   "/faucet",
   "/bridge/shine-in-lock",
   "/bridge/shine-in",
@@ -407,6 +410,43 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
           tip: node.chain.pixels.length - 1,
           pending: node.chain.pending.length,
           txid: tx.txid,
+        });
+      }
+
+      /**
+       * Commit a sequencer membership change.
+       *
+       * Unauthenticated by design, because a valid record *is* its own authentication: it
+       * carries a possession signature by the joining key and an authorization signature
+       * by a member already active at that height. Anyone may relay one; nobody can forge
+       * one. Rate-limited like every other write.
+       */
+      if (req.method === "POST" && url.pathname === "/membership") {
+        const body = await readBodyWithLimit(req, MAX_RPC_BODY_BYTES);
+        if (!body.ok) return json({ ok: false, error: body.error }, { status: 413 });
+        let record: SequencerRecord;
+        try {
+          record = parseJsonWithSchema(body.text, sequencerRecordSchema, {
+            maxBytes: MAX_RPC_BODY_BYTES,
+            label: "membership",
+          }) as SequencerRecord;
+        } catch (e) {
+          const msg = e instanceof ValidationError ? e.message : "bad membership record";
+          return json({ ok: false, error: msg }, { status: 400 });
+        }
+        try {
+          await node.submitMembership(record);
+        } catch (err) {
+          return json(
+            { ok: false, error: err instanceof Error ? err.message : String(err) },
+            { status: 400 },
+          );
+        }
+        return json({
+          ok: true,
+          queued: node.membershipQueue().length,
+          activeAt: record.includedAt + MEMBERSHIP_ACTIVATION_DELAY,
+          nextPixel: node.chain.pixels.length,
         });
       }
 

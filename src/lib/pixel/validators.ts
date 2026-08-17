@@ -148,6 +148,26 @@ export const blockTransactionSchema = z.object({
   inputs: z.array(txInputSchema).max(64),
 });
 
+/**
+ * A sequencer membership record arriving over HTTP.
+ *
+ * Shape only. Whether the signatures are *good* and whether the authorizer is actually a
+ * member at that height is decided by `sequencerRecordProblem` against the fold — a schema
+ * that tried to answer those would be a second membership implementation.
+ */
+export const sequencerRecordSchema = z
+  .object({
+    kind: z.enum(["sequencer-join", "sequencer-leave"]),
+    address: pixAddress,
+    publicKey: hexString,
+    scheme: z.enum(["PIX-HASH-OTS-128", "PIX-ML-DSA-65"]),
+    includedAt: z.number().int().min(0),
+    possession: z.string().min(1).max(262_144),
+    authorizedBy: pixAddress,
+    authorization: z.string().min(1).max(262_144),
+  })
+  .strict();
+
 export const jsonRpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0"),
   id: z.union([z.string(), z.number(), z.null()]).optional(),

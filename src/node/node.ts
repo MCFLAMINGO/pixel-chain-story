@@ -49,7 +49,11 @@ import {
   type WaveFanoutSource,
   admitTransaction,
   considerBranch,
+  electableKeysAt,
+  MEMBERSHIP_ACTIVATION_DELAY,
+  sequencerRecordProblem,
   MempoolRejected,
+  type SequencerRecord,
   MAX_HELLO_SEQUENCERS,
   MAX_PIXELS_PER_MESSAGE,
   pixelPage,
@@ -113,6 +117,16 @@ export class PixelLedgerNode {
   private chainLock: Promise<void> = Promise.resolve();
   /** Gate F peer scores */
   peerBook: PeerBookState = createPeerBook();
+  /**
+   * Membership records waiting to be committed to a pixel.
+   *
+   * Membership has been on-chain since T1.1, but nothing could put a record *into* a
+   * block: `sequenceBlock` accepted a `membership` option and no caller ever passed one.
+   * So the electable set was a fold over records that could not be created — correct,
+   * enforced, and unreachable. A second operator was impossible for want of a queue.
+   */
+  private pendingMembership: SequencerRecord[] = [];
+
   private helloSig = "";
   private helloSigTip = "";
   /** Opt-in PQ transport (PIXEL_TRANSPORT_KEM=1) */
@@ -403,6 +417,43 @@ export class PixelLedgerNode {
     );
   }
 
+  /**
+   * Queue a membership record for the next pixel this node produces.
+   *
+   * Validated here against the same fold `acceptBlock` uses, so a record that could never
+   * be committed is refused at the door rather than silently held forever. `includedAt`
+   * must be the height this node is about to produce: it is signed, so it cannot be
+   * adjusted afterwards, which means the caller has to know where the tip is — and that
+   * is the honest shape of the thing, not an inconvenience to paper over.
+   */
+  async submitMembership(record: SequencerRecord): Promise<void> {
+    return this.withChainLock(async () => {
+      const nextIndex = this.chain.pixels.length;
+      if (record.includedAt !== nextIndex) {
+        throw new Error(
+          `membership record is stamped for pixel #${record.includedAt} but the next pixel ` +
+            `is #${nextIndex} — rebuild it for the current tip`,
+        );
+      }
+      const problem = await sequencerRecordProblem(record, electableKeysAt(this.chain, nextIndex));
+      if (problem) throw new Error(problem);
+      if (
+        this.pendingMembership.some((r) => r.address === record.address && r.kind === record.kind)
+      ) {
+        return;
+      }
+      this.pendingMembership.push(record);
+      console.log(
+        `[pixel-ledger] queued ${record.kind} for ${record.address.slice(0, 12)}… at #${nextIndex}`,
+      );
+    });
+  }
+
+  /** Records queued but not yet committed — for `/health` and operators. */
+  membershipQueue(): SequencerRecord[] {
+    return [...this.pendingMembership];
+  }
+
   async submitTx(tx: Transaction): Promise<void> {
     return this.withChainLock(() => this.submitTxLocked(tx));
   }
@@ -688,9 +739,27 @@ export class PixelLedgerNode {
     } else if (nextSequencerAddress(this.chain, 0) !== this.keypair.address) {
       return false;
     }
+    // Records are stamped with the height they are included at, and that height is
+    // signed, so a record built for one pixel cannot be carried into another. Re-stamping
+    // is not possible without the signers, so a record that misses its slot is dropped
+    // and must be rebuilt — which is correct: it was authorised for a specific height.
+    const nextIndex = this.chain.pixels.length;
+    const membership = this.pendingMembership.filter((r) => r.includedAt === nextIndex);
     try {
-      this.chain = await sequenceBlock(this.chain, this.keypair, { skipCount: skip });
+      this.chain = await sequenceBlock(this.chain, this.keypair, {
+        skipCount: skip,
+        membership: membership.length > 0 ? membership : undefined,
+      });
       const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
+      if (membership.length > 0) {
+        this.pendingMembership = this.pendingMembership.filter((r) => !membership.includes(r));
+        for (const r of membership) {
+          console.log(
+            `[pixel-ledger] committed ${r.kind} for ${r.address.slice(0, 12)}… in pixel #${pixel.index}` +
+              ` (active at #${pixel.index + MEMBERSHIP_ACTIVATION_DELAY})`,
+          );
+        }
+      }
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
       this.fanoutWave(pixel, "sequence");

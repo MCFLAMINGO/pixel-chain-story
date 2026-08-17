@@ -24,6 +24,8 @@ import { PixelLedgerNode } from "./node";
 import { startRpcServer } from "./rpc-server";
 import { ensureDatadir, loadOrCreateIdentity, loadWallet, saveChain, saveWallet } from "./store";
 import { keyAtRest } from "./store";
+import { createSequencerJoin, MEMBERSHIP_ACTIVATION_DELAY } from "../lib/pixel/membership";
+import { signPixel } from "../lib/pixel/scheme";
 import {
   assertNodePassphrase,
   NODE_KEY_ENV,
@@ -65,6 +67,8 @@ async function main() {
   join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip] [--require-crowned]
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
   key status|seal [--datadir DIR]        seal the node key at rest (PIXEL_KEY_PASSPHRASE)
+  membership status [--peer URL]         who may produce, and when a new record activates
+  membership invite --datadir <incumbent> --joiner-datadir <joiner> [--peer URL]
   wallet create NAME [--datadir DIR]
   wallet from-node [NAME] [--datadir DIR]
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
@@ -187,6 +191,80 @@ Friends — join crowned tip:
       `          --seed ${gossipSeed ?? "ws://<peer-host>:<gossip>/gossip"} --advertise <your-host>`,
     );
     return;
+  }
+
+  if (cmd === "membership") {
+    const sub = process.argv[3];
+    const peer = arg("peer") ?? PUBLIC_TIP_RPC_DEFAULT;
+
+    if (sub === "status") {
+      const sync = (await (await fetch(`${peer}/sync`)).json()) as {
+        pixels: Array<{ index: number; lightProof: { electable?: string[] } }>;
+      };
+      const tip = sync.pixels[sync.pixels.length - 1];
+      console.log(`tip: #${tip?.index}`);
+      console.log(`electable now: ${(tip?.lightProof.electable ?? []).join(", ")}`);
+      console.log(`next pixel: #${sync.pixels.length}`);
+      console.log(`activation delay: ${MEMBERSHIP_ACTIVATION_DELAY} pixels`);
+      return;
+    }
+
+    /**
+     * Invite a second operator.
+     *
+     * Both keys are needed, which is the ceremony rather than a limitation: adding an
+     * operator is two people agreeing, and the record is the artifact of that agreement.
+     * This is the bootstrap form, for when one person holds both — the two halves can be
+     * signed on separate machines and assembled, and that is the shape to build when
+     * there is a third operator to invite.
+     */
+    if (sub === "invite") {
+      const joinerDir = arg("joiner-datadir");
+      if (!joinerDir) {
+        console.error(
+          "usage: pixel membership invite --datadir <incumbent> --joiner-datadir <joiner> [--peer URL]",
+        );
+        process.exit(1);
+      }
+      const { loadOrCreateIdentity: loadId } = await import("./store");
+      const incumbent = (await loadId(datadir, "node")).keypair;
+      const joiner = (await loadId(joinerDir, "node")).keypair;
+
+      const health = (await (await fetch(`${peer}/health`)).json()) as { pixels: number };
+      const includedAt = health.pixels;
+
+      const record = await createSequencerJoin({
+        joiner: {
+          address: joiner.address,
+          publicKey: joiner.publicKey,
+          scheme: joiner.scheme,
+        },
+        authorizer: { address: incumbent.address },
+        includedAt,
+        sign: (message, who) => signPixel(message, who === "joiner" ? joiner : incumbent),
+      });
+
+      const res = await fetch(`${peer}/membership`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(record),
+      });
+      const out = (await res.json()) as Record<string, unknown>;
+      if (!res.ok || out.ok !== true) {
+        console.error(`membership refused: ${String(out.error ?? res.status)}`);
+        process.exit(1);
+      }
+      console.log(`invited ${joiner.address}`);
+      console.log(`  authorised by ${incumbent.address}`);
+      console.log(`  committed at pixel #${includedAt}, electable from #${out.activeAt}`);
+      console.log(
+        `  the delay is deliberate: a producer must not be elected by a set it just wrote.`,
+      );
+      return;
+    }
+
+    console.error("usage: pixel membership status|invite [--datadir DIR] [--peer URL]");
+    process.exit(1);
   }
 
   if (cmd === "key") {
