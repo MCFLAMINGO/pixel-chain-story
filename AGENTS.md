@@ -121,6 +121,7 @@ Discovery index for crawlers/LLMs: [`llms.txt`](llms.txt).
 | [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md)                       | Where things actually stand  |
 | [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md)                       | Which modules are consensus  |
 | [`docs/SPEC.md`](docs/SPEC.md)                                               | Normative behavior           |
+| [`docs/OPERATOR.md`](docs/OPERATOR.md)                                       | Adding a second operator     |
 | [`docs/FINALITY.md`](docs/FINALITY.md)                                       | What cannot revert           |
 | [`docs/VECTORS.md`](docs/VECTORS.md)                                         | Frozen protocol vectors      |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)                               | Lanes, checklist, rejects    |

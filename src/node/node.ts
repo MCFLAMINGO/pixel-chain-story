@@ -760,8 +760,8 @@ export class PixelLedgerNode {
           reference: `FAUCET-${params.address.slice(0, 18)}`,
         },
       );
-      this.chain = await sequenceBlock(spoken.state, this.keypair);
-      const tip = this.chain.pixels[this.chain.pixels.length - 1]!;
+      // Through sealPixel, so a queued membership record is not lost to a faucet request.
+      const { pixel: tip } = await this.sealPixel(spoken.state);
       this.gossip?.broadcast({ type: "pixel", pixel: tip });
       this.noteTipProgress();
       this.fanoutWave(tip, "sequence");
@@ -775,6 +775,47 @@ export class PixelLedgerNode {
         summary: `fauceted ${need} PIX → ${params.address.slice(0, 20)}… (tip #${tip.index})`,
       };
     });
+  }
+
+  /**
+   * Seal one pixel — the ONLY place this node calls `sequenceBlock`.
+   *
+   * There were two. `trySequenceLocked` drained the membership queue and `faucetPayFace`
+   * had its own `sequenceBlock` call that did not, so a join record queued just before a
+   * faucet request was silently dropped: the record was stamped for a height that the
+   * faucet then produced without it, and since the height is signed it could never be
+   * committed afterwards. The operator handshake test caught it — a second operator was
+   * authorised, the chain passed the activation height, and nobody was electable.
+   *
+   * The lesson is the same one T1.6 drew about produce and accept: two implementations of
+   * one step will disagree, and the disagreement will be silent. So there is one now, and
+   * anything that wants a pixel comes through here.
+   */
+  private async sealPixel(
+    from: PixelChainState,
+    opts: { skipCount?: number } = {},
+  ): Promise<{ pixel: LedgerPixel; committed: SequencerRecord[] }> {
+    // Records are stamped with the height they are included at, and that height is signed,
+    // so a record built for one pixel cannot be carried into another. Re-stamping is
+    // impossible without the signers, so one that misses its slot is dropped and must be
+    // rebuilt — correct, because it was authorised for a specific height.
+    const nextIndex = from.pixels.length;
+    const committed = this.pendingMembership.filter((r) => r.includedAt === nextIndex);
+    this.chain = await sequenceBlock(from, this.keypair, {
+      skipCount: opts.skipCount,
+      membership: committed.length > 0 ? committed : undefined,
+    });
+    const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
+    if (committed.length > 0) {
+      this.pendingMembership = this.pendingMembership.filter((r) => !committed.includes(r));
+      for (const r of committed) {
+        console.log(
+          `[pixel-ledger] committed ${r.kind} for ${r.address.slice(0, 12)}… in pixel #${pixel.index}` +
+            ` (active at #${pixel.index + MEMBERSHIP_ACTIVATION_DELAY})`,
+        );
+      }
+    }
+    return { pixel, committed };
   }
 
   async trySequence(): Promise<boolean> {
@@ -791,27 +832,8 @@ export class PixelLedgerNode {
     } else if (nextSequencerAddress(this.chain, 0) !== this.keypair.address) {
       return false;
     }
-    // Records are stamped with the height they are included at, and that height is
-    // signed, so a record built for one pixel cannot be carried into another. Re-stamping
-    // is not possible without the signers, so a record that misses its slot is dropped
-    // and must be rebuilt — which is correct: it was authorised for a specific height.
-    const nextIndex = this.chain.pixels.length;
-    const membership = this.pendingMembership.filter((r) => r.includedAt === nextIndex);
     try {
-      this.chain = await sequenceBlock(this.chain, this.keypair, {
-        skipCount: skip,
-        membership: membership.length > 0 ? membership : undefined,
-      });
-      const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
-      if (membership.length > 0) {
-        this.pendingMembership = this.pendingMembership.filter((r) => !membership.includes(r));
-        for (const r of membership) {
-          console.log(
-            `[pixel-ledger] committed ${r.kind} for ${r.address.slice(0, 12)}… in pixel #${pixel.index}` +
-              ` (active at #${pixel.index + MEMBERSHIP_ACTIVATION_DELAY})`,
-          );
-        }
-      }
+      const { pixel } = await this.sealPixel(this.chain, { skipCount: skip });
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
       this.fanoutWave(pixel, "sequence");
