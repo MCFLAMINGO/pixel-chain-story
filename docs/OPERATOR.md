@@ -4,8 +4,12 @@ Two people, two machines, and **neither ever holds the other's key**. That const
 whole design: possession and authorization are separate signatures precisely so that inviting
 someone does not require trusting them with anything, or them trusting you.
 
-Read [`FINALITY.md`](./FINALITY.md) and [`STATE-2026-08-17.md`](./STATE-2026-08-17.md) first if
-you want the reasoning. This file is just the steps.
+Read [`DURABILITY.md`](./DURABILITY.md) for what Tier 1 vs sequencing actually buys (readable
+vs extendable), then [`FINALITY.md`](./FINALITY.md) and [`STATE-2026-08-17.md`](./STATE-2026-08-17.md)
+if you want the reasoning. This file is just the steps.
+
+**Today sequencing is invitation-only.** A PIX-bond door for phone light-verifiers is designed
+in `DURABILITY.md` (hybrid) and not shipped — do not tell a joiner they can stake their way in.
 
 ---
 

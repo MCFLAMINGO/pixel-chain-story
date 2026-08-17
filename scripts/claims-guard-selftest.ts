@@ -200,9 +200,112 @@ check(
   "bootstrap.ts no longer advertises a halving to users in a product string",
 );
 
+// ── 4. durability overclaims (Bitcoin-shaped survival ahead of evidence) ─
+//
+// Same shape as the supply guard: name the forbidden present-tense claims, allow
+// exact historical / definitional mentions with a reason. Aspiration blocks marked
+// in docs are stripped before counting so a roadmap sentence can exist without
+// becoming a product claim.
+console.log("\n── durability grades (docs/DURABILITY.md) ──\n");
+
+const DURABILITY_STALE = [
+  /\bdecentralized network\b/gi,
+  /\bfully decentralized\b/gi,
+  /\bpermissionless mining\b/gi,
+  /\banyone can sequence\b/gi,
+  /\bno single point of failure\b/gi,
+  /\bBitcoin-class\b/gi,
+  /\bruns without anyone\b/gi,
+  /\bruns forever without\b/gi,
+  /\bhost-independent\b/gi,
+];
+
+/** Strip marked aspiration so future tense can be written without failing the build. */
+function stripAspiration(text: string): string {
+  return text
+    .replace(/<!--\s*durability-aspiration\s*-->[\s\S]*?<!--\s*\/durability-aspiration\s*-->/gi, "")
+    .replace(/^Aspiration —.*$/gm, "");
+}
+
+/**
+ * Mentions that name the ban, warn against SPOF, or quote Bitcoin — not Pixel claims.
+ * Counts are exact so a new claim cannot hide behind an old line.
+ */
+const DURABILITY_OK: Record<string, { count: number; why: string }> = {
+  "docs/DURABILITY.md": {
+    count: 11,
+    why: "the honesty map that lists the forbidden phrases and the honest sentence that negates them",
+  },
+  "src/lib/pixel/anchor-venues.ts": {
+    count: 0,
+    why: "warns that one venue is a single point of failure — uses the phrase as a defect, not a claim",
+  },
+  "src/lib/pixel/anchor.ts": {
+    count: 0,
+    why: "same venue SPOF warning in prose",
+  },
+  "scripts/anchor-deploy.ts": {
+    count: 0,
+    why: "same venue SPOF warning printed to operators",
+  },
+};
+
+// Recompute: "single point of failure" without the leading "no " is a warning we keep.
+// Only "no single point of failure" is in DURABILITY_STALE. Venue files should have count 0
+// of the stale set; register them so a future slip is noticed if they ever claim "no SPOF".
+
+const durabilityFound: Record<string, number> = {};
+for (const file of files) {
+  const rel = relative(root, file);
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    continue;
+  }
+  if (rel === "scripts/claims-guard-selftest.ts") continue;
+  const body = stripAspiration(text);
+  let n = 0;
+  for (const re of DURABILITY_STALE) {
+    re.lastIndex = 0;
+    n += (body.match(re) ?? []).length;
+  }
+  if (n > 0) durabilityFound[rel] = n;
+}
+
+const durabilityUnreg = Object.keys(durabilityFound).filter((f) => !(f in DURABILITY_OK));
+check(
+  durabilityUnreg.length === 0,
+  durabilityUnreg.length === 0
+    ? `no unregistered durability overclaim (${Object.keys(durabilityFound).length} registered file(s))`
+    : `UNREGISTERED durability overclaim(s): ${durabilityUnreg
+        .map((f) => `${f} (${durabilityFound[f]})`)
+        .join(", ")} — soften the claim, mark Aspiration —, or register in DURABILITY_OK`,
+);
+
+const durabilityDrift = Object.entries(DURABILITY_OK)
+  .filter(([f, spec]) => (durabilityFound[f] ?? 0) !== spec.count)
+  .map(([f, spec]) => `${f}: registered ${spec.count}, found ${durabilityFound[f] ?? 0}`);
+check(
+  durabilityDrift.length === 0,
+  durabilityDrift.length === 0
+    ? "every registered durability exemption has exactly its declared mention count"
+    : `DURABILITY COUNT DRIFT: ${durabilityDrift.join("; ")}`,
+);
+
+const durabilityDoc = readFileSync(join(root, "docs/DURABILITY.md"), "utf8");
+check(
+  /Not a permissionless network; not host-independent/.test(durabilityDoc),
+  "DURABILITY.md states the honest present-tense sentence",
+);
+check(
+  /invitation-only/.test(durabilityDoc) && /hybrid/i.test(durabilityDoc),
+  "DURABILITY.md records invitation-today and hybrid-designed",
+);
+
 console.log();
 if (failures > 0) {
   console.error(`═══ FAIL — ${failures} claim(s) out of step with the code ═══`);
   process.exit(1);
 }
-console.log("═══ PASS — one schedule, stated once, enforced by the build ═══");
+console.log("═══ PASS — one schedule, stated once; durability claims graded ═══");
