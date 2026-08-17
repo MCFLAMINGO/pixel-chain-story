@@ -31,6 +31,7 @@ function checkProtocolSurface(root: string): void {
     "sig-era",
     "legacy-sig",
     "fork-choice",
+    "finality",
     "economics",
     "limits",
     "crypto",

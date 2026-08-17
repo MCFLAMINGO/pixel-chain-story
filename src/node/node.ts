@@ -50,6 +50,10 @@ import {
   admitTransaction,
   considerBranch,
   electableKeysAt,
+  finalityEnabled,
+  finalityGuard,
+  finalizedThrough,
+  type VenueAnchorObservation,
   MEMBERSHIP_ACTIVATION_DELAY,
   sequencerRecordProblem,
   MempoolRejected,
@@ -126,6 +130,16 @@ export class PixelLedgerNode {
    * enforced, and unreachable. A second operator was impossible for want of a queue.
    */
   private pendingMembership: SequencerRecord[] = [];
+
+  /**
+   * What the anchor venues have been observed to say.
+   *
+   * Fed by an operator or an anchoring job rather than fetched here: a consensus rule must
+   * not depend on this process being able to reach a third-party RPC at the moment a peer
+   * offers a branch. Empty means nothing is final, which is the correct default and exactly
+   * today's behaviour.
+   */
+  private anchorObservations: VenueAnchorObservation[] = [];
 
   private helloSig = "";
   private helloSigTip = "";
@@ -452,6 +466,44 @@ export class PixelLedgerNode {
   /** Records queued but not yet committed — for `/health` and operators. */
   membershipQueue(): SequencerRecord[] {
     return [...this.pendingMembership];
+  }
+
+  /**
+   * Record what a venue says about a height.
+   *
+   * Additive: an observation can raise the finalised height and never lower it, because the
+   * anchor contract is append-only and a height is written exactly once. A venue that
+   * "changes its mind" is a venue disagreeing with itself, which `finalizedThrough` treats
+   * as a reason to finalise nothing rather than as an update.
+   */
+  noteAnchorObservations(observations: readonly VenueAnchorObservation[]): void {
+    for (const obs of observations) {
+      const existing = this.anchorObservations.findIndex(
+        (o) => o.venue === obs.venue && o.pixelIndex === obs.pixelIndex,
+      );
+      if (existing >= 0) this.anchorObservations[existing] = { ...obs };
+      else this.anchorObservations.push({ ...obs });
+    }
+  }
+
+  /** Finality state, for `/health` and for operators deciding whether to enable the rule. */
+  finalityStatus(): {
+    enabled: boolean;
+    finalizedThrough: number;
+    observations: number;
+    venues: string[];
+    disagreements: number[];
+  } {
+    const { height, venueDisagreements } = finalizedThrough({
+      observations: this.anchorObservations,
+    });
+    return {
+      enabled: finalityEnabled(),
+      finalizedThrough: finalityEnabled() ? height : -1,
+      observations: this.anchorObservations.length,
+      venues: [...new Set(this.anchorObservations.map((o) => o.venue))].sort(),
+      disagreements: venueDisagreements,
+    };
   }
 
   async submitTx(tx: Transaction): Promise<void> {
@@ -993,7 +1045,12 @@ export class PixelLedgerNode {
           // sequential path, which is cheaper and is the overwhelmingly common case.
           const first = msg.pixels[0];
           if (first && first.index === 0 && msg.pixels.length > this.chain.pixels.length) {
-            const outcome = await considerBranch({ state: this.chain, theirs: msg.pixels });
+            const outcome = await considerBranch({
+              state: this.chain,
+              theirs: msg.pixels,
+              // Off unless this network enabled it; empty observations finalise nothing.
+              isFinalized: finalityGuard({ observations: this.anchorObservations }),
+            });
             if (outcome.kind === "reorged") {
               this.chain = outcome.state;
               this.noteTipProgress();

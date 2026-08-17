@@ -123,6 +123,9 @@ export function startRpcServer(node: PixelLedgerNode, port: number, opts: RpcSer
           // Truthful, always. An unsealed key that never mentions itself is a failure
           // rendering as an ordinary state, which is the thing this repo refuses to ship.
           keyAtRest: keyAtRest(),
+          // Reported truthfully whether the rule is on or off, so an operator can see that
+          // "nothing is final" is the current state rather than assume the opposite.
+          finality: node.finalityStatus(),
           name: "Pixel Ledger",
           address: snap.address,
           publicKey: snap.publicKey,
