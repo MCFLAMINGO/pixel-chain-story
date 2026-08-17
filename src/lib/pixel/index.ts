@@ -70,6 +70,7 @@ export * from "./light-client";
 export * from "./peer-score";
 export * from "./rpc";
 export * from "./benchmark";
+export * from "./fork-choice";
 export * from "./limits";
 export * from "./membership";
 export * from "./rate-limit";

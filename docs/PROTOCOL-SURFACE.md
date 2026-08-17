@@ -2,7 +2,7 @@
 
 This is the document to open first.
 
-Pixel has 85 modules under `src/lib/pixel`. **Nineteen of them are the protocol.** The
+Pixel has 85 modules under `src/lib/pixel`. **Twenty of them are the protocol.** The
 rest are wallets, bridges, UI feeds, operator tooling, and models — some of it good work,
 none of it consensus. Until this file existed there was no way to tell which was which
 without reading the import graph, and the honest consequence is that careful readers
@@ -14,7 +14,7 @@ model.
 
 ## Consensus — changing these changes what a valid chain is
 
-These nineteen are reachable from `acceptBlock`, `verifyChain` or `sequenceBlock`. A bug
+These twenty are reachable from `acceptBlock`, `verifyChain` or `sequenceBlock`. A bug
 here is a bug in the ledger.
 
 | Module               | What it decides                                                 |
@@ -25,6 +25,7 @@ here is a bug in the ledger.
 | `membership.ts`      | Who may produce a pixel — the fold over committed records       |
 | `sig-era.ts`         | Which signature rules apply at which height                     |
 | `legacy-sig.ts`      | The pre-`c8d5d54` constructions, verification only              |
+| `fork-choice.ts`     | Which branch wins at any depth, and what a reorg may not cross  |
 | `economics.ts`       | Emission schedule, hard cap, issuance arithmetic                |
 | `limits.ts`          | Block and metadata bounds; the paging helper                    |
 | `crypto.ts`          | SHA-512, hash-OTS, key derivation, OTS leaf accounting          |

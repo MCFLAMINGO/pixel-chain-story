@@ -48,6 +48,7 @@ import {
   type WaveFanoutListener,
   type WaveFanoutSource,
   admitTransaction,
+  considerBranch,
   MempoolRejected,
   MAX_HELLO_SEQUENCERS,
   MAX_PIXELS_PER_MESSAGE,
@@ -875,6 +876,14 @@ export class PixelLedgerNode {
             }
             break;
           }
+          // A competing pixel at or below our height is a fork deeper than one, and
+          // depth-1 replacement cannot reach it. Ask for the peer's whole branch so
+          // `considerBranch` can score it — this is the message that used to be dropped,
+          // leaving two honest nodes split forever after a two-pixel partition.
+          if (tip && msg.pixel.index < tip.index) {
+            this.requestCatchUp(0);
+            break;
+          }
           await this.acceptPixels([msg.pixel]);
           break;
         }
@@ -909,10 +918,48 @@ export class PixelLedgerNode {
           }
           break;
         }
-        case "pixels":
+        case "pixels": {
+          // A batch starting at genesis is a whole branch, so it can be scored against
+          // ours at any depth. Anything else is a forward extension and takes the
+          // sequential path, which is cheaper and is the overwhelmingly common case.
+          const first = msg.pixels[0];
+          if (first && first.index === 0 && msg.pixels.length > this.chain.pixels.length) {
+            const outcome = await considerBranch({ state: this.chain, theirs: msg.pixels });
+            if (outcome.kind === "reorged") {
+              this.chain = outcome.state;
+              this.noteTipProgress();
+              this.fanoutWave(this.chain.pixels[this.chain.pixels.length - 1]!, "replace");
+              this.queuePersist();
+              console.warn(
+                `[pixel-ledger] REORG: dropped ${outcome.dropped} pixel(s) from #${
+                  outcome.forkHeight + 1
+                }, applied ${outcome.applied} — now at #${this.chain.pixels.length - 1}`,
+              );
+              rewardPeer(this.peerBook, peerUrl, 1);
+              break;
+            }
+            if (outcome.kind === "extended") {
+              this.chain = outcome.state;
+              this.noteTipProgress();
+              this.fanoutWave(this.chain.pixels[this.chain.pixels.length - 1]!, "accept");
+              this.queuePersist();
+              console.log(`[pixel-ledger] extended ${outcome.applied} pixel(s) from peer branch`);
+              rewardPeer(this.peerBook, peerUrl, 1);
+              break;
+            }
+            if (outcome.kind === "refused") {
+              // Refusing a branch is a judgement about the peer, not just about the data.
+              punishPeer(this.peerBook, peerUrl, 3);
+              console.warn(`[pixel-ledger] refused peer branch: ${outcome.reason}`);
+              break;
+            }
+            // `ignored` — our branch is preferred. Ordinary, and not the peer's fault.
+            break;
+          }
           await this.acceptPixels(msg.pixels);
           rewardPeer(this.peerBook, peerUrl, 1);
           break;
+        }
         default:
           break;
       }

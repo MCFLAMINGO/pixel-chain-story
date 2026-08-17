@@ -41,7 +41,7 @@ bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 | [`docs/LUMEN.md`](docs/LUMEN.md)                       | Light-native DSL — evolve, don’t abandon                                       |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)         | **How to help** — lanes, checklist, what we reject                             |
 | [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md) | **Where the project actually stands** — read before starting work              |
-| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md) | **Which 19 of 85 modules are consensus** — open this first                     |
+| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md) | **Which 20 of 86 modules are consensus** — open this first                     |
 | [`docs/SPEC.md`](docs/SPEC.md)                         | Normative behavior (constants machine-checked against code)                    |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md)         | Honest risks                                                                   |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md)                   | Checklist tied to PATH gates                                                   |

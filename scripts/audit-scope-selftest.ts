@@ -30,6 +30,7 @@ function checkProtocolSurface(root: string): void {
     "membership",
     "sig-era",
     "legacy-sig",
+    "fork-choice",
     "economics",
     "limits",
     "crypto",
