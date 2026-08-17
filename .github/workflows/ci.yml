@@ -24,6 +24,10 @@ jobs:
         run: bun run test:invariants
         env:
           PIXEL_PROPERTY_RUNS: "60"
+      - name: Accept/verify parity (property tests over random histories)
+        run: bun run test:parity
+        env:
+          PIXEL_PARITY_RUNS: "25"
       - name: Light-client bench (lab numbers, no claim)
         run: bun run bench:light-client
       - name: Install Foundry

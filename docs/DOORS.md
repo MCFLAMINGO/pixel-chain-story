@@ -51,15 +51,15 @@ Regular users need a **phone wallet** and a **felt connection to the main public
 
 ## People doors (use)
 
-| Door                | What you do                                          | Route / doc                                              |
-| ------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| Door                | What you do                                          | Route / doc                                                      |
+| ------------------- | ---------------------------------------------------- | ---------------------------------------------------------------- |
 | **Wallet**          | Hold a Personal Source — pay face, tip balance, pay  | `/wallet` (+ `?rpc=` / [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)) |
-| **See the picture** | Live field (public tip via rpc; else lab light)      | `/`                                                      |
-| **Shine in**        | Keep a brand/site reachable in the Continuity map    | `/shine`                                                 |
-| **Pay with Pixel**  | Settle at a Continuity booth when it matters         | `/continuity/booth/$domain`                              |
-| **Kindle**          | Presence-bound spend (lab)                           | `/lab` · [`KINDLING.md`](./KINDLING.md)                  |
-| **World → PIX**     | Lock world value → shine in (lab rails)              | `/lab` Worldlight · [`LOCK-FEEDER.md`](./LOCK-FEEDER.md) |
-| **Invite only**     | SMS/USSD/voice invite Kindling — never spend for you | [`ACCESS.md`](./ACCESS.md)                               |
+| **See the picture** | Live field (public tip via rpc; else lab light)      | `/`                                                              |
+| **Shine in**        | Keep a brand/site reachable in the Continuity map    | `/shine`                                                         |
+| **Pay with Pixel**  | Settle at a Continuity booth when it matters         | `/continuity/booth/$domain`                                      |
+| **Kindle**          | Presence-bound spend (lab)                           | `/lab` · [`KINDLING.md`](./KINDLING.md)                          |
+| **World → PIX**     | Lock world value → shine in (lab rails)              | `/lab` Worldlight · [`LOCK-FEEDER.md`](./LOCK-FEEDER.md)         |
+| **Invite only**     | SMS/USSD/voice invite Kindling — never spend for you | [`ACCESS.md`](./ACCESS.md)                                       |
 
 Hold / pay: Kindling + your Source. Cash in/out: lock → shine (receipt outside, vault inside). Site alive in the picture: Continuity / SISO.
 

@@ -5,11 +5,11 @@ This is not a marketing adjective. It is a **hard design constraint**.
 
 ## What ships today
 
-| Scheme | Standard | Use | Status |
-| --- | --- | --- | --- |
-| **PIX-ML-DSA-65** | NIST **FIPS-204** ML-DSA (Dilithium) via `@noble/post-quantum` | **Default** genesis / wallets / sequencers | Shipped + CI + frozen vectors |
-| **PIX-HASH-OTS-128** | Hash-based Lamport + Merkle window (32 leaves) | Constrained / optical / ceremony | Shipped + CI + frozen vectors + ledger single-use |
-| **PIX-ML-KEM-768** | NIST **FIPS-203** ML-KEM (Kyber) + XChaCha20-Poly1305 | Lab transport sessions | Opt-in sealed gossip via `PIXEL_TRANSPORT_KEM=1`; **default mesh still plaintext** |
+| Scheme               | Standard                                                       | Use                                        | Status                                                                             |
+| -------------------- | -------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **PIX-ML-DSA-65**    | NIST **FIPS-204** ML-DSA (Dilithium) via `@noble/post-quantum` | **Default** genesis / wallets / sequencers | Shipped + CI + frozen vectors                                                      |
+| **PIX-HASH-OTS-128** | Hash-based Lamport + Merkle window (32 leaves)                 | Constrained / optical / ceremony           | Shipped + CI + frozen vectors + ledger single-use                                  |
+| **PIX-ML-KEM-768**   | NIST **FIPS-203** ML-KEM (Kyber) + XChaCha20-Poly1305          | Lab transport sessions                     | Opt-in sealed gossip via `PIXEL_TRANSPORT_KEM=1`; **default mesh still plaintext** |
 
 **Classical ECC is not used for Pixel signatures.**
 
@@ -24,11 +24,11 @@ const sig = await signPixel("hello", kp);
 await verifyPixel("hello", sig, kp.publicKey); // true
 ```
 
-| Env | Effect |
-| --- | --- |
-| *(unset)* | `PIX-ML-DSA-65` |
+| Env                                 | Effect                    |
+| ----------------------------------- | ------------------------- |
+| _(unset)_                           | `PIX-ML-DSA-65`           |
 | `PIXEL_SIG_SCHEME=PIX-HASH-OTS-128` | opt into OTS for new keys |
-| `PIXEL_SIG_SCHEME=PIX-ML-DSA-65` | explicit ML-DSA |
+| `PIXEL_SIG_SCHEME=PIX-ML-DSA-65`    | explicit ML-DSA           |
 
 ## Frozen vectors (Gate D evidence)
 
@@ -37,13 +37,13 @@ CI: `bun run test:vectors` must stay green. Do not edit casually.
 
 ## Honest claims
 
-| Allowed | Forbidden until evidence |
-| --- | --- |
-| “PQ-class signatures (NIST ML-DSA-65 default + hash-OTS)” | “Quantum-proof forever / audited production crypto” |
-| “No ECDSA dependency for Pixel tx/PoLS” | “On-chain ULA verifies Dilithium” (EVM twin is keccak-OTS; gate is off-chain verify + commit) |
-| “OTS leaves cannot be reused (ledger + wallet)” | “Optical path is PQ-complete custody UX” |
-| “Opt-in lab ML-KEM-768 gossip (`PIXEL_TRANSPORT_KEM=1`)” | “Gossip/RPC is PQ-encrypted by default / TLS replacement” |
-| “Scoped audit package prepared” | “Audited” (see [`AUDIT.md`](./AUDIT.md) — PREPARING) |
+| Allowed                                                   | Forbidden until evidence                                                                      |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| “PQ-class signatures (NIST ML-DSA-65 default + hash-OTS)” | “Quantum-proof forever / audited production crypto”                                           |
+| “No ECDSA dependency for Pixel tx/PoLS”                   | “On-chain ULA verifies Dilithium” (EVM twin is keccak-OTS; gate is off-chain verify + commit) |
+| “OTS leaves cannot be reused (ledger + wallet)”           | “Optical path is PQ-complete custody UX”                                                      |
+| “Opt-in lab ML-KEM-768 gossip (`PIXEL_TRANSPORT_KEM=1`)”  | “Gossip/RPC is PQ-encrypted by default / TLS replacement”                                     |
+| “Scoped audit package prepared”                           | “Audited” (see [`AUDIT.md`](./AUDIT.md) — PREPARING)                                          |
 
 `quantumStatus()` and `pix_protocolInfo.quantum` expose this to clients.
 
@@ -60,13 +60,13 @@ See [`ULA-MLDSA.md`](./ULA-MLDSA.md): native ULA under ML-DSA sequencers; EVM tw
 
 ## Path gates
 
-- **Gate D:** ML-DSA default ✓ · frozen vectors ✓ · persist `scheme` / secret / `nextLeaf` ✓  
-- **Gate E:** keccak-OTS twin ✓ · native ML-DSA ULA ✓ · off-chain commit gate ✓ · full on-chain Dilithium open  
-- **Gate I:** audit package PREPARING ✓ · external report open  
+- **Gate D:** ML-DSA default ✓ · frozen vectors ✓ · persist `scheme` / secret / `nextLeaf` ✓
+- **Gate E:** keccak-OTS twin ✓ · native ML-DSA ULA ✓ · off-chain commit gate ✓ · full on-chain Dilithium open
+- **Gate I:** audit package PREPARING ✓ · external report open
 
 See [`PATH.md`](./PATH.md). Quantum remains **critical** — keep claims at evidence level.
 
 ## Why both OTS and ML-DSA
 
-- **ML-DSA** — NIST standard, multi-use, **normal birth of a node**.  
+- **ML-DSA** — NIST standard, multi-use, **normal birth of a node**.
 - **OTS** — small verify story, hash-only assumption, fits optical/maze cards; one-time discipline.

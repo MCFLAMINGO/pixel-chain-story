@@ -14,7 +14,9 @@ import {
   acceptBlock,
   balanceOf,
   createGenesis,
-  registerSequencer,
+  electableAt,
+  noteSequencerKey,
+  nextSequencerAddress,
   replaceTipIfBetter,
   sequenceBlock,
   verifyChain,
@@ -29,7 +31,8 @@ import {
   type Transaction,
 } from "../src/lib/pixel/transaction";
 import { generateLightKeypair, sha512Hex, type LightKeypair } from "../src/lib/pixel/crypto";
-import { generatePixelKeypair } from "../src/lib/pixel/scheme";
+import { generatePixelKeypair, signPixel } from "../src/lib/pixel/scheme";
+import { createSequencerJoin, MEMBERSHIP_ACTIVATION_DELAY } from "../src/lib/pixel/membership";
 import { createLightProof, merkleRoot, selectSequencerWithSkip } from "../src/lib/pixel/pol";
 import { composePixelColor, revealProximity } from "../src/lib/pixel/light-color";
 import {
@@ -50,11 +53,13 @@ async function forgeBlock(params: {
   electable?: string[];
   skipCount?: number;
   timestamp?: number;
+  /** Grind the lottery input: pick a sequence that makes `sequencer` win (T1.2). */
+  sequence?: number;
 }): Promise<LedgerPixel> {
   const { state, sequencer } = params;
   const tip = state.pixels[state.pixels.length - 1]!;
   const index = tip.index + 1;
-  const sequence = tip.sequence + 1;
+  const sequence = params.sequence ?? tip.sequence + 1;
   const skipCount = params.skipCount ?? 0;
   const timestamp = params.timestamp ?? Date.now();
   const transactions = params.transactions.map((t) =>
@@ -276,18 +281,25 @@ scenario("PIX-03c", "same UTXO spent twice inside one block", async () => {
 scenario("PIX-04", "PoLS lottery bypass via self-declared electable set", async () => {
   const genesisSeq = await generateLightKeypair();
   let state = await createGenesis(genesisSeq);
+
+  // Note several keys locally, the way gossip hellos used to. Since T1.1 this confers
+  // nothing — membership is a fold over records committed in pixels — so the baseline
+  // for "who may produce" has to come from `electableAt`, not from this table. The
+  // earlier version of this scenario derived `rightful` from the key table and then
+  // picked an "attacker" that turned out to be the founder itself, so it measured a
+  // legitimate block and called it an exploit.
   const others: LightKeypair[] = [];
   for (let i = 0; i < 7; i++) {
     const kp = await generateLightKeypair();
     others.push(kp);
-    state = registerSequencer(state, kp);
+    state = noteSequencerKey(state, kp);
   }
-  const registry = state.sequencers.map((s) => s.address);
   const tip = state.pixels[state.pixels.length - 1]!;
-  const rightful = selectSequencerWithSkip(tip.hash, tip.sequence + 1, registry, 0);
+  const electable = electableAt(state, tip.index + 1);
+  const rightful = selectSequencerWithSkip(tip.hash, tip.sequence + 1, electable, 0);
 
-  // Pick a registered sequencer who is NOT the rightful proposer.
-  const attacker = [genesisSeq, ...others].find((k) => k.address !== rightful)!;
+  // A genuine non-member: noted locally, never admitted by a membership record.
+  const attacker = others.find((k) => k.address !== rightful)!;
   const forged = await forgeBlock({
     state,
     sequencer: attacker,
@@ -296,8 +308,327 @@ scenario("PIX-04", "PoLS lottery bypass via self-declared electable set", async 
   });
   await acceptBlock(state, forged);
   exploited(
-    `non-elected ${attacker.address.slice(0, 12)}… produced height 1 (rightful ${rightful.slice(0, 12)}…)`,
+    `non-member ${attacker.address.slice(0, 12)}… produced height 1 (rightful ${rightful.slice(0, 12)}…)`,
   );
+});
+
+// ── T1.1 ──────────────────────────────────────────────────────────────────────
+scenario("T1.1", "stranger grinds a keypair and extends the tip", async () => {
+  // The takeover. node.ts used to register a block's *claimed* producer before
+  // validating it, so the electable set was whatever the block said. Grinding one
+  // keypair until it won the lottery was enough to extend the tip, mint the light
+  // reward, and become permanently electable — with verifyChain returning true.
+  const founder = await generateLightKeypair();
+  const state = await createGenesis(founder);
+  const tip = state.pixels[state.pixels.length - 1]!;
+
+  let stranger = await generateLightKeypair();
+  for (let i = 0; i < 400; i++) {
+    const set = [founder.address, stranger.address].sort();
+    if (selectSequencerWithSkip(tip.hash, tip.sequence + 1, set, 0) === stranger.address) break;
+    stranger = await generateLightKeypair();
+  }
+
+  // Bind exactly what the poisoned registry would have derived: founder + self.
+  const forged = await forgeBlock({
+    state,
+    sequencer: stranger,
+    transactions: [await coinbaseOf(50, stranger.address, "LIGHT-1")],
+    electable: [founder.address, stranger.address].sort(),
+  });
+  // Simulate the deleted "learn producer before accept" line as faithfully as
+  // possible: even with the stranger's key noted locally, the block must be refused.
+  const poisonedView = noteSequencerKey(state, stranger);
+  await acceptBlock(poisonedView, forged);
+  exploited(
+    `stranger ${stranger.address.slice(0, 12)}… extended the tip and minted the light reward`,
+  );
+});
+
+// ── T1.2 ──────────────────────────────────────────────────────────────────────
+scenario("T1.2", "grind block.sequence until the lottery picks you", async () => {
+  // `sequence` is the lottery's input — the leader is argmin over
+  // sha512(pols-lottery|prevHash|sequence|address). Height was checked and sequence
+  // was not, even though the two are produced in lockstep, so a producer could pick
+  // whichever number made it the winner and staple it to the next height.
+  const founder = await generateLightKeypair();
+  const second = await generateLightKeypair();
+  let state = await createGenesis(founder);
+
+  // Admit a second member legitimately, so there is a lottery to lose.
+  const joinAt = state.pixels.length;
+  const join = await createSequencerJoin({
+    joiner: { address: second.address, publicKey: second.publicKey, scheme: second.scheme },
+    authorizer: { address: founder.address },
+    includedAt: joinAt,
+    sign: (message, who) => signPixel(message, who === "joiner" ? second : founder),
+  });
+  const junk = async () =>
+    createTransaction({
+      inputs: [{ txid: "00".repeat(64), vout: 0 }],
+      outputs: [{ amount: 1, address: founder.address }],
+      metadata: { description: "opens the mempool" },
+    });
+  state = await sequenceBlock({ ...state, pending: [await junk()] }, founder, {
+    membership: [join],
+  });
+  for (let i = 0; i < MEMBERSHIP_ACTIVATION_DELAY; i++) {
+    const elected = nextSequencerAddress(state, 0);
+    state = await sequenceBlock(
+      { ...state, pending: [await junk()] },
+      elected === founder.address ? founder : second,
+    );
+  }
+
+  const tip = state.pixels[state.pixels.length - 1]!;
+  const electable = electableAt(state, tip.index + 1);
+  const rightful = selectSequencerWithSkip(tip.hash, tip.sequence + 1, electable, 0);
+  const cheat = rightful === founder.address ? second : founder;
+
+  // Find a sequence where the loser wins. With two members this takes a few tries.
+  let ground = -1;
+  for (let candidate = tip.sequence + 1; candidate < tip.sequence + 5000; candidate++) {
+    if (selectSequencerWithSkip(tip.hash, candidate, electable, 0) === cheat.address) {
+      ground = candidate;
+      break;
+    }
+  }
+  if (ground === -1) throw new Error("could not grind a winning sequence");
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: cheat,
+    transactions: [await coinbaseOf(50, cheat.address, `LIGHT-${tip.index + 1}`)],
+    electable,
+    sequence: ground,
+  });
+  await acceptBlock(state, forged);
+  exploited(
+    `ground sequence ${ground} let ${cheat.address.slice(0, 12)}… steal the turn from ` +
+      `${rightful.slice(0, 12)}…`,
+  );
+});
+
+// ── T1.10 ─────────────────────────────────────────────────────────────────────
+scenario("T1.10", "light proof bound to a different parent than the block", async () => {
+  // The full node never compared lightProof.prevHash to block.prevHash — while the
+  // light client and the bridge both did, which made the phone-capable client a
+  // stricter validator than the node with final authority.
+  const seq = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const honest = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1")],
+  });
+  const forged: LedgerPixel = {
+    ...honest,
+    lightProof: { ...honest.lightProof, prevHash: "ab".repeat(64) },
+  };
+  await acceptBlock(state, forged);
+  exploited("block accepted with a light proof bound to a different parent");
+});
+
+// ── T1.3 ──────────────────────────────────────────────────────────────────────
+scenario("T1.3", "transaction identity is not derived from its content", async () => {
+  // Nothing recomputed txid or commitment. The merkle root committed to whatever a
+  // transaction claimed and the UTXO set was keyed under it, so a producer could put
+  // a transaction with txid X and body Y into a block with no rule tying X to Y.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "identity probe" },
+  });
+  spend = await signTransaction(spend, seq);
+  // Same signature, same body, a txid that describes nothing.
+  const relabelled = { ...spend, txid: "de".repeat(64) };
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), relabelled],
+  });
+  await acceptBlock(state, forged);
+  exploited("block accepted a transaction whose txid does not derive from its body");
+});
+
+// ── T1.3b ─────────────────────────────────────────────────────────────────────
+scenario("T1.3b", "transaction claims it was revealed by another pixel", async () => {
+  // `lightSequence` records which sequence revealed a transaction, and it was unbound.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "lightSequence probe" },
+  });
+  spend = await signTransaction(spend, seq);
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), spend],
+  });
+  const lying: LedgerPixel = {
+    ...forged,
+    transactions: forged.transactions.map((t) =>
+      t.inputs.length ? { ...t, lightSequence: (t.lightSequence ?? 0) + 99 } : t,
+    ),
+  };
+  await acceptBlock(state, lying);
+  exploited("block accepted a transaction claiming a different revealing sequence");
+});
+
+// ── T1.3c ─────────────────────────────────────────────────────────────────────
+scenario("T1.3c", "unrevealed transaction rides into a pixel", async () => {
+  // On-chain means light has already revealed it. verifyChain required this and
+  // acceptBlock did not, so a block could be accepted live and fail as history.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "superposition probe" },
+  });
+  spend = await signTransaction(spend, seq);
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), spend],
+  });
+  const unrevealed: LedgerPixel = {
+    ...forged,
+    transactions: forged.transactions.map((t) =>
+      t.inputs.length ? { ...t, state: "superposition" as const } : t,
+    ),
+  };
+  await acceptBlock(state, unrevealed);
+  exploited("block accepted a transaction still in superposition");
+});
+
+// ── T1.10b ────────────────────────────────────────────────────────────────────
+scenario("T1.10b", "light proof omits its scheme and defaults to the weaker one", async () => {
+  // verifyLightProof read `proof.scheme ?? "PIX-HASH-OTS-128"`, so an absent field
+  // silently selected a scheme. A default that picks cryptography is a failure that
+  // renders as an ordinary state.
+  const seq = await generatePixelKeypair("PIX-ML-DSA-65");
+  const state = await createGenesis(seq);
+  const honest = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1")],
+  });
+  const schemeless = { ...honest.lightProof } as Record<string, unknown>;
+  delete schemeless.scheme;
+  await acceptBlock(state, {
+    ...honest,
+    lightProof: schemeless as typeof honest.lightProof,
+  });
+  exploited("block accepted with a light proof that declares no scheme");
+});
+
+// ── T1.10c ────────────────────────────────────────────────────────────────────
+scenario("T1.10c", "flip a transaction between public and private", async () => {
+  // A reported finding that dissolved on measurement, kept as a permanent test.
+  //
+  // `privacy` really is absent from `canonicalTxBody`, so it is not covered by the
+  // signature — from which it seemed to follow that a relay could flip it freely. It
+  // cannot: `privacy` feeds privacyPolarization in light-color.ts, and a block's colour
+  // is recomputed and compared by acceptBlock. Adding it to the signed body would have
+  // orphaned all 93 live transactions, since the key is absent from the preimage they
+  // were hashed under. Worth a scenario precisely because the wrong fix looked obvious.
+  const seq = await generateLightKeypair();
+  const spender = await generateLightKeypair();
+  const state = await createGenesis(seq);
+  const utxo = [...state.utxos.values()][0]!;
+
+  let spend = await createTransaction({
+    inputs: [{ txid: utxo.txid, vout: utxo.vout }],
+    outputs: [{ amount: 10, address: spender.address }],
+    metadata: { description: "privacy probe" },
+  });
+  spend = await signTransaction(spend, seq);
+
+  const forged = await forgeBlock({
+    state,
+    sequencer: seq,
+    transactions: [await coinbaseOf(50, seq.address, "LIGHT-1"), spend],
+  });
+  const flipped: LedgerPixel = {
+    ...forged,
+    transactions: forged.transactions.map((t) =>
+      t.inputs.length ? { ...t, privacy: "private" as const } : t,
+    ),
+  };
+  await acceptBlock(state, flipped);
+  exploited("block accepted after a transaction's privacy level was flipped");
+});
+
+// ── T1.9 ──────────────────────────────────────────────────────────────────────
+//
+// acceptBlock recomputed field witnesses and wave hits from state and compared only the
+// DIGESTS in the light proof. It never looked at block.field or block.wave — the arrays a
+// node serves at /wave/tip, fans out to waveBus subscribers, and the UI renders. So the
+// digests were unforgeable and the arrays anyone actually reads were unconstrained.
+//
+// This is the project's sharpest claim rather than a footnote: the picture is not a
+// dashboard over the chain, it partly IS the chain. That was true of the digests and
+// false of the bytes.
+
+/** A pixel produced honestly, plus the state it was produced against. */
+async function honestTip(seq: LightKeypair) {
+  let state = await createGenesis(seq);
+  const junk = await createTransaction({
+    inputs: [{ txid: "00".repeat(64), vout: 0 }],
+    outputs: [{ amount: 1, address: seq.address }],
+    metadata: { description: "opens the mempool" },
+  });
+  state = await sequenceBlock({ ...state, pending: [junk] }, seq);
+  const tip = state.pixels[state.pixels.length - 1]!;
+  const parent: PixelChainState = { ...state, pixels: state.pixels.slice(0, -1) };
+  return { tip, parent };
+}
+
+scenario("T1.9", "tamper the wave hits a block carries, keeping the digest", async () => {
+  const seq = await generateLightKeypair();
+  const { tip, parent } = await honestTip(seq);
+  const lying: LedgerPixel = {
+    ...tip,
+    wave: (tip.wave ?? []).map((h) => ({ ...h, amplitudeMilli: 9999 })),
+  };
+  await acceptBlock(parent, lying);
+  exploited("block accepted with wave hits that contradict its own digest");
+});
+
+scenario("T1.9b", "tamper the field witnesses a block carries", async () => {
+  const seq = await generateLightKeypair();
+  const { tip, parent } = await honestTip(seq);
+  const lying: LedgerPixel = {
+    ...tip,
+    field: tip.field.map((f) => ({ ...f, opacity: "lit" as const, color: "#ffffff" })),
+  };
+  await acceptBlock(parent, lying);
+  exploited("block accepted with field witnesses that contradict its own digest");
+});
+
+scenario("T1.9c", "drop the carried arrays entirely", async () => {
+  const seq = await generateLightKeypair();
+  const { tip, parent } = await honestTip(seq);
+  const stripped = { ...tip, field: [], wave: [] } as LedgerPixel;
+  await acceptBlock(parent, stripped);
+  exploited("block accepted with its field and wave arrays emptied");
 });
 
 // ── PIX-05 ────────────────────────────────────────────────────────────────────

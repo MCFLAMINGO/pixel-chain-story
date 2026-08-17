@@ -16,6 +16,12 @@ interface BunServer {
   hostname: string;
   stop(closeActive?: boolean): void;
   upgrade(req: Request, opts?: { data?: unknown }): boolean;
+  /**
+   * Socket address of the peer. Behind a proxy this is the proxy, so the rate
+   * limiter prefers `x-forwarded-for` and falls back to this — see
+   * `lib/pixel/rate-limit.ts`. Returns null for a closed or upgraded connection.
+   */
+  requestIP(req: Request): { address: string; family: string; port: number } | null;
 }
 
 interface BunWebSocket {

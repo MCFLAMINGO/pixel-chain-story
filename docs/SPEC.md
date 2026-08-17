@@ -1,12 +1,30 @@
 # Pixel Ledger — Minimal Spec (v0.2)
 
-Status: **draft, implemented in this repo**. Normative text is what the tests enforce.
+Status: **draft, implemented in this repo.** Normative text is what the tests enforce —
+and since 16 August 2026 that sentence is itself enforced rather than asserted.
+
+`scripts/spec-conformance-selftest.ts` parses the constants table in §2.1 out of this
+file and asserts every value equals the exported constant in code. When the two
+disagree the build fails, so this document cannot drift from the protocol the way its
+economics section did: for five days §5 specified a 21,000,000 cap and a halving that
+the code had already replaced, while the line above still called itself normative.
+
+| Section                         | Enforced by                                              |
+| ------------------------------- | -------------------------------------------------------- |
+| §2.1 constants                  | `test:spec-conformance`                                  |
+| §2 cryptography                 | `test:crypto` `test:mldsa` `test:vectors` `test:sig-era` |
+| §4 consensus                    | `test:pixel` `test:l1` `test:election` `test:fault`      |
+| §4.2 membership                 | `test:membership` `test:electable-drift`                 |
+| §4.3 block validity             | `test:coverage-harness` `test:parity` `test:adversarial` |
+| §5 economics                    | `test:claims-guard` `test:fee-accounting` `test:scale`   |
+| §7 wire                         | `test:wire-schema` `test:net` `test:four-node`           |
+| all of it, against real history | `test:crowned-replay`                                    |
 
 ## 1. Identity
 
 - Name: **Pixel Ledger** (not a “blockchain of blocks”)
 - Settlement unit: **pixel** (illuminated ledger cell)
-- Native asset: **PIX** (hard cap 21_000_000; base unit 1e8)
+- Native asset: **PIX** (hard cap 10_300_000_000; base unit 1e8)
 - Builder fuel: **Light Credits** (uncapped; not monetary)
 - Consensus: **Proof of Light Sequence (PoLS)**
 - API face: **Source · Word · Light** (`One`)
@@ -28,6 +46,30 @@ Invariant: PIX-HASH-OTS-128 `(publicKey, leafIndex)` is **single-use at consensu
 Priority: quantum security is **critical** — see [`QUANTUM.md`](./QUANTUM.md).
 
 Leader election (lab): lowest `SHA-512(pols-lottery|prevHash|sequence|address)` among the **electable set bound into the light proof** (`electable[]`, committed as `el=` in the PoLS message). Public-input verifiable; **not** VRF/BFT. Registry growth after a pixel must not rewrite that pixel’s lottery.
+
+### 2.1 Constants
+
+Machine-checked against code by `test:spec-conformance`. A value here that no longer
+matches its export fails the build.
+
+| Constant                      | Value         | Module               |
+| ----------------------------- | ------------- | -------------------- |
+| `PIX_HARD_CAP`                | `10300000000` | `economics.ts`       |
+| `PIX_BASE_UNITS`              | `100000000`   | `economics.ts`       |
+| `GENESIS_LIGHT_REWARD`        | `50`          | `economics.ts`       |
+| `LIGHT_HORIZON`               | `206000000`   | `economics.ts`       |
+| `POLS_STALL_MS`               | `15000`       | `pol.ts`             |
+| `POLS_MAX_SKIP`               | `8`           | `pol.ts`             |
+| `POLS_MAX_FUTURE_DRIFT_MS`    | `120000`      | `pol.ts`             |
+| `MEMBERSHIP_ACTIVATION_DELAY` | `8`           | `membership.ts`      |
+| `LEGACY_SIG_ERA_END_HEIGHT`   | `13`          | `sig-era.ts`         |
+| `MAX_BLOCK_TXS`               | `4096`        | `limits.ts`          |
+| `MAX_BLOCK_TX_BYTES`          | `2097152`     | `limits.ts`          |
+| `MAX_METADATA_BYTES`          | `4096`        | `limits.ts`          |
+| `MAX_PENDING_TX`              | `4096`        | `limits.ts`          |
+| `MAX_PIXELS_PER_MESSAGE`      | `512`         | `limits.ts`          |
+| `MAX_GOSSIP_FRAME_BYTES`      | `8388608`     | `limits.ts`          |
+| `CROWNED_NETWORK_ID`          | `20553`       | `crowned-genesis.ts` |
 
 ## 3. State
 
@@ -134,11 +176,76 @@ Invariants:
 - Light reward obeys emission schedule and hard cap
 - On-time (`skip=0`) always preferred over skip tips at the same height
 
+### 4.2 Sequencer membership
+
+The electable set at height `H` is a **fold over the membership records committed in
+pixels below `H`**, seeded with the producer of genesis. It is a pure function of
+history: no gossip, no clock, no local registry. Two nodes holding the same pixels
+compute the same set, so a block's validity cannot depend on which hello arrived first.
+
+- A `sequencer-join` record carries **possession** (a signature by the joining key, so
+  nobody can enrol an address they do not hold, or be blamed for a block) and
+  **authorization** (a signature by a member already active at the height of inclusion,
+  verified against the key history records for that member).
+- `includedAt` is signed and must equal the index of the carrying pixel, so a record
+  cannot be lifted into a more convenient block.
+- A record takes effect `MEMBERSHIP_ACTIVATION_DELAY` pixels after inclusion. The set
+  that elects a producer is therefore strictly older than the block it produces, so no
+  producer can be elected by a set it wrote itself.
+- The founding producer cannot be removed. A chain that can empty its electable set has
+  nobody left who could authorise a join.
+- `state.sequencers` is a public-key lookup for display. **Validation never reads it.**
+
+Invariant: a block must bind an `electable` set byte-identical to the fold at its own
+height. Enforced identically by `acceptBlock` and `verifyChain`.
+
+### 4.3 Block validity
+
+Every field of a pixel is either recomputed from prior state, committed inside a hash
+preimage that is itself recomputed, or explicitly checked. `test:coverage-harness`
+holds the full field-by-field registry and fails the build when a consensus type grows
+a field nothing binds.
+
+Normative rules a validator applies, beyond §4:
+
+- `index === tip.index + 1`, and on replay `index` equals the pixel's own position.
+- `sequence === tip.sequence + 1`. Sequence is the lottery's input, so an unbound
+  sequence is a grinding lever.
+- `lightProof.sequence === sequence` and `lightProof.prevHash === prevHash`. The proof
+  must describe the pixel it is attached to.
+- `lightProof.scheme` is **required** and must equal the algorithm inside its own
+  signature. There is no default: a default that picks cryptography is a failure that
+  renders as an ordinary state.
+- Every transaction's `txid` and `commitment` are recomputed from its canonical body.
+- Every transaction is `revealed` or `final`, and its `lightSequence` — when present —
+  equals the sequence of the pixel carrying it.
+- `field` and `wave` are compared as **arrays**, not merely as digests. The picture a
+  node serves is the picture consensus agreed on.
+- Bounds are checked **before** any signature verification: `MAX_BLOCK_TXS`,
+  `MAX_BLOCK_TX_BYTES`, `MAX_METADATA_BYTES`.
+- Accept and replay agree: `acceptBlock` succeeding on a block is equivalent to
+  `verifyChain` accepting the chain it produces (`test:parity`).
+
+### 4.4 Signature eras
+
+Signature rules changed once in this chain's life. Commit `c8d5d54` moved ML-DSA domain
+separation into the FIPS-204 `ctx` parameter, widened the OTS signed digest from 128 to
+256 bits, and added a length-prefixed OTS domain tag — with no migration, leaving the
+first thirteen pixels unverifiable by every later version of the code.
+
+On network `CROWNED_NETWORK_ID`, pixels below `LEGACY_SIG_ERA_END_HEIGHT` verify under
+the pre-`c8d5d54` constructions and everything at or above it verifies under the current
+ones. Exactly one era applies at any height; a verifier must **never** fall back between
+them, because a fallback is a downgrade oracle. The era is closed above, applies to no
+other network, and has no signing path — those constructions are readable history, not
+an available option.
+
 ## 5. Economics
 
 - Genesis reward: 50 PIX at pixel 0
-- Halving every 210_000 pixels
-- Cap: 21_000_000 PIX
+- Flat emission: 50 PIX per pixel, no halving
+- Horizon: 206_000_000 rewarded pixels, which reaches the cap exactly
+- Cap: 10_300_000_000 PIX — one per human alive at the projected peak of humanity
 - No burn
 - Bridge value uses **lock/escrow**, not destruction
 - **Bridge custody inversion:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX (`BRIDGE_CUSTODY_AXIOM`, `bun run test:bridge-custody`)

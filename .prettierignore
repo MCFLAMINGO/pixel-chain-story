@@ -6,3 +6,7 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+
+# Captured chain history. Write-once evidence, not source: reformatting a 1.4 MB
+# snapshot costs megabytes of diff and buys nothing.
+fixtures/crowned-47.json

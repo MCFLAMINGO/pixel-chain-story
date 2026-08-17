@@ -2,11 +2,11 @@
 
 Three faces. One substance. Not three ledgers.
 
-| Face | Meaning in Pixel |
-| --- | --- |
-| **Source** | Keys, genesis, law (21M), origin of commitment |
-| **Word** | What is spoken into being — the pixel, the settlement, the artifact |
-| **Light** | What reveals — PoLS shine, proximity, SISO continuity |
+| Face       | Meaning in Pixel                                                    |
+| ---------- | ------------------------------------------------------------------- |
+| **Source** | Keys, genesis, law (10.3B ceiling), origin of commitment            |
+| **Word**   | What is spoken into being — the pixel, the settlement, the artifact |
+| **Light**  | What reveals — PoLS shine, proximity, SISO continuity               |
 
 Without Light, the Word has no color.  
 Without Source, Light has nothing to reveal.  

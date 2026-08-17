@@ -45,6 +45,7 @@ Full doctrine + gate definitions: [`PATH.md`](./PATH.md).
 - [x] Frozen public vectors in CI — `bun run test:vectors`
 - [x] Persist `scheme` + ML-DSA secret in nodekey/wallets
 - [x] Default new genesis to ML-DSA (`DEFAULT_SCHEME=PIX-ML-DSA-65`)
+
 ## Gate E — bridge that verifies
 
 - [x] Real `ULAVerifier` (no stub accept for value) — keccak-OTS twin

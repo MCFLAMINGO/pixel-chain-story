@@ -21,7 +21,10 @@ const you = await One.Custody.forge("you");
 const rail = One.LockFeeder.createRail();
 One.LockFeeder.mintUsdc(rail, "0xYou", 5);
 const receipt = await One.LockFeeder.lockUsdc({
-  rail, locker: "0xYou", humanUsd: 5, pixelRecipient: you.source.address,
+  rail,
+  locker: "0xYou",
+  humanUsd: 5,
+  pixelRecipient: you.source.address,
 });
 const feeder = One.LockFeeder.createState();
 const prepared = await One.LockFeeder.feed({ receipt, ownerLocalId: "you", feeder, rail });

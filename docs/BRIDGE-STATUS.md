@@ -20,14 +20,14 @@ Tip POST /bridge/shine-in-lock
 verify Locked log → illuminateIngress → PIX on pay face
 ```
 
-| Piece | Status |
-| --- | --- |
-| Tip verify + consume digests | **shipped** (`shineInFromUsdcLockTx`, `bridge-feeder.json`) |
-| Phone Bridge UI (Rabby / MetaMask + paste tx) | **live** — tip `/health.bridgeEvm` + first public shine-in |
-| Venues (presets) | Sepolia · Base Sepolia · Polygon Amoy · Arbitrum Sepolia |
-| Lab open shine-in | Still behind `PIXEL_BRIDGE_LAB=1` (demo; `lab: true`) |
-| Anvil evidence | `bun run test:sepolia-bridge` (CI after Foundry) |
-| Public Sepolia lock → tip PIX | **proven** — see table below |
+| Piece                                         | Status                                                      |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| Tip verify + consume digests                  | **shipped** (`shineInFromUsdcLockTx`, `bridge-feeder.json`) |
+| Phone Bridge UI (Rabby / MetaMask + paste tx) | **live** — tip `/health.bridgeEvm` + first public shine-in  |
+| Venues (presets)                              | Sepolia · Base Sepolia · Polygon Amoy · Arbitrum Sepolia    |
+| Lab open shine-in                             | Still behind `PIXEL_BRIDGE_LAB=1` (demo; `lab: true`)       |
+| Anvil evidence                                | `bun run test:sepolia-bridge` (CI after Foundry)            |
+| Public Sepolia lock → tip PIX                 | **proven** — see table below                                |
 
 ### Live tip env (Railway `pixel-tip`)
 
@@ -57,12 +57,12 @@ Legacy `PIXEL_USDC_LOCK_SEPOLIA` / `PIXEL_BRIDGE_SEPOLIA` still read.
 
 ### Public testnet tx links
 
-| Network | Lock contract | MockUSDC | Lock tx | Shine-in tip index | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Ethereum Sepolia | [`0xb99Fbb5a…8973211`](https://sepolia.etherscan.io/address/0xb99Fbb5aeB6252423a06acb95c9c61fEF8973211) | [`0x21A91215…01Aed523`](https://sepolia.etherscan.io/address/0x21A91215fbFc4fc002B07cc87698A6fC01Aed523) | [`0xa1c12522…fea8df`](https://sepolia.etherscan.io/tx/0xa1c12522d6cd051ec09cff0ff7e22e17a24ff453b1aa7e5bb9ed3980abfea8df) | **#7** | pay face `pix1ff98c57…d3de` · +1 PIX (35→36) · digest consumed (no double credit) |
-| Base Sepolia | *pending* | *pending* | *pending* | *pending* | easy faucet |
-| Polygon Amoy | *pending* | *pending* | *pending* | *pending* | POL gas |
-| Arbitrum Sepolia | *pending* | *pending* | *pending* | *pending* | |
+| Network          | Lock contract                                                                                           | MockUSDC                                                                                                 | Lock tx                                                                                                                   | Shine-in tip index | Notes                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------- |
+| Ethereum Sepolia | [`0xb99Fbb5a…8973211`](https://sepolia.etherscan.io/address/0xb99Fbb5aeB6252423a06acb95c9c61fEF8973211) | [`0x21A91215…01Aed523`](https://sepolia.etherscan.io/address/0x21A91215fbFc4fc002B07cc87698A6fC01Aed523) | [`0xa1c12522…fea8df`](https://sepolia.etherscan.io/tx/0xa1c12522d6cd051ec09cff0ff7e22e17a24ff453b1aa7e5bb9ed3980abfea8df) | **#7**             | pay face `pix1ff98c57…d3de` · +1 PIX (35→36) · digest consumed (no double credit) |
+| Base Sepolia     | _pending_                                                                                               | _pending_                                                                                                | _pending_                                                                                                                 | _pending_          | easy faucet                                                                       |
+| Polygon Amoy     | _pending_                                                                                               | _pending_                                                                                                | _pending_                                                                                                                 | _pending_          | POL gas                                                                           |
+| Arbitrum Sepolia | _pending_                                                                                               | _pending_                                                                                                | _pending_                                                                                                                 | _pending_          |                                                                                   |
 
 **Claim now:** Sepolia MockUSDC lock → tip verify `Locked` → native PIX on crowned tip (public links above). **Still forbidden:** mainnet USDC / “Visa on Pixel.”
 
@@ -76,11 +76,11 @@ Phone /wallet → Fund tip (POST /faucet)
              → PIX on pay face on crowned tip
 ```
 
-| Check | Expect |
-| --- | --- |
-| Tip | `https://pixel-tip-production.up.railway.app` |
-| Genesis | starts with `f1d193f62d54e982` |
-| Env | `PIXEL_BRIDGE_LAB=1` · `PIXEL_FAUCET=1` |
+| Check    | Expect                                                                      |
+| -------- | --------------------------------------------------------------------------- |
+| Tip      | `https://pixel-tip-production.up.railway.app`                               |
+| Genesis  | starts with `f1d193f62d54e982`                                              |
+| Env      | `PIXEL_BRIDGE_LAB=1` · `PIXEL_FAUCET=1`                                     |
 | Evidence | `bun run test:wallet-bridge` · `curl …/health` shows `bridgeLab` + `faucet` |
 
 ---
@@ -113,16 +113,16 @@ withdrawal delay.
 
 ## Evidence (protocol)
 
-| Artifact | Status |
-| --- | --- |
-| Frozen fixture | [`fixtures/ula-evm-v1.json`](../fixtures/ula-evm-v1.json) |
-| Foundry | `forge test` |
-| TS parity | `bun run test:ula` |
-| ML-DSA ULA | `bun run test:ula-mldsa` |
-| Relayer (local anvil) | `bun run test:ula-relayer` |
-| Tip EVM lock shine-in (anvil) | `bun run test:sepolia-bridge` |
-| Custody inversion | `bun run test:bridge-custody` |
-| Phone bridge | `bun run test:wallet-bridge` |
+| Artifact                      | Status                                                    |
+| ----------------------------- | --------------------------------------------------------- |
+| Frozen fixture                | [`fixtures/ula-evm-v1.json`](../fixtures/ula-evm-v1.json) |
+| Foundry                       | `forge test`                                              |
+| TS parity                     | `bun run test:ula`                                        |
+| ML-DSA ULA                    | `bun run test:ula-mldsa`                                  |
+| Relayer (local anvil)         | `bun run test:ula-relayer`                                |
+| Tip EVM lock shine-in (anvil) | `bun run test:sepolia-bridge`                             |
+| Custody inversion             | `bun run test:bridge-custody`                             |
+| Phone bridge                  | `bun run test:wallet-bridge`                              |
 
 ---
 

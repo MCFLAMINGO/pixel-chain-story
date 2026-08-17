@@ -89,6 +89,42 @@ export function computeFieldDigest(witnesses: readonly FieldWitness[]): string {
   return sha512SyncHex(`field|v2|blend=${blend.toLowerCase()}|${canonical}`);
 }
 
+/**
+ * The witnesses a block *carries* must be the witnesses its state *implies*.
+ *
+ * `assertFieldWitnessesMatch` checks the digest bound in the light proof, which is
+ * recomputed from prior state and therefore unforgeable. It never looked at
+ * `block.field` — the array actually stored, served and rendered — so that array was
+ * unconstrained by consensus while its digest was not.
+ *
+ * This matters less for money than for the claim. The project's sharpest sentence is
+ * that the picture is not a dashboard over the chain, it partly *is* the chain. For the
+ * digests that was true. For the arrays a node serves at `/wave/tip` and the UI draws
+ * in `LedgerField.tsx`, it was not. Comparing them costs nothing, because the
+ * recomputation is already being done to check the digest.
+ */
+export function assertFieldWitnessesBodyMatch(
+  claimed: readonly FieldWitness[] | undefined,
+  tipIndex: number,
+  priorColors: readonly string[],
+): void {
+  const expected = buildFieldWitnesses(tipIndex, priorColors);
+  const claimedList = claimed ?? [];
+  if (claimedList.length !== expected.length) {
+    throw new Error(
+      `field witness count mismatch at tip ${tipIndex}: carried ${claimedList.length}, ` +
+        `state implies ${expected.length}`,
+    );
+  }
+  // Canonical form is the digest's own preimage, so "equal" here means exactly what
+  // "equal" means to the commitment. Two notions of equality would be a second rule.
+  if (computeFieldDigest(claimedList) !== computeFieldDigest(expected)) {
+    throw new Error(
+      `field witnesses carried by tip ${tipIndex} do not match the ones its state implies`,
+    );
+  }
+}
+
 export function assertFieldWitnessesMatch(
   claimed: string,
   tipIndex: number,

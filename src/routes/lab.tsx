@@ -142,7 +142,7 @@ function Lab() {
           <p className="mt-4 max-w-2xl text-sm text-muted-foreground">{datacenterRebuke()}</p>
           <ul className="mt-6 max-w-2xl list-disc space-y-3 pl-5 text-muted-foreground">
             <li>
-              <span className="text-foreground">21,000,000 PIX</span> — scarcity schedule; light
+              <span className="text-foreground">10,300,000,000 PIX</span> — scarcity schedule; light
               rewards ({energy.model}).
             </li>
             <li>

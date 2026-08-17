@@ -27,7 +27,13 @@
 import { sha512Hex, type Hex, type LightKeypair } from "./crypto";
 import type { LightProof } from "./pol";
 import type { LedgerPixel } from "./chain";
-import { merkleProof, merkleRoot, verifyLightProof, verifyMerkleProof } from "./pol";
+import {
+  merkleProof,
+  merkleRoot,
+  verifyLightProof,
+  verifyMerkleProof,
+  proofBindingProblem,
+} from "./pol";
 import { signPixel, verifyPixel } from "./scheme";
 
 export type ForeignChain =
@@ -203,8 +209,9 @@ export async function verifyAttestation(
   if (mh !== att.messageHash) {
     return { ok: false, reason: "message hash mismatch" };
   }
-  if (att.lightProof.prevHash !== att.prevHash) {
-    return { ok: false, reason: "prevHash mismatch" };
+  const binding = proofBindingProblem(att);
+  if (binding) {
+    return { ok: false, reason: binding };
   }
 
   // Inclusion: the anchor transaction is provably under this pixel's root.

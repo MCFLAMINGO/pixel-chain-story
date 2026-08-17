@@ -1,5 +1,12 @@
 # Emission — an open question, stated honestly
 
+> **The ceiling is settled: 10,300,000,000 PIX, flat at 50 per pixel, horizon
+> 206,000,000 pixels.** Confirmed 16 August 2026. `PIX_HARD_CAP` in
+> `src/lib/pixel/economics.ts` is the source of truth and
+> `scripts/claims-guard-selftest.ts` fails the build if any file states a schedule
+> the code does not implement. Sections below marked superseded are kept because
+> they record how the number was arrived at — read them as history, not as policy.
+>
 > **Superseded 13 August 2026** by [`GIFT-AND-RECORD.md`](./GIFT-AND-RECORD.md) —
 > gifts are free and capped at one per pair, records cost three PIX from three
 > distinct givers, light is spent into the picture rather than burned, and the
@@ -415,10 +422,10 @@ supply measurement above is reading when it separates lit from dark.
 | Demurrage / half-life    | **rejected** — punishes absence to report what dormancy already shows |
 | Sybil defence            | emission ≤ transaction cost, so forging presence buys nothing         |
 
-| Still open           |                                                                          |
-| -------------------- | ------------------------------------------------------------------------ |
-| Emission schedule    | still the inherited halving, still 20,370,000 of a stated 21,000,000     |
-| Initial distribution | with emission capped at cost, how does a new person get their first PIX? |
+| Still open            |                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------- |
+| ~~Emission schedule~~ | **Resolved 16 Aug 2026** — 10,300,000,000 ceiling, flat 50/pixel, reached exactly |
+| Initial distribution  | with emission capped at cost, how does a new person get their first PIX?          |
 
 That second one is the live problem this analysis creates. Capping emission at the
 cost of a transaction removes the farming incentive and, with it, the mechanism by
@@ -437,10 +444,19 @@ issuance turns negative once deaths outnumber births. It is a model only: no
 consensus change, no schedule change, and the demographic inputs are deliberately
 _not_ protocol constants, because a design that needs to read them needs an oracle.
 
-## Why this is not decided here
+## Why this was not decided here
+
+<!-- superseded 2026-08-16: the ceiling question below was resolved. Kept as the
+     record of how the shortlist was reasoned about, against the old 21,000,000
+     target that has since been replaced. Do not read the table as current. -->
+
+**Resolved 16 August 2026.** The ceiling is 10,300,000,000 and the reward is a flat
+50 PIX per pixel, giving a horizon of 206,000,000 rewarded pixels. What follows is the
+shortlist as it stood when the target was still Satoshi's number, kept so the
+reasoning is auditable rather than asserted.
 
 Picking a reward number to keep existing tests passing would encode the mistake
-rather than fix it. The candidate exact-and-flat schedules are:
+rather than fix it. The candidate exact-and-flat schedules were:
 
 | Reward | Horizon           | At 30s blocks |
 | ------ | ----------------- | ------------- |
@@ -449,8 +465,12 @@ rather than fix it. The candidate exact-and-flat schedules are:
 | 21 PIX | 1,000,000 pixels  | 1.0 year      |
 | 50 PIX | 420,000 pixels    | 146 days      |
 
-Each reaches 21,000,000 exactly, with no unreachable remainder and no halving —
-so "every moment is worth the same" becomes true rather than aspirational.
+Each reached the then-target of 21,000,000 exactly, with no unreachable remainder and
+no halving — so "every moment is worth the same" becomes true rather than
+aspirational. That property is what survived into the decision; only the ceiling
+changed.
+
+<!-- /superseded -->
 
 But choosing among them is a monetary decision, and the prior question is whether
 there should be a schedule at all. That is a thesis decision, not an engineering

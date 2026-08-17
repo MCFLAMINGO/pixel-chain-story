@@ -20,7 +20,13 @@
  *  10. Unlabelled transfers and mints are untouched, so the policy is opt-in.
  */
 
-import { createGenesis, proposeTransfer, sequenceBlock } from "../src/lib/pixel/chain";
+import {
+  acceptBlock,
+  createGenesis,
+  proposeTransfer,
+  sequenceBlock,
+  verifyChain,
+} from "../src/lib/pixel/chain";
 import {
   GiftAndRecordError,
   PICTURE_PHRASE,
@@ -334,6 +340,86 @@ await refuses(
   assert(kept.length === 1, `a first gift should seal, got ${kept.length}`);
   console.log("▸ with the policy on, a first gift still seals ✓");
   delete process.env.PIXEL_GIFT_AND_RECORD;
+}
+
+// ── a malicious producer cannot bypass the rules ──────────────────────────────
+//
+// This is the check that matters, and until T1.5 it could not pass. The four rules
+// lived in `selectSpendableTxs`, a producer's mempool filter, and were absent from
+// `acceptBlock`. A producer that simply did not run the filter shipped a block that
+// every honest peer accepted — so `docs/GIFT-AND-RECORD.md` describing them as "code
+// that refuses" was false, which is the exact failure mode that module was written to
+// prevent.
+//
+// The block below is built by a producer that never consulted the rules, and handed
+// straight to a validating peer.
+{
+  process.env.PIXEL_GIFT_AND_RECORD = "1";
+
+  const author = await generatePixelKeypair("PIX-ML-DSA-65");
+  const counterparty = await generatePixelKeypair("PIX-ML-DSA-65");
+  const chain = await createGenesis(author);
+
+  // A "record" with none of the required quorum: the author funds it alone, so the
+  // light behind it comes from nobody who chose to give.
+  const { state: staged } = await proposeTransfer(
+    chain,
+    author,
+    [
+      { amount: 1, address: await pictureAddress() },
+      { amount: 1, address: counterparty.address },
+      { amount: 1, address: counterparty.address },
+    ],
+    { description: "a record nobody witnessed", kind: "record" },
+  );
+
+  // Produce with the policy OFF, which is exactly what a malicious producer does: it
+  // is the state of a node that never ran the filter.
+  delete process.env.PIXEL_GIFT_AND_RECORD;
+  const parent = {
+    ...chain,
+    utxos: new Map(chain.utxos),
+    usedOtsLeaves: new Set(chain.usedOtsLeaves),
+    pending: [],
+    reservedInputs: new Set<string>(),
+  };
+  const sealed = await sequenceBlock(staged, author);
+  const forged = sealed.pixels[sealed.pixels.length - 1]!;
+  const carriedRecord = forged.transactions.some((tx) => momentKind(tx) === "record");
+  assert(carriedRecord, "the producer should have sealed the unlawful record with the policy off");
+  console.log("▸ a producer with the policy off does seal an unlawful record ✓");
+
+  // Now a peer with the policy ON validates it. This must refuse.
+  process.env.PIXEL_GIFT_AND_RECORD = "1";
+  let refused = "";
+  try {
+    await acceptBlock(parent, forged);
+  } catch (err) {
+    refused = err instanceof Error ? err.message : String(err);
+  }
+  assert(
+    /quorum|record/i.test(refused),
+    `acceptBlock must refuse the unlawful record, got: ${refused || "ACCEPTED"}`,
+  );
+  console.log(`▸ acceptBlock refuses it: "${refused.slice(0, 62)}…" ✓`);
+
+  // And history agrees, so a chain containing it cannot be replayed either.
+  const poisoned = { ...parent, pixels: [...parent.pixels, forged] };
+  assert(
+    !(await verifyChain(poisoned)),
+    "verifyChain must also refuse a history containing the unlawful record",
+  );
+  console.log("▸ verifyChain refuses a history containing it ✓");
+
+  // With the policy off — the crowned chain's actual setting — nothing changes, which
+  // is why enabling these rules stays a per-network ceremony.
+  delete process.env.PIXEL_GIFT_AND_RECORD;
+  const acceptedWhenOff = await acceptBlock(parent, forged)
+    .then(() => true)
+    .catch(() => false);
+  assert(acceptedWhenOff, "with the policy off the same block is ordinary value movement");
+  console.log("▸ with the policy off the same block is accepted — the flag is the ceremony ✓");
+  void chain;
 }
 
 const t = giftAndRecordThesis();

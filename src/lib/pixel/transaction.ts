@@ -109,6 +109,42 @@ export async function createTransaction(params: {
   };
 }
 
+/**
+ * Recompute a transaction's identity from its content.
+ *
+ * `txid` and `commitment` are both derived from the canonical body, but until this
+ * function existed nothing ever checked that — consensus trusted whatever
+ * identifiers a transaction claimed. That let a producer put a transaction with
+ * txid X and body Y into a block: the merkle root would commit to X, the UTXO set
+ * would be keyed under X, and no rule anywhere tied X to Y. A receiver computing the
+ * txid it expected would disagree with the chain about what happened.
+ *
+ * Returns null when the identity is sound, or a reason when it is not, so callers on
+ * the admission path can turn it into a rejection message and callers on the
+ * consensus path can turn it into a thrown error.
+ *
+ * Note this is cheap but **not sufficient on its own** as a spam defence: an
+ * attacker can compute a correct txid for junk content just by hashing it. It is a
+ * free first filter, not the gate. The gate is ownership and signature.
+ */
+export async function txIdentityProblem(tx: Transaction): Promise<string | null> {
+  const body = canonicalTxBody(tx);
+  const commitment = await lightDigest("superposition", body);
+  if (commitment !== tx.commitment) {
+    return `commitment does not derive from the transaction body (claimed ${String(
+      tx.commitment,
+    ).slice(0, 16)}…, computed ${commitment.slice(0, 16)}…)`;
+  }
+  const txid = await lightDigest("txid", commitment, body);
+  if (txid !== tx.txid) {
+    return `txid does not derive from the transaction body (claimed ${String(tx.txid).slice(
+      0,
+      16,
+    )}…, computed ${txid.slice(0, 16)}…)`;
+  }
+  return null;
+}
+
 export async function signTransaction(
   tx: Transaction,
   keypair: LightKeypair,
@@ -126,6 +162,46 @@ export async function signTransaction(
 }
 
 /**
+ * How a signature is checked. Injected so this module stays era-agnostic.
+ *
+ * Signature *rules* changed once in this chain's life (PIX-10/PIX-16), so which
+ * construction is correct depends on the height the signature was committed under.
+ * That is a question about history, and history lives in `chain.ts`, not here.
+ * Passing the verifier in keeps the era decision in exactly one place —
+ * `sig-era.ts` — instead of leaking a networkId and a block index into every
+ * function that happens to touch a transaction.
+ */
+export type SignatureVerifier = (
+  message: string,
+  signatureJson: string,
+  publicKey: Hex,
+) => Promise<boolean>;
+
+/**
+ * Everything consensus needs to read a signature, as one swappable unit.
+ *
+ * Verification is not enough on its own: authorization also has to know *which*
+ * scheme a signature is in, so it can derive the address the key commits to and
+ * compare it against the UTXO's owner. Both answers have to come from the same era,
+ * and bundling them makes that impossible to get half-right — which is exactly the
+ * bug this type was introduced to fix. `schemeFromSignature` validates the whole
+ * envelope against the current strict zod schema, so it returns `null` for a
+ * pre-PIX-10 OTS envelope (128 revealed entries instead of 256). A verifier swapped
+ * for the legacy era while the scheme reader stayed strict therefore still rejected
+ * every legacy OTS spend, and did it one layer away from where it looked wrong.
+ */
+export interface SignaturePolicy {
+  verify: SignatureVerifier;
+  schemeOf: (signatureJson: string) => SchemeId | null;
+}
+
+/** The rules in force now. Every produce path and `acceptBlock` use exactly this. */
+export const CURRENT_SIGNATURE_POLICY: SignaturePolicy = {
+  verify: verifyPixel,
+  schemeOf: schemeFromSignature,
+};
+
+/**
  * Shape-only check: each input's signature is valid for the public key carried
  * on that same input.
  *
@@ -134,12 +210,15 @@ export async function signTransaction(
  * function reaching `acceptBlock`. A CI guard (`test:audit-scope`) fails the
  * build if this symbol appears in `chain.ts`.
  */
-export async function verifySignatureShapeOnly(tx: Transaction): Promise<boolean> {
+export async function verifySignatureShapeOnly(
+  tx: Transaction,
+  verify: SignatureVerifier = verifyPixel,
+): Promise<boolean> {
   if (tx.inputs.length === 0) return true; // coinbase / genesis mint
   const message = `${tx.commitment}|${canonicalTxBody(tx)}`;
   for (const input of tx.inputs) {
     if (!input.signature || !input.publicKey) return false;
-    const ok = await verifyPixel(message, input.signature, input.publicKey);
+    const ok = await verify(message, input.signature, input.publicKey);
     if (!ok) return false;
   }
   return true;
@@ -152,12 +231,13 @@ export async function verifySignatureShapeOnly(tx: Transaction): Promise<boolean
 export async function verifyTransactionSignaturesForOwners(
   tx: Transaction,
   ownerByUtxo: (txid: string, vout: number) => string | undefined,
+  policy: SignaturePolicy = CURRENT_SIGNATURE_POLICY,
 ): Promise<boolean> {
-  if (!(await verifySignatureShapeOnly(tx))) return false;
+  if (!(await verifySignatureShapeOnly(tx, policy.verify))) return false;
   if (tx.inputs.length === 0) return true;
   for (const input of tx.inputs) {
     if (!input.publicKey || !input.signature) return false;
-    const alg = schemeFromSignature(input.signature);
+    const alg = policy.schemeOf(input.signature);
     if (!alg) return false;
     const scheme: SchemeId = alg;
     const owner = ownerByUtxo(input.txid, input.vout);

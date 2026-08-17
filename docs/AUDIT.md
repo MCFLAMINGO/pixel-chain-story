@@ -7,15 +7,41 @@ Frozen with: [`THREAT-MODEL.md`](./THREAT-MODEL.md) **v1.1** · evidence dates v
 
 ## Scope (in)
 
-| Surface | Path | Why |
-| --- | --- | --- |
-| Hash-OTS + leaf single-use | `src/lib/pixel/crypto.ts`, `chain.ts` (`usedOtsLeaves`) | Spend / PoLS forgery if broken |
-| ML-DSA-65 scheme surface | `src/lib/pixel/scheme.ts` (`signPixel` / `verifyPixel`) | Default wallet / node birth |
-| Frozen quantum vectors | `src/lib/pixel/vectors/quantum-v1.json` | Drift / regression |
-| Tip accept path | `acceptBlock` in `src/lib/pixel/chain.ts` (docs historically said `acceptPixel`) | Peer can poison tip |
-| ULA EVM twin | `contracts/ULAVerifier.sol`, `src/lib/pixel/ula-evm.ts` | Foreign receipt forgery |
-| ULA ML-DSA off-chain + gate | `src/lib/pixel/ula-mldsa.ts`, `contracts/ULAOffchainMldsaGate.sol` | PQ birth ↔ foreign receipt story |
-| Bridge custody inversion | `bridge-custody.ts` | Foreign verify ≠ vault release |
+| Surface                     | Path                                                                             | Why                              |
+| --------------------------- | -------------------------------------------------------------------------------- | -------------------------------- |
+| Hash-OTS + leaf single-use  | `src/lib/pixel/crypto.ts`, `chain.ts` (`usedOtsLeaves`)                          | Spend / PoLS forgery if broken   |
+| ML-DSA-65 scheme surface    | `src/lib/pixel/scheme.ts` (`signPixel` / `verifyPixel`)                          | Default wallet / node birth      |
+| Frozen quantum vectors      | `src/lib/pixel/vectors/quantum-v1.json`                                          | Drift / regression               |
+| Tip accept path             | `acceptBlock` in `src/lib/pixel/chain.ts` (docs historically said `acceptPixel`) | Peer can poison tip              |
+| ULA EVM twin                | `contracts/ULAVerifier.sol`, `src/lib/pixel/ula-evm.ts`                          | Foreign receipt forgery          |
+| ULA ML-DSA off-chain + gate | `src/lib/pixel/ula-mldsa.ts`, `contracts/ULAOffchainMldsaGate.sol`               | PQ birth ↔ foreign receipt story |
+| Bridge custody inversion    | `bridge-custody.ts`                                                              | Foreign verify ≠ vault release   |
+| **Sequencer membership**    | `src/lib/pixel/membership.ts`, `electableAt` in `chain.ts`                       | Who may produce a pixel at all   |
+| **Signature eras**          | `src/lib/pixel/sig-era.ts`, `legacy-sig.ts`                                      | Two rule sets; downgrade risk    |
+| **Mempool admission**       | `src/lib/pixel/mempool.ts`                                                       | Public unauthenticated door      |
+| **Gossip wire parsing**     | `src/lib/pixel/wire-schema.ts`, `node/gossip-bun.ts`                             | Peer-facing parse surface        |
+| **Bounds**                  | `src/lib/pixel/limits.ts`, `rate-limit.ts`                                       | Resource exhaustion              |
+| **Node key at rest**        | `src/node/key-seal.ts`, `node/store.ts`                                          | The key that signs every block   |
+
+### Findings this package should be read against
+
+A soundness pass on 16–17 August 2026 found and fixed the following. An external
+reviewer should treat these as the areas where this codebase has already been wrong, and
+therefore where it is most worth looking again. Each has a permanent regression test;
+`docs/STATE-2026-08-17.md` is the narrative.
+
+| Finding                              | Was                                                           | Test                   |
+| ------------------------------------ | ------------------------------------------------------------- | ---------------------- |
+| Stranger could extend the tip        | producer registered from the block being validated            | `test:membership`      |
+| `verifyChain` rejected pixels 0–12   | `c8d5d54` changed three signature constructions, no migration | `test:sig-era`         |
+| Unauthenticated `/tx` drove emission | no signature check, no cap; 300 curls minted 15,050 PIX       | `test:bounds`          |
+| Gossip wire unvalidated              | `JSON.parse` and a cast                                       | `test:wire-schema`     |
+| `sequence` unbound                   | the lottery's own input was grindable                         | `test:adversarial`     |
+| Transaction identity unbound         | txid never recomputed from content                            | `test:adversarial`     |
+| `field` / `wave` arrays unbound      | only their digests were checked                               | `test:adversarial`     |
+| Fees counted as issuance             | first nonzero fee would break `verifyChain`                   | `test:fee-accounting`  |
+| Gift/record rules producer-side only | absent from `acceptBlock`                                     | `test:gift-and-record` |
+| Node key plaintext on disk           | seed and ML-DSA secret in plain JSON                          | `test:key-seal`        |
 
 ## Scope (out — for this package)
 
@@ -54,30 +80,30 @@ referenced from commit messages and tests, and because the honest history of
 this package includes the fact that nine green evidence commands coexisted with
 eleven successful exploits.
 
-| Finding | Fix | Regression test |
-| --- | --- | --- |
-| PIX-01 owner binding | `verifyTransactionSignaturesForOwners` in every consensus path | `test:adversarial`, `test:invariants` |
-| PIX-02 coinbase / cap | `validateAndApplyBlockTxs` | `test:adversarial`, `test:invariants` |
-| PIX-03 input existence / conservation | `applySpendTx` | `test:adversarial`, `test:invariants` |
-| PIX-04 electable bypass | `derivedElectable` + monotonic check | `test:adversarial` |
-| PIX-05 blind `verifyChain` | full UTXO replay | `test:adversarial` |
-| PIX-06 unsigned bridge message | `bridgePayload` + inclusion proof | `test:adversarial` |
-| PIX-07 self-authorizing gate | required `trustedSequencers` | `test:adversarial` |
-| PIX-08 truncated commit digest | `gateMessageHash32` | `test:adversarial` |
-| PIX-09 unverified vault release | `VaultReleasePolicy` + `consumeVaultRelease` | `test:adversarial` |
-| PIX-10 OTS strength | 256-bit digest, 32-byte halves | `test:vectors`, `test:adversarial` |
-| PIX-11 fail-open cursor | required cursor + `OTS_CURSOR_UNKNOWN` | `test:adversarial` |
-| PIX-12 on-chain OTS forgeable | `MSG_BITS=256`, rebuilt message, leaf tracking | `forge test`, `cargo test` |
-| PIX-13 no access control | owner + timelocked allowlists | `forge test` |
-| PIX-14 unbounded timestamps | parent anchor + drift bound | `test:adversarial` |
-| PIX-15 reorg released leaves | append-only used-leaf set | `test:adversarial` |
-| PIX-16 domain separation | OTS tag + native ML-DSA ctx | `test:adversarial` |
-| PIX-17 unmet noble dependency | `@noble/ciphers` ^2.2.0 | `bun install` |
-| PIX-18 deterministic signing | hedged by default | `test:adversarial` |
-| PIX-19 constant-time risk | recorded in `THREAT-MODEL.md` | n/a (accepted) |
-| PIX-20 leaf index bounds | explicit assertions + schema | `test:adversarial` |
-| PIX-21 no negative tests | `test:adversarial` + `test:invariants` in CI | this row |
-| PIX-22 docs claimed unimplemented checks | inclusion proof implemented; labels corrected | `forge test` |
+| Finding                                  | Fix                                                            | Regression test                       |
+| ---------------------------------------- | -------------------------------------------------------------- | ------------------------------------- |
+| PIX-01 owner binding                     | `verifyTransactionSignaturesForOwners` in every consensus path | `test:adversarial`, `test:invariants` |
+| PIX-02 coinbase / cap                    | `validateAndApplyBlockTxs`                                     | `test:adversarial`, `test:invariants` |
+| PIX-03 input existence / conservation    | `applySpendTx`                                                 | `test:adversarial`, `test:invariants` |
+| PIX-04 electable bypass                  | `derivedElectable` + monotonic check                           | `test:adversarial`                    |
+| PIX-05 blind `verifyChain`               | full UTXO replay                                               | `test:adversarial`                    |
+| PIX-06 unsigned bridge message           | `bridgePayload` + inclusion proof                              | `test:adversarial`                    |
+| PIX-07 self-authorizing gate             | required `trustedSequencers`                                   | `test:adversarial`                    |
+| PIX-08 truncated commit digest           | `gateMessageHash32`                                            | `test:adversarial`                    |
+| PIX-09 unverified vault release          | `VaultReleasePolicy` + `consumeVaultRelease`                   | `test:adversarial`                    |
+| PIX-10 OTS strength                      | 256-bit digest, 32-byte halves                                 | `test:vectors`, `test:adversarial`    |
+| PIX-11 fail-open cursor                  | required cursor + `OTS_CURSOR_UNKNOWN`                         | `test:adversarial`                    |
+| PIX-12 on-chain OTS forgeable            | `MSG_BITS=256`, rebuilt message, leaf tracking                 | `forge test`, `cargo test`            |
+| PIX-13 no access control                 | owner + timelocked allowlists                                  | `forge test`                          |
+| PIX-14 unbounded timestamps              | parent anchor + drift bound                                    | `test:adversarial`                    |
+| PIX-15 reorg released leaves             | append-only used-leaf set                                      | `test:adversarial`                    |
+| PIX-16 domain separation                 | OTS tag + native ML-DSA ctx                                    | `test:adversarial`                    |
+| PIX-17 unmet noble dependency            | `@noble/ciphers` ^2.2.0                                        | `bun install`                         |
+| PIX-18 deterministic signing             | hedged by default                                              | `test:adversarial`                    |
+| PIX-19 constant-time risk                | recorded in `THREAT-MODEL.md`                                  | n/a (accepted)                        |
+| PIX-20 leaf index bounds                 | explicit assertions + schema                                   | `test:adversarial`                    |
+| PIX-21 no negative tests                 | `test:adversarial` + `test:invariants` in CI                   | this row                              |
+| PIX-22 docs claimed unimplemented checks | inclusion proof implemented; labels corrected                  | `forge test`                          |
 
 ## Self-review checklist (lab)
 

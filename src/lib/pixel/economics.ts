@@ -2,10 +2,11 @@
  * Dual-layer value — scarcity without starving builders.
  *
  * LAYER A — PIX (scarce monetary / security asset)
- *   Hard cap 21,000,000 PIX (Bitcoin-grade schedule).
- *   Pays sequencers, secures the ledger, collateralizes bridges.
- *   Subdivided into 1e8 base units (like sats) so 21M is NOT a UX bottleneck:
- *     21e6 * 1e8 = 2.1e15 spendable units.
+ *   Hard cap 10,300,000,000 PIX, minted flat at 50 per pixel to a horizon of
+ *   206,000,000 pixels, which reaches the ceiling exactly. Pays sequencers and
+ *   secures the ledger.
+ *   Subdivided into 1e8 base units (like sats), so the ceiling is not a UX
+ *   bottleneck: 10.3e9 * 1e8 = 1.03e18 spendable units.
  *
  * LAYER B — Light Credits (uncapped developer / agent fuel)
  *   Metered for Lumen runs, MCP/agent tool calls, SISO message relays,
@@ -31,11 +32,15 @@
  * chosen for a reason, and the reason is legible to anyone.
  *
  * The schedule reaches it exactly. See docs/EMISSION.md.
+ *
+ * Settled 16 August 2026. The file header above claimed 21,000,000 for five days
+ * after the constant changed, which is how a reader ends up trusting a comment over
+ * the code it sits on top of. `scripts/claims-guard-selftest.ts` now fails the build
+ * if any file states a supply schedule this module does not implement.
  */
 export const PIX_HARD_CAP = 10_300_000_000;
-/** Base units per PIX — prevents 21M from limiting micropayments / fees. */
+/** Base units per PIX — so the ceiling never limits micropayments or fees. */
 export const PIX_BASE_UNITS = 100_000_000;
-export const LIGHT_ERA_LENGTH = 210_000;
 export const GENESIS_LIGHT_REWARD = 50;
 /** Monetary fee in base units (0 = free during bootstrap). */
 export const BASE_REVELATION_FEE_UNITS = 0;
@@ -53,7 +58,6 @@ export const LIGHT_CREDIT_COSTS = {
 
 export interface EmissionInfo {
   pixelIndex: number;
-  era: number;
   rewardPix: number;
   rewardUnits: number;
   mintedPixToDate: number;
@@ -64,12 +68,14 @@ export interface EmissionInfo {
 }
 
 /**
- * Pixels that carry a reward. 420,000 x 50 PIX is exactly PIX_HARD_CAP.
+ * Pixels that carry a reward: 206,000,000 x 50 PIX is exactly PIX_HARD_CAP.
  *
- * Halving was inherited from Bitcoin without Bitcoin's base unit, so integer
- * division truncated every era and the series landed 630,000 short of the cap it
- * claimed. Bitcoin halves in satoshis and lands 0.0000001% under; ours halved in
- * whole PIX and landed 3% under.
+ * There used to be a halving here, inherited from Bitcoin without Bitcoin's base
+ * unit — integer division truncated every era, so the series landed 630,000 short
+ * of the ceiling it claimed. Bitcoin halves in satoshis and lands 0.0000001% under;
+ * this halved in whole PIX and landed 3% under. Flat emission has no such gap and
+ * reaches the ceiling exactly, which is why `PIX_SCHEDULE_TOTAL === PIX_HARD_CAP`
+ * is an assertion rather than an aspiration.
  */
 export const LIGHT_HORIZON = PIX_HARD_CAP / GENESIS_LIGHT_REWARD;
 
@@ -117,7 +123,6 @@ export function emissionInfo(nextPixelIndex: number): EmissionInfo {
   const rewardPix = lightReward(nextPixelIndex);
   return {
     pixelIndex: nextPixelIndex,
-    era: Math.floor(Math.max(0, nextPixelIndex) / LIGHT_ERA_LENGTH),
     rewardPix,
     rewardUnits: rewardPix * PIX_BASE_UNITS,
     mintedPixToDate,
@@ -175,9 +180,9 @@ export function valueThesis(): {
     baseUnits: PIX_BASE_UNITS,
     dualLayer: "PIX is scarce money/security; Light Credits are uncapped builder/agent fuel.",
     analogy:
-      "Bitcoin-shaped scarcity, not Bitcoin's arithmetic: the 21M ceiling is inherited, and the halving schedule can only reach 20,370,000 because it halves in whole PIX rather than base units. Credits are builder fuel. A ceiling is scarcity — not a $21M IPO. See docs/EMISSION.md.",
+      "A ceiling chosen for what the picture is for, not inherited from Bitcoin: one PIX for every human alive at the projected peak of humanity (~10.3 billion, around 2084). Flat emission of 50 PIX per pixel reaches it exactly. Credits are builder fuel. A ceiling is scarcity, not a valuation — never multiply it by a quote. See docs/EMISSION.md.",
     issuance:
-      "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS). Day one = illuminate or shine in; no founder dump. Whether a per-pixel emission belongs in this design at all is an open question — PoLS has no expensive work to subsidise (docs/EMISSION.md).",
+      "New PIX only via light rewards when a sequencer illuminates a pixel (PoLS), flat at 50 per pixel. Day one = illuminate or shine in; no founder dump. Whether a per-pixel emission belongs in this design at all is an open question — PoLS has no expensive work to subsidise (docs/EMISSION.md).",
     sinks: [
       "Revelation fees paid to sequencers (anti-spam + security budget)",
       "Bridge collateral — PIX locked/escrowed for shineOut, then released",
@@ -188,6 +193,6 @@ export function valueThesis(): {
       "Long-term monetary premium",
     ],
     whyNotLimitDevs:
-      "Apps, agents, and SISO messages spend Light Credits (regenerated), not the 21M PIX cap.",
+      "Apps, agents, and SISO messages spend Light Credits (regenerated), never the PIX ceiling.",
   };
 }

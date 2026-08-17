@@ -30,24 +30,26 @@ bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 
 ## Docs engineers should read
 
-| Doc                                                  | Why                                                                            |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`AGENTS.md`](AGENTS.md)                             | **LLMs / coding agents** — Pixel brief (creed, routes, do/don’t, claim bounds) |
-| [`llms.txt`](llms.txt)                               | Machine-readable doc index for crawlers and agents                             |
-| [`docs/PATH.md`](docs/PATH.md)                       | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
-| [`docs/DOORS.md`](docs/DOORS.md)                     | **How to enter** — on / for / into + people use + seed ideas (`/doors`)        |
-| [`docs/QUANTUM.md`](docs/QUANTUM.md)                 | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65)                          |
-| [`docs/INVENTION.md`](docs/INVENTION.md)             | What is ours vs borrowed                                                       |
-| [`docs/LUMEN.md`](docs/LUMEN.md)                     | Light-native DSL — evolve, don’t abandon                                       |
-| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)       | **How to help** — lanes, checklist, what we reject                             |
-| [`docs/SPEC.md`](docs/SPEC.md)                       | Normative behavior                                                             |
-| [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md)       | Honest risks                                                                   |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md)                 | Checklist tied to PATH gates                                                   |
-| [`docs/ONE.md`](docs/ONE.md)                         | Simple API                                                                     |
-| [`docs/INVENT.md`](docs/INVENT.md)                   | Invent, don’t rename                                                           |
-| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)             | Day one without $21M myth                                                      |
-| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | **SISO clarion call** — no parallel rewrite                                    |
-| [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md)         | Agents / swarms: shine in or build a PATH gate                                 |
+| Doc                                                    | Why                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [`AGENTS.md`](AGENTS.md)                               | **LLMs / coding agents** — Pixel brief (creed, routes, do/don’t, claim bounds) |
+| [`llms.txt`](llms.txt)                                 | Machine-readable doc index for crawlers and agents                             |
+| [`docs/PATH.md`](docs/PATH.md)                         | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
+| [`docs/DOORS.md`](docs/DOORS.md)                       | **How to enter** — on / for / into + people use + seed ideas (`/doors`)        |
+| [`docs/QUANTUM.md`](docs/QUANTUM.md)                   | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65)                          |
+| [`docs/INVENTION.md`](docs/INVENTION.md)               | What is ours vs borrowed                                                       |
+| [`docs/LUMEN.md`](docs/LUMEN.md)                       | Light-native DSL — evolve, don’t abandon                                       |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)         | **How to help** — lanes, checklist, what we reject                             |
+| [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md) | **Where the project actually stands** — read before starting work              |
+| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md) | **Which 20 of 86 modules are consensus** — open this first                     |
+| [`docs/SPEC.md`](docs/SPEC.md)                         | Normative behavior (constants machine-checked against code)                    |
+| [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md)         | Honest risks                                                                   |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)                   | Checklist tied to PATH gates                                                   |
+| [`docs/ONE.md`](docs/ONE.md)                           | Simple API                                                                     |
+| [`docs/INVENT.md`](docs/INVENT.md)                     | Invent, don’t rename                                                           |
+| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)               | Day one without the fundraising myth                                           |
+| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md)   | **SISO clarion call** — no parallel rewrite                                    |
+| [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md)           | Agents / swarms: shine in or build a PATH gate                                 |
 
 ## Builders — on / for / into Pixel
 

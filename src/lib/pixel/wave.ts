@@ -207,6 +207,39 @@ export function computeTipWaveField(params: {
   return { hits, waveDigest: computeWaveDigest(hits) };
 }
 
+/**
+ * The wave hits a block *carries* must be the hits its position *implies*.
+ *
+ * Counterpart to `assertFieldWitnessesBodyMatch` — see the note there. `block.wave` is
+ * served publicly at `/wave/tip`, fanned out to every waveBus subscriber, and read by
+ * the UI for the tip twinkle, and none of it was constrained by consensus. Only the
+ * digest was.
+ */
+export function assertWaveHitsBodyMatch(
+  claimed: readonly WaveHit[] | undefined,
+  params: {
+    tipIndex: number;
+    sequence: number;
+    prevHash: string;
+    merkleRoot: string;
+    priorTipHashes: readonly string[];
+  },
+): void {
+  const { hits } = computeTipWaveField(params);
+  const claimedList = claimed ?? [];
+  if (claimedList.length !== hits.length) {
+    throw new Error(
+      `wave hit count mismatch at tip ${params.tipIndex}: carried ${claimedList.length}, ` +
+        `position implies ${hits.length}`,
+    );
+  }
+  if (computeWaveDigest(claimedList) !== computeWaveDigest(hits)) {
+    throw new Error(
+      `wave hits carried by tip ${params.tipIndex} do not match the ones its position implies`,
+    );
+  }
+}
+
 export function assertWaveDigestMatch(
   claimed: string,
   params: {

@@ -259,15 +259,27 @@ provenance that outlives the venue — see [`RWA-CONTINUITY.md`](./RWA-CONTINUIT
    Wide change: dozens of selftests plus node startup validation on a live tip.
    Worth one coherent pass rather than a partial one.
 
-1. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
-2. Decide the emission question — reachable supply is 20,370,000 of a 21,000,000 ceiling, and PoLS has no expensive work to subsidise ([`EMISSION.md`](./EMISSION.md))
-3. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
-4. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
-5. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
-6. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
-7. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
-8. [~] **World canvas + people wallet** — frame + lab `/wallet` pay-on-tip + billboard honesty + tip-mark / canvas id + shared-tip attach (`test:wallet`, `test:tip-mark`, `test:shared-tip`, [`WORLD-CANVAS.md`](./WORLD-CANVAS.md)); tip-host contract + `VITE_REQUIRE_PUBLIC_TIP` (`test:tip-host`, [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)); public tip live at `https://pixel-tip-production.up.railway.app`. Still open: **ops** — wire that URL into production `VITE_PIXEL_RPC` (+ require flag) on Lovable. Lab `init` stays for builders only.
-9. [~] **Spatial lattice invent** — meat behind the 3D/light vision ([`SPATIAL.md`](./SPATIAL.md)): S1–S4 tip physics + Lock→lead; S5 Three.js UI sink (`test:spatial-sink`, `/spatial`). Still open: WASM/octree only if benches demand. Dream ≠ voxel mainnet claim.
-10. Keep `pix_protocolInfo` gates honest as evidence lands
+1. **Soundness gate — CLOSED 17 Aug 2026.** Twelve fixes, each with a test that failed
+   first: membership as a fold over history (a stranger could produce), the legacy
+   signature era (`verifyChain` rejected pixels 0–12), the mempool door (300
+   unauthenticated curls minted 15,050 PIX), gossip wire validation, sequence and
+   transaction-identity binding, `field`/`wave` body binding, fees ≠ issuance,
+   gift-and-record moved into `acceptBlock`, accept/verify parity as a property, node
+   key sealing, and a coverage harness that fails the build when a consensus field,
+   route or message arrives unaccounted for. See [`STATE-2026-08-17.md`](./STATE-2026-08-17.md).
+   **Prerequisite for everything below involving a second operator.**
+2. **Second-operator structural work** — fork choice over a block tree (currently depth-1,
+   so two honest nodes partitioned for two pixels cannot converge) and a finality rule
+   anchored to the public venues. Then two operators proven by killing one.
+3. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
+4. Decide the emission question — the ceiling is 10,300,000,000 and flat emission reaches it exactly, but PoLS still has no expensive work to subsidise, so whether a per-pixel reward belongs here at all is open ([`EMISSION.md`](./EMISSION.md))
+5. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
+6. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
+7. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held
+8. [x] Lab chaos drill + till ledger accrual (`test:chaos-drill`) — not Gate J public evidence
+9. [x] **FieldWitness invent** — sphere combination lock: peer indices, distance, opacity ∈ {opaque, translucent, lit}; tip PoLS binds `fieldDigest`; `acceptBlock` recomputes and rejects mismatch (`bun run test:field`, SPEC § FieldWitness). **PATH note: invent gate evidence — not a rename of `prevHash`.** Verification, continuity of the scene, custody of the tip.
+10. [~] **World canvas + people wallet** — frame + lab `/wallet` pay-on-tip + billboard honesty + tip-mark / canvas id + shared-tip attach (`test:wallet`, `test:tip-mark`, `test:shared-tip`, [`WORLD-CANVAS.md`](./WORLD-CANVAS.md)); tip-host contract + `VITE_REQUIRE_PUBLIC_TIP` (`test:tip-host`, [`CANONICAL-TIP.md`](./CANONICAL-TIP.md)); public tip live at `https://pixel-tip-production.up.railway.app`. Still open: **ops** — wire that URL into production `VITE_PIXEL_RPC` (+ require flag) on Lovable. Lab `init` stays for builders only.
+11. [~] **Spatial lattice invent** — meat behind the 3D/light vision ([`SPATIAL.md`](./SPATIAL.md)): S1–S4 tip physics + Lock→lead; S5 Three.js UI sink (`test:spatial-sink`, `/spatial`). Still open: WASM/octree only if benches demand. Dream ≠ voxel mainnet claim.
+12. Keep `pix_protocolInfo` gates honest as evidence lands
 
 Gate D is in. Gate I package is preparing. Continuity desk can drill origin-dark → till accrue in lab — still a pilot, not a costume. FieldWitness is invent evidence for tip custody as a sphere lock — not simile alone. World canvas is the people-facing north star: one picture, wallet-held, tip-marked — not everyone lighting a private notebook.

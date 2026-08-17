@@ -3,10 +3,24 @@
 The economics, as of 13 August 2026. Written down the night it was worked out.
 Supersedes the earlier one-one-one sketch.
 
-**Four of these rules are now code that refuses.** `src/lib/pixel/gift-and-record.ts`
-enforces the gift cap, one-gift-per-pair, the three-distinct-giver quorum, and the
-picture's share; `scripts/gift-and-record-selftest.ts` shows each one rejecting the
-specific abuse it exists to stop, and shows that a bad moment cannot reach a block.
+**Four of these rules are now code that refuses, and — since T1.5 — code that refuses
+at the right layer.** `src/lib/pixel/gift-and-record.ts` defines the gift cap,
+one-gift-per-pair, the three-distinct-giver quorum, and the picture's share.
+
+Where that check runs is the part worth stating precisely, because it was wrong. The
+rules used to be applied only in `selectSpendableTxs` — a _producer's_ mempool filter —
+and were absent from `acceptBlock`. So a producer that simply did not run the filter
+shipped a block every honest peer accepted, which made this paragraph false in exactly
+the way the module exists to prevent. They are now enforced inside
+`validateAndApplyBlockTxs`, the single gate that `sequenceBlock`, `acceptBlock` and
+`verifyChain` all pass through, so produce, accept and replay apply one rule rather
+than two that happened to agree.
+
+`scripts/gift-and-record-selftest.ts` shows each rule rejecting the specific abuse it
+exists to stop, and then does the check that could not pass before: it has a producer
+seal an unlawful record with the policy off, hands the block to a validating peer with
+the policy on, and asserts that both `acceptBlock` and `verifyChain` refuse it.
+
 A rule described here and enforced nowhere is not a rule, so anything below that is
 still only prose says so where it appears.
 

@@ -139,11 +139,11 @@ CI evidence (no host required): `bun run test:shared-tip`.
 
 Lab invent (code):
 
-| Piece | Role |
-| --- | --- |
+| Piece                            | Role                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `probeTipHost` / `test:tip-host` | Tip feed contract: `/health` + `/sync` + `/spatial/snapshot` + `/wave/tip`; restart keeps `genesisHash` |
-| `VITE_REQUIRE_PUBLIC_TIP=1` | Production builds **refuse lab light** as the public picture until `VITE_PIXEL_RPC` is set |
-| `.env.example` | Documents both vars |
+| `VITE_REQUIRE_PUBLIC_TIP=1`      | Production builds **refuse lab light** as the public picture until `VITE_PIXEL_RPC` is set              |
+| `.env.example`                   | Documents both vars                                                                                     |
 
 Ops still required for the claim: host the tip (Railway/VPS), set `VITE_PIXEL_RPC` on the site build.
 

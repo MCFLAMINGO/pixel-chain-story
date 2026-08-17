@@ -10,7 +10,13 @@
  */
 
 import { sha512Hex, sha512SyncHex, type Hex, type LightKeypair } from "./crypto";
-import { addressForScheme, signPixel, verifyPixel, type SchemeId } from "./scheme";
+import {
+  addressForScheme,
+  schemeFromSignature,
+  signPixel,
+  verifyPixel,
+  type SchemeId,
+} from "./scheme";
 import { opticalBeacon } from "./optical";
 
 /** Tip silent this long ⇒ skip justified (lab clock; not BFT). */
@@ -71,6 +77,15 @@ export interface LightProof {
    * Invent (SPATIAL S3): verifiable illuminated picture fragment.
    */
   spatialRoot: Hex;
+  /**
+   * Digest over this pixel's sequencer membership records (T1.1).
+   *
+   * Absent when the pixel changes no membership, which keeps the signed message
+   * byte-identical to what it was before membership existed — the same technique
+   * `electable` uses with its `el=` segment. That is why all 47 pixels of the
+   * crowned chain still verify.
+   */
+  membershipDigest?: Hex;
 }
 
 /** Commitment over ordered electable addresses (bound into PoLS message). */
@@ -138,12 +153,17 @@ export function polsMessage(
   fieldDigest?: string,
   waveDigest?: string,
   spatialRoot?: string,
+  membershipDigest?: string,
 ): string {
   const el = electable && electable.length > 0 ? `|el=${electableCommitment(electable)}` : "";
   const field = `|field=${fieldDigest ?? ""}`;
   const wave = `|wave=${waveDigest ?? ""}`;
   const spatial = `|spatial=${spatialRoot ?? ""}`;
-  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}${wave}${spatial}`;
+  // Appended only when present, so a pixel that changes no membership signs exactly
+  // the message it would have signed before this field existed. Every light proof on
+  // the crowned chain keeps verifying because of this one conditional.
+  const membership = membershipDigest ? `|members=${membershipDigest}` : "";
+  return `pols|${sequence}|${prevHash}|${beacon}|${address}|skip=${skipCount}${el}${field}${wave}${spatial}${membership}`;
 }
 
 export async function createLightProof(params: {
@@ -159,6 +179,8 @@ export async function createLightProof(params: {
   waveDigest: Hex;
   /** Sparse occupancy Merkle — required for tip picture (SPATIAL S3). */
   spatialRoot: Hex;
+  /** Membership digest — omitted when this pixel changes no membership (T1.1). */
+  membershipDigest?: Hex;
 }): Promise<LightProof> {
   const skipCount = params.skipCount ?? 0;
   const electable =
@@ -191,6 +213,7 @@ export async function createLightProof(params: {
     fieldDigest,
     waveDigest,
     spatialRoot,
+    params.membershipDigest,
   );
   const signature = await signPixel(message, params.sequencer);
   const scheme = (params.sequencer.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
@@ -208,16 +231,48 @@ export async function createLightProof(params: {
     fieldDigest,
     waveDigest,
     spatialRoot,
+    ...(params.membershipDigest ? { membershipDigest: params.membershipDigest } : {}),
   };
 }
 
+/**
+ * Verify a PoLS proof.
+ *
+ * `verify` is injectable for the same reason it is on transactions: the signature
+ * construction changed once (PIX-10/PIX-16), so replaying a pixel from before that
+ * change needs the rule that applied then. `sig-era.ts` decides which; the default
+ * is the current one, so every produce path and `acceptBlock` are unaffected.
+ */
 export async function verifyLightProof(
   proof: LightProof,
   expectedSequencer: string,
+  verify: (
+    message: string,
+    signatureJson: string,
+    publicKey: Hex,
+  ) => Promise<boolean> = verifyPixel,
 ): Promise<boolean> {
   if (proof.sequencerAddress !== expectedSequencer) return false;
   const skipCount = proof.skipCount ?? 0;
-  const scheme = (proof.scheme ?? "PIX-HASH-OTS-128") as SchemeId;
+
+  // The declared scheme must be present and must be what the signature actually is.
+  //
+  // This used to read `proof.scheme ?? "PIX-HASH-OTS-128"` — a silent default that
+  // picked a scheme when the field was missing, which is a failure that renders as an
+  // ordinary state. Worse, the declared scheme was used to derive the address while
+  // `verifyPixel` read the algorithm from inside the signature envelope, and nothing
+  // reconciled the two. A proof could therefore claim one scheme for address
+  // derivation and carry a signature in another. Whether that was exploitable depended
+  // on address-derivation domain separation holding, which is exactly the kind of
+  // thing that should be enforced rather than relied upon.
+  if (!proof.scheme) return false;
+  const scheme = proof.scheme as SchemeId;
+  const signatureScheme = schemeFromSignature(proof.signature);
+  // A pre-PIX-10 OTS envelope is unreadable to the current strict parser, and the
+  // legacy era verifies those separately; treat "unreadable" as "not current", never
+  // as "trust the declared field".
+  if (signatureScheme !== null && signatureScheme !== scheme) return false;
+
   // Bind address ↔ master public key (closes forged-pubkey-with-elected-address).
   if ((await addressForScheme(proof.sequencerPublicKey, scheme)) !== proof.sequencerAddress) {
     return false;
@@ -240,8 +295,43 @@ export async function verifyLightProof(
     proof.fieldDigest,
     proof.waveDigest,
     proof.spatialRoot,
+    proof.membershipDigest,
   );
-  return verifyPixel(message, proof.signature, proof.sequencerPublicKey);
+  return verify(message, proof.signature, proof.sequencerPublicKey);
+}
+
+/**
+ * Does a pixel's light proof describe the pixel it is attached to?
+ *
+ * A PoLS proof carries its own `sequence` and `prevHash`, and both feed the signed
+ * message — `prevHash` also feeds `opticalBeacon`. Nothing tied either of them to the
+ * block's own fields, so a proof could be signed about one position in the chain and
+ * stapled to a block claiming another.
+ *
+ * This existed in two places and not in the one that mattered. `verifyHeaderChain` in
+ * light-client.ts checked `lightProof.prevHash`, and so did `bridge.ts` — which meant
+ * the phone-capable light client was a **stricter validator than the full node with
+ * final authority.** That is backwards, and it is the shape of bug that survives
+ * review for years because each file looks reasonable on its own.
+ *
+ * So the check lives here now, once, and all three call it. The missing `if` in
+ * `acceptBlock` was the symptom; three implementations of one rule was the disease.
+ *
+ * Returns a reason or null, so callers that return verdicts and callers that throw can
+ * each do their own thing with it.
+ */
+export function proofBindingProblem(pixel: {
+  prevHash: Hex;
+  sequence?: number;
+  lightProof: LightProof;
+}): string | null {
+  if (pixel.lightProof.prevHash !== pixel.prevHash) {
+    return "light proof binds a different parent than the block links to";
+  }
+  if (pixel.sequence != null && pixel.lightProof.sequence !== pixel.sequence) {
+    return `light proof is for sequence ${pixel.lightProof.sequence}, block claims ${pixel.sequence}`;
+  }
+  return null;
 }
 
 /**

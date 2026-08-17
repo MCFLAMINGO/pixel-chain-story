@@ -2,7 +2,7 @@
  * PIN wrap for people wallet seeds — AES-GCM-256 + PBKDF2.
  * Plaintext seed never rests in localStorage after forge.
  */
-import { bytesToHex, hexToBytes, randomBytes, type Hex } from "./crypto";
+import { asBufferSource, bytesToHex, hexToBytes, randomBytes, type Hex } from "./crypto";
 
 export const PIN_WRAP_ALG = "AES-GCM-256" as const;
 export const PIN_PBKDF2_ITERATIONS = 210_000;
@@ -36,7 +36,11 @@ export function assertPin(pin: string): string {
   return p;
 }
 
-async function deriveAesKey(pin: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
+async function deriveAesKey(
+  pin: string,
+  salt: Uint8Array<ArrayBuffer>,
+  iterations: number,
+): Promise<CryptoKey> {
   const base = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(pin),
@@ -55,10 +59,13 @@ async function deriveAesKey(pin: string, salt: Uint8Array, iterations: number): 
 
 async function importAesRaw(keyBytes: Uint8Array): Promise<CryptoKey> {
   if (keyBytes.length !== 32) throw new Error("AES key must be 32 bytes");
-  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM", length: 256 }, false, [
-    "encrypt",
-    "decrypt",
-  ]);
+  return crypto.subtle.importKey(
+    "raw",
+    asBufferSource(keyBytes),
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
 }
 
 /** Encrypt 32-byte seed under PIN. */
@@ -68,7 +75,9 @@ export async function wrapSeedWithPin(seed: Uint8Array, pin: string): Promise<Pi
   const salt = randomBytes(16);
   const iv = randomBytes(12);
   const key = await deriveAesKey(p, salt, PIN_PBKDF2_ITERATIONS);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, seed));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, asBufferSource(seed)),
+  );
   return {
     v: 1,
     alg: PIN_WRAP_ALG,
@@ -107,7 +116,9 @@ export async function wrapSeedWithRawKey(
   if (seed.length !== 32) throw new Error("seed must be 32 bytes");
   const iv = randomBytes(12);
   const key = await importAesRaw(keyBytes);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, seed));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, asBufferSource(seed)),
+  );
   return {
     v: 1,
     alg: PIN_WRAP_ALG,

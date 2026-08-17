@@ -6,14 +6,14 @@ Light is the API. Tip RPC is only for Send PIX / balance — not for painting or
 
 ## Logical layer — PXP1
 
-| Field | Value |
-| --- | --- |
-| Magic | `PXP1` (`50 58 50 31`) |
-| Grid | 16×16 = 256 cells |
-| Payload | 32 bytes |
-| Kind | pay face (`pix1…`) — **not** vault |
-| Address | bytes `[4..22]` = 19-byte body after `pix1` |
-| Reserved | bytes `[23..31]` |
+| Field    | Value                                       |
+| -------- | ------------------------------------------- |
+| Magic    | `PXP1` (`50 58 50 31`)                      |
+| Grid     | 16×16 = 256 cells                           |
+| Payload  | 32 bytes                                    |
+| Kind     | pay face (`pix1…`) — **not** vault          |
+| Address  | bytes `[4..22]` = 19-byte body after `pix1` |
+| Reserved | bytes `[23..31]`                            |
 
 Unknown magic → ignore or ask the user to upgrade. **PXP2** is reserved for real layout changes.
 
@@ -21,11 +21,11 @@ Unknown magic → ignore or ask the user to upgrade. **PXP2** is reserved for re
 
 Same magic, same 32 bytes, same grid, same cell order. **Only the paint rule changes.**
 
-| | Amplitude (PXP1-A) | Binary (PXP1-P) |
-| --- | --- | --- |
-| Paint | cell ≈ payload byte (8-bit red) | cell ON `255` / OFF `0` (1 bit) |
-| RGB565 projector | **Fails** — red is 5-bit; ~22 levels survive; measured recovery ~0–3% | **Works** — levels collapse to two |
-| Decode | absolute amplitude | threshold vs midpoint of captured min/max |
+|                  | Amplitude (PXP1-A)                                                    | Binary (PXP1-P)                           |
+| ---------------- | --------------------------------------------------------------------- | ----------------------------------------- |
+| Paint            | cell ≈ payload byte (8-bit red)                                       | cell ON `255` / OFF `0` (1 bit)           |
+| RGB565 projector | **Fails** — red is 5-bit; ~22 levels survive; measured recovery ~0–3% | **Works** — levels collapse to two        |
+| Decode           | absolute amplitude                                                    | threshold vs midpoint of captured min/max |
 
 **Why binary:** exposure, white balance, wall colour, and lens falloff all shift absolute levels. Midpoint threshold cancels common-mode. Capacity matches exactly: 256 cells ↔ 256 bits ↔ 32 bytes.
 

@@ -18,6 +18,7 @@ import {
   proposeTransfer,
   punishPeer,
   registerSequencer,
+  noteSequencerKey,
   replaceTipIfBetter,
   rewardPeer,
   sequenceBlock,
@@ -46,6 +47,16 @@ import {
   type WaveBus,
   type WaveFanoutListener,
   type WaveFanoutSource,
+  admitTransaction,
+  considerBranch,
+  electableKeysAt,
+  MEMBERSHIP_ACTIVATION_DELAY,
+  sequencerRecordProblem,
+  MempoolRejected,
+  type SequencerRecord,
+  MAX_HELLO_SEQUENCERS,
+  MAX_PIXELS_PER_MESSAGE,
+  pixelPage,
 } from "../lib/pixel/index";
 import { createBunGossip } from "./gossip-bun";
 import type { GossipNet, PeerMessage } from "./p2p";
@@ -106,6 +117,16 @@ export class PixelLedgerNode {
   private chainLock: Promise<void> = Promise.resolve();
   /** Gate F peer scores */
   peerBook: PeerBookState = createPeerBook();
+  /**
+   * Membership records waiting to be committed to a pixel.
+   *
+   * Membership has been on-chain since T1.1, but nothing could put a record *into* a
+   * block: `sequenceBlock` accepted a `membership` option and no caller ever passed one.
+   * So the electable set was a fold over records that could not be created — correct,
+   * enforced, and unreachable. A second operator was impossible for want of a queue.
+   */
+  private pendingMembership: SequencerRecord[] = [];
+
   private helloSig = "";
   private helloSigTip = "";
   /** Opt-in PQ transport (PIXEL_TRANSPORT_KEM=1) */
@@ -226,6 +247,13 @@ export class PixelLedgerNode {
         return this.helloSig ? { helloSig: this.helloSig } : null;
       },
       onMessage: (msg, peer) => this.onPeerMessage(msg, peer),
+      // A peer that sends frames we cannot parse is not a protocol error to crash
+      // on, it is a peer worth trusting less. Scoring walks a persistent offender
+      // out without dropping a session that may still be serving us history.
+      onMalformed: (peer, reason) => {
+        punishPeer(this.peerBook, peer, 4);
+        console.warn(`[pixel-ledger] malformed frame from ${peer}: ${reason}`);
+      },
     });
 
     const ms = this.opts.autoSequenceMs ?? 2000;
@@ -389,19 +417,61 @@ export class PixelLedgerNode {
     );
   }
 
+  /**
+   * Queue a membership record for the next pixel this node produces.
+   *
+   * Validated here against the same fold `acceptBlock` uses, so a record that could never
+   * be committed is refused at the door rather than silently held forever. `includedAt`
+   * must be the height this node is about to produce: it is signed, so it cannot be
+   * adjusted afterwards, which means the caller has to know where the tip is — and that
+   * is the honest shape of the thing, not an inconvenience to paper over.
+   */
+  async submitMembership(record: SequencerRecord): Promise<void> {
+    return this.withChainLock(async () => {
+      const nextIndex = this.chain.pixels.length;
+      if (record.includedAt !== nextIndex) {
+        throw new Error(
+          `membership record is stamped for pixel #${record.includedAt} but the next pixel ` +
+            `is #${nextIndex} — rebuild it for the current tip`,
+        );
+      }
+      const problem = await sequencerRecordProblem(record, electableKeysAt(this.chain, nextIndex));
+      if (problem) throw new Error(problem);
+      if (
+        this.pendingMembership.some((r) => r.address === record.address && r.kind === record.kind)
+      ) {
+        return;
+      }
+      this.pendingMembership.push(record);
+      console.log(
+        `[pixel-ledger] queued ${record.kind} for ${record.address.slice(0, 12)}… at #${nextIndex}`,
+      );
+    });
+  }
+
+  /** Records queued but not yet committed — for `/health` and operators. */
+  membershipQueue(): SequencerRecord[] {
+    return [...this.pendingMembership];
+  }
+
   async submitTx(tx: Transaction): Promise<void> {
     return this.withChainLock(() => this.submitTxLocked(tx));
   }
 
-  /** Caller must hold `withChainLock` (or be the sole mutator). */
+  /**
+   * Caller must hold `withChainLock` (or be the sole mutator).
+   *
+   * Everything that arrives from outside — HTTP `/tx` and the `tx` gossip message —
+   * passes `admitTransaction` first. This used to append, gossip and persist on the
+   * strength of a zod shape check alone, which made the public endpoint an
+   * unauthenticated way to grow the volume holding the only copy of history. See
+   * `mempool.ts` for the full admission order and why it is ordered that way.
+   *
+   * Rejections throw. Callers turn that into a 4xx (HTTP) or a peer score penalty
+   * (gossip); nothing is stored, gossiped, or persisted on the way out.
+   */
   private async submitTxLocked(tx: Transaction): Promise<void> {
-    if (this.chain.pending.some((p) => p.txid === tx.txid)) return;
-    this.chain = {
-      ...this.chain,
-      pending: [...this.chain.pending, tx],
-      pendingSince:
-        this.chain.pending.length === 0 ? Date.now() : (this.chain.pendingSince ?? Date.now()),
-    };
+    this.chain = await admitTransaction(this.chain, tx);
     this.gossip.broadcast({ type: "tx", tx });
     this.queuePersist();
   }
@@ -669,9 +739,27 @@ export class PixelLedgerNode {
     } else if (nextSequencerAddress(this.chain, 0) !== this.keypair.address) {
       return false;
     }
+    // Records are stamped with the height they are included at, and that height is
+    // signed, so a record built for one pixel cannot be carried into another. Re-stamping
+    // is not possible without the signers, so a record that misses its slot is dropped
+    // and must be rebuilt — which is correct: it was authorised for a specific height.
+    const nextIndex = this.chain.pixels.length;
+    const membership = this.pendingMembership.filter((r) => r.includedAt === nextIndex);
     try {
-      this.chain = await sequenceBlock(this.chain, this.keypair, { skipCount: skip });
+      this.chain = await sequenceBlock(this.chain, this.keypair, {
+        skipCount: skip,
+        membership: membership.length > 0 ? membership : undefined,
+      });
       const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
+      if (membership.length > 0) {
+        this.pendingMembership = this.pendingMembership.filter((r) => !membership.includes(r));
+        for (const r of membership) {
+          console.log(
+            `[pixel-ledger] committed ${r.kind} for ${r.address.slice(0, 12)}… in pixel #${pixel.index}` +
+              ` (active at #${pixel.index + MEMBERSHIP_ACTIVATION_DELAY})`,
+          );
+        }
+      }
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
       this.fanoutWave(pixel, "sequence");
@@ -696,12 +784,21 @@ export class PixelLedgerNode {
         break;
       }
       try {
-        // Learn producer before accept — electable ⊆ registry requires it.
-        this.chain = registerSequencer(this.chain, {
+        // No "learn producer before accept" here any more. That line registered a
+        // block's *claimed* producer into the local registry before validating the
+        // block, and acceptBlock then checked the block's electable set against that
+        // just-poisoned registry — so a stranger who ground one keypair until it won
+        // the lottery could extend the tip, mint the light reward, and become
+        // permanently electable, with verifyChain returning true afterwards.
+        //
+        // The electable set is now folded from history inside acceptBlock, so there
+        // is nothing to learn and nothing to poison. Producer keys are still noted
+        // *after* acceptance, for display only.
+        this.chain = await acceptBlock(this.chain, pixel);
+        this.chain = noteSequencerKey(this.chain, {
           address: pixel.lightProof.sequencerAddress,
           publicKey: pixel.lightProof.sequencerPublicKey,
         });
-        this.chain = await acceptBlock(this.chain, pixel);
         n++;
         this.noteTipProgress();
         this.fanoutWave(pixel, "accept");
@@ -712,6 +809,12 @@ export class PixelLedgerNode {
       }
     }
     if (n) this.queuePersist();
+    // Replies are paged now, so a full page almost certainly means there is more
+    // behind it. Asking again immediately keeps catch-up at wire speed instead of
+    // one page per 5s catch-up tick — paging must bound the reply, not the sync.
+    if (n > 0 && pixels.length > 1) {
+      this.requestCatchUp(this.chain.pixels.length);
+    }
     return n;
   }
 
@@ -748,7 +851,10 @@ export class PixelLedgerNode {
             });
             learned = this.chain.sequencers.length > before;
           }
-          for (const s of msg.sequencers ?? []) {
+          // Bounded: a hello is display metadata, not authority, but an unbounded
+          // array is still a bucket of someone else's memory. The wire schema caps
+          // it too; this is the belt to that braces.
+          for (const s of (msg.sequencers ?? []).slice(0, MAX_HELLO_SEQUENCERS)) {
             const before = this.chain.sequencers.length;
             this.chain = registerSequencer(this.chain, s);
             if (this.chain.sequencers.length > before) learned = true;
@@ -777,13 +883,15 @@ export class PixelLedgerNode {
               punishPeer(this.peerBook, peerUrl, 2);
             }
           } else if (msg.tip < this.chain.pixels.length - 1) {
-            const headers = extractHeaders(this.chain.pixels.slice(msg.tip + 1));
+            const headers = extractHeaders(
+              this.chain.pixels.slice(msg.tip + 1, msg.tip + 1 + MAX_PIXELS_PER_MESSAGE),
+            );
             if (headers.length) {
               this.gossip.sendTo(peerUrl, { type: "headers", headers });
             }
-            const slice = this.chain.pixels.slice(msg.tip + 1);
-            if (slice.length) {
-              this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
+            const { page } = pixelPage(this.chain.pixels, msg.tip + 1);
+            if (page.length) {
+              this.gossip.sendTo(peerUrl, { type: "pixels", pixels: page });
             }
           }
           const dial = msg.gossipUrl;
@@ -803,7 +911,25 @@ export class PixelLedgerNode {
         }
         case "tx":
           // Already under withChainLock — do not call submitTx (re-entrant deadlock).
-          await this.submitTxLocked(msg.tx);
+          //
+          // A peer that relays junk is not a protocol error, it is a peer worth
+          // trusting less. Refusing without throwing keeps one bad transaction from
+          // tearing down a session that is otherwise serving us history, while the
+          // score still walks a persistent offender out.
+          try {
+            await this.submitTxLocked(msg.tx);
+          } catch (err) {
+            if (err instanceof MempoolRejected) {
+              // `duplicate` means the peer told us something we already knew, which
+              // is ordinary gossip and not misbehaviour.
+              if (err.code !== "duplicate") {
+                punishPeer(this.peerBook, peerUrl, 2);
+                console.warn(`[pixel-ledger] refused gossiped tx (${err.code}): ${err.message}`);
+              }
+            } else {
+              throw err;
+            }
+          }
           break;
         case "pixel": {
           const tip = this.chain.pixels[this.chain.pixels.length - 1];
@@ -819,18 +945,32 @@ export class PixelLedgerNode {
             }
             break;
           }
+          // A competing pixel at or below our height is a fork deeper than one, and
+          // depth-1 replacement cannot reach it. Ask for the peer's whole branch so
+          // `considerBranch` can score it — this is the message that used to be dropped,
+          // leaving two honest nodes split forever after a two-pixel partition.
+          if (tip && msg.pixel.index < tip.index) {
+            this.requestCatchUp(0);
+            break;
+          }
           await this.acceptPixels([msg.pixel]);
           break;
         }
         case "get_pixels": {
-          const slice = this.chain.pixels.slice(msg.from);
-          if (slice.length) {
-            this.gossip.sendTo(peerUrl, { type: "pixels", pixels: slice });
+          // Paged. An unbounded reply is a resource the *asker* controls: one
+          // request should not make us serialize the whole chain into a single
+          // frame while we answer nobody else. The joiner keeps asking from its
+          // new tip, which is what catch-up already does.
+          const { page } = pixelPage(this.chain.pixels, msg.from);
+          if (page.length) {
+            this.gossip.sendTo(peerUrl, { type: "pixels", pixels: page });
           }
           break;
         }
         case "get_headers": {
-          const headers = extractHeaders(this.chain.pixels.slice(msg.from));
+          const headers = extractHeaders(
+            this.chain.pixels.slice(msg.from, msg.from + MAX_PIXELS_PER_MESSAGE),
+          );
           if (headers.length) {
             this.gossip.sendTo(peerUrl, { type: "headers", headers });
           }
@@ -847,10 +987,48 @@ export class PixelLedgerNode {
           }
           break;
         }
-        case "pixels":
+        case "pixels": {
+          // A batch starting at genesis is a whole branch, so it can be scored against
+          // ours at any depth. Anything else is a forward extension and takes the
+          // sequential path, which is cheaper and is the overwhelmingly common case.
+          const first = msg.pixels[0];
+          if (first && first.index === 0 && msg.pixels.length > this.chain.pixels.length) {
+            const outcome = await considerBranch({ state: this.chain, theirs: msg.pixels });
+            if (outcome.kind === "reorged") {
+              this.chain = outcome.state;
+              this.noteTipProgress();
+              this.fanoutWave(this.chain.pixels[this.chain.pixels.length - 1]!, "replace");
+              this.queuePersist();
+              console.warn(
+                `[pixel-ledger] REORG: dropped ${outcome.dropped} pixel(s) from #${
+                  outcome.forkHeight + 1
+                }, applied ${outcome.applied} — now at #${this.chain.pixels.length - 1}`,
+              );
+              rewardPeer(this.peerBook, peerUrl, 1);
+              break;
+            }
+            if (outcome.kind === "extended") {
+              this.chain = outcome.state;
+              this.noteTipProgress();
+              this.fanoutWave(this.chain.pixels[this.chain.pixels.length - 1]!, "accept");
+              this.queuePersist();
+              console.log(`[pixel-ledger] extended ${outcome.applied} pixel(s) from peer branch`);
+              rewardPeer(this.peerBook, peerUrl, 1);
+              break;
+            }
+            if (outcome.kind === "refused") {
+              // Refusing a branch is a judgement about the peer, not just about the data.
+              punishPeer(this.peerBook, peerUrl, 3);
+              console.warn(`[pixel-ledger] refused peer branch: ${outcome.reason}`);
+              break;
+            }
+            // `ignored` — our branch is preferred. Ordinary, and not the peer's fault.
+            break;
+          }
           await this.acceptPixels(msg.pixels);
           rewardPeer(this.peerBook, peerUrl, 1);
           break;
+        }
         default:
           break;
       }

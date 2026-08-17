@@ -55,7 +55,16 @@ export function canonicalizeHex(hex: Hex): Hex {
  * Decode hex → bytes. Rejects non-hex; lowercases; odd length pads a leading `0`
  * (legacy byte decode). Prefer `canonicalizeHex` for commitment strings.
  */
-export function hexToBytes(hex: Hex): Uint8Array {
+/**
+ * Hex to bytes.
+ *
+ * Returns `Uint8Array<ArrayBuffer>` rather than the wider `Uint8Array`, because
+ * WebCrypto's `BufferSource` excludes `SharedArrayBuffer`-backed views and TypeScript
+ * 5.7 started tracking that distinction. The array built here is always
+ * `ArrayBuffer`-backed, so this narrows the type to the truth instead of casting it
+ * away at eleven call sites.
+ */
+export function hexToBytes(hex: Hex): Uint8Array<ArrayBuffer> {
   if (typeof hex !== "string") throw new Error("hexToBytes: expected string");
   const normalized = hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
   if (normalized.length === 0) return new Uint8Array(0);
@@ -102,7 +111,23 @@ export function sha512SyncHex(data: Uint8Array | string): Hex {
   return bytesToHex(sha512Sync(data));
 }
 
-export function randomBytes(length: number): Uint8Array {
+/**
+ * Guarantee `ArrayBuffer` backing for a byte array of unknown provenance.
+ *
+ * WebCrypto's `BufferSource` excludes `SharedArrayBuffer`-backed views, and a public
+ * function taking `Uint8Array` cannot know which it was handed. Copies only when the
+ * input is not already plain-backed, so the common path costs a check rather than an
+ * allocation — and the uncommon path is correct instead of a cast that would compile
+ * and then throw inside the browser's crypto implementation.
+ */
+export function asBufferSource(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  return bytes.buffer instanceof ArrayBuffer
+    ? (bytes as Uint8Array<ArrayBuffer>)
+    : new Uint8Array(bytes);
+}
+
+/** Random bytes. `ArrayBuffer`-backed for WebCrypto — see `hexToBytes`. */
+export function randomBytes(length: number): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(length);
   crypto.getRandomValues(out);
   return out;

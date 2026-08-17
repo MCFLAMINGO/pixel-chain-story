@@ -1,4 +1,4 @@
 {
-  "maxErrors": 22,
-  "note": "Ceiling only. Lower it by fixing errors; never raise it to make CI pass."
+  "maxErrors": 0,
+  "note": "Zero. Reached 17 Aug 2026 (T2.4). It may never be raised: a ratchet that goes up is a ceiling, and a ceiling is where the 22 errors lived for months."
 }

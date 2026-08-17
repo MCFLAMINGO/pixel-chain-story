@@ -78,24 +78,95 @@ export const txOutputSchema = z.object({
   amount: z.number().finite().positive().max(Number.MAX_SAFE_INTEGER),
 });
 
-export const transactionSchema = z.object({
+/**
+ * Everything a transaction is, except how many inputs it must have.
+ *
+ * That one field differs by context and the difference is load-bearing. A
+ * transaction *submitted* to `/tx` or gossiped as a `tx` must have at least one
+ * input, because a transaction with none is a coinbase and coinbases are minted by
+ * the elected sequencer inside a block — never accepted from outside. A transaction
+ * *inside a block* must be allowed zero inputs, because exactly one of them is that
+ * coinbase.
+ *
+ * Sharing the base is deliberate: two hand-written schemas for one wire format would
+ * drift, and the first symptom of the drift would be a block that a peer accepts and
+ * we reject.
+ */
+const transactionBase = {
   txid: z.string().min(1).max(256),
-  inputs: z.array(txInputSchema).min(1).max(64),
   outputs: z.array(txOutputSchema).min(1).max(64),
+  /**
+   * Strict, not passthrough.
+   *
+   * `.passthrough()` accepted arbitrary unknown keys **and preserved them**, and
+   * `canonicalTxBody` JSON-stringifies the whole metadata object — so junk was
+   * signed, committed into the txid, and written into every copy of the chain
+   * forever. It was also what let a single request approach the 1 MiB body cap
+   * despite the sensible per-field limits right here.
+   *
+   * Safe against real history: no transaction on the crowned chain carries an
+   * unknown metadata key and the largest metadata object is 136 bytes, both
+   * asserted by `scripts/crowned-replay-selftest.ts`.
+   */
   metadata: z
     .object({
       description: z.string().max(2048).optional(),
       recipientLabel: z.string().max(256).optional(),
       reference: z.string().max(256).optional(),
+      /** Declared act, for the gift-and-record rules. */
+      kind: z.enum(["gift", "record"]).optional(),
     })
-    .passthrough(),
+    .strict(),
   commitment: hexString,
   state: z.enum(["superposition", "revealed", "final"]),
   privacy: z.enum(["public", "private", "selective"]).optional(),
   timestamp: z.number().finite(),
   lightSequence: z.number().int().optional(),
   revealedAt: z.number().finite().optional(),
+} as const;
+
+/**
+ * A transaction arriving from outside — `POST /tx` or a `tx` gossip message.
+ *
+ * At least one input, so a coinbase can never be submitted. `mempool.ts` refuses it
+ * again on the same grounds; a rule this consequential is worth stating twice.
+ */
+export const transactionSchema = z.object({
+  ...transactionBase,
+  inputs: z.array(txInputSchema).min(1).max(64),
 });
+
+/**
+ * A transaction inside a block.
+ *
+ * Zero inputs is allowed here and only here, because exactly one transaction per
+ * block is the coinbase. `validateAndApplyBlockTxs` enforces that it is exactly one
+ * and that it comes first — the schema's job is shape, not count.
+ */
+export const blockTransactionSchema = z.object({
+  ...transactionBase,
+  inputs: z.array(txInputSchema).max(64),
+});
+
+/**
+ * A sequencer membership record arriving over HTTP.
+ *
+ * Shape only. Whether the signatures are *good* and whether the authorizer is actually a
+ * member at that height is decided by `sequencerRecordProblem` against the fold — a schema
+ * that tried to answer those would be a second membership implementation.
+ */
+export const sequencerRecordSchema = z
+  .object({
+    kind: z.enum(["sequencer-join", "sequencer-leave"]),
+    address: pixAddress,
+    publicKey: hexString,
+    scheme: z.enum(["PIX-HASH-OTS-128", "PIX-ML-DSA-65"]),
+    includedAt: z.number().int().min(0),
+    possession: z.string().min(1).max(262_144),
+    authorizedBy: pixAddress,
+    authorization: z.string().min(1).max(262_144),
+  })
+  .strict();
 
 export const jsonRpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0"),

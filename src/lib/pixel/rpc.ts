@@ -204,7 +204,7 @@ export async function handlePixelRpc(
             capMeaning:
               "one PIX per human alive at the projected peak of humanity (~10.3bn, ~2084)",
             issuance: `flat ${GENESIS_LIGHT_REWARD} PIX per illuminated pixel to a horizon of ${LIGHT_HORIZON} pixels; reaches the cap exactly`,
-            analogy: "not Bitcoin's 21M — a ceiling chosen for what the picture is for",
+            analogy: "a ceiling chosen for what the picture is for, not inherited from Bitcoin",
           },
           sovereignty:
             "Diversity policy enforced when ≥7 providers are registered; single-node labs skip",

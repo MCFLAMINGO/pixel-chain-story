@@ -23,6 +23,15 @@ import {
 import { PixelLedgerNode } from "./node";
 import { startRpcServer } from "./rpc-server";
 import { ensureDatadir, loadOrCreateIdentity, loadWallet, saveChain, saveWallet } from "./store";
+import { keyAtRest } from "./store";
+import { createSequencerJoin, MEMBERSHIP_ACTIVATION_DELAY } from "../lib/pixel/membership";
+import { signPixel } from "../lib/pixel/scheme";
+import {
+  assertNodePassphrase,
+  NODE_KEY_ENV,
+  nodePassphrase,
+  plaintextKeyWarning,
+} from "./key-seal";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -57,6 +66,9 @@ async function main() {
     console.log(`${PIXEL_LEDGER_NAME} CLI
   join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip] [--require-crowned]
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
+  key status|seal [--datadir DIR]        seal the node key at rest (PIXEL_KEY_PASSPHRASE)
+  membership status [--peer URL]         who may produce, and when a new record activates
+  membership invite --datadir <incumbent> --joiner-datadir <joiner> [--peer URL]
   wallet create NAME [--datadir DIR]
   wallet from-node [NAME] [--datadir DIR]
   send --from NAME --to ADDR --amount N [--memo TEXT] [--datadir DIR]
@@ -181,6 +193,138 @@ Friends — join crowned tip:
     return;
   }
 
+  if (cmd === "membership") {
+    const sub = process.argv[3];
+    const peer = arg("peer") ?? PUBLIC_TIP_RPC_DEFAULT;
+
+    if (sub === "status") {
+      const sync = (await (await fetch(`${peer}/sync`)).json()) as {
+        pixels: Array<{ index: number; lightProof: { electable?: string[] } }>;
+      };
+      const tip = sync.pixels[sync.pixels.length - 1];
+      console.log(`tip: #${tip?.index}`);
+      console.log(`electable now: ${(tip?.lightProof.electable ?? []).join(", ")}`);
+      console.log(`next pixel: #${sync.pixels.length}`);
+      console.log(`activation delay: ${MEMBERSHIP_ACTIVATION_DELAY} pixels`);
+      return;
+    }
+
+    /**
+     * Invite a second operator.
+     *
+     * Both keys are needed, which is the ceremony rather than a limitation: adding an
+     * operator is two people agreeing, and the record is the artifact of that agreement.
+     * This is the bootstrap form, for when one person holds both — the two halves can be
+     * signed on separate machines and assembled, and that is the shape to build when
+     * there is a third operator to invite.
+     */
+    if (sub === "invite") {
+      const joinerDir = arg("joiner-datadir");
+      if (!joinerDir) {
+        console.error(
+          "usage: pixel membership invite --datadir <incumbent> --joiner-datadir <joiner> [--peer URL]",
+        );
+        process.exit(1);
+      }
+      const { loadOrCreateIdentity: loadId } = await import("./store");
+      const incumbent = (await loadId(datadir, "node")).keypair;
+      const joiner = (await loadId(joinerDir, "node")).keypair;
+
+      const health = (await (await fetch(`${peer}/health`)).json()) as { pixels: number };
+      const includedAt = health.pixels;
+
+      const record = await createSequencerJoin({
+        joiner: {
+          address: joiner.address,
+          publicKey: joiner.publicKey,
+          scheme: joiner.scheme,
+        },
+        authorizer: { address: incumbent.address },
+        includedAt,
+        sign: (message, who) => signPixel(message, who === "joiner" ? joiner : incumbent),
+      });
+
+      const res = await fetch(`${peer}/membership`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(record),
+      });
+      const out = (await res.json()) as Record<string, unknown>;
+      if (!res.ok || out.ok !== true) {
+        console.error(`membership refused: ${String(out.error ?? res.status)}`);
+        process.exit(1);
+      }
+      console.log(`invited ${joiner.address}`);
+      console.log(`  authorised by ${incumbent.address}`);
+      console.log(`  committed at pixel #${includedAt}, electable from #${out.activeAt}`);
+      console.log(
+        `  the delay is deliberate: a producer must not be elected by a set it just wrote.`,
+      );
+      return;
+    }
+
+    console.error("usage: pixel membership status|invite [--datadir DIR] [--peer URL]");
+    process.exit(1);
+  }
+
+  if (cmd === "key") {
+    const sub = process.argv[3];
+    const { identityAtRest, loadIdentity, saveIdentity } = await import("./store");
+    const at = await identityAtRest(datadir);
+    if (at === null) {
+      console.error(`No nodekey.json in ${datadir}.`);
+      process.exit(1);
+    }
+
+    if (sub === "status") {
+      console.log(`node key at rest: ${at}`);
+      if (at === "plaintext") console.log(plaintextKeyWarning(datadir));
+      return;
+    }
+
+    if (sub === "seal") {
+      if (at === "sealed") {
+        console.log("Already sealed. Nothing to do.");
+        return;
+      }
+      const passphrase = nodePassphrase();
+      if (!passphrase) {
+        console.error(
+          `Set ${NODE_KEY_ENV} to the passphrase you want to seal with, then run this again:\n` +
+            `  ${NODE_KEY_ENV}='<passphrase>' bun run pixel -- key seal --datadir ${datadir}\n` +
+            `The same variable must be present when the node starts, or it cannot open its key.`,
+        );
+        process.exit(1);
+      }
+      assertNodePassphrase(passphrase);
+      // Read plaintext first, then write sealed. saveIdentity seals whenever the
+      // passphrase is set, so this is a read-then-write rather than a special path —
+      // one sealing implementation, exercised by normal operation.
+      const identity = await loadIdentity(datadir);
+      if (!identity) {
+        console.error("Could not read the existing key.");
+        process.exit(1);
+      }
+      await saveIdentity(datadir, identity);
+      const now = await identityAtRest(datadir);
+      if (now !== "sealed") {
+        console.error("Seal did not take effect — the key is unchanged.");
+        process.exit(1);
+      }
+      console.log(
+        `Sealed ${datadir}/nodekey.json.\n` +
+          `  address: ${identity.address}\n` +
+          `Keep ${NODE_KEY_ENV} somewhere you will still have it after losing this machine.\n` +
+          `Without it the key cannot be opened, and on a single-sequencer chain that key\n` +
+          `is the only address permitted to produce.`,
+      );
+      return;
+    }
+
+    console.error("usage: pixel key status|seal [--datadir DIR]");
+    process.exit(1);
+  }
+
   if (cmd === "node") {
     const rpcPort = Number(arg("rpc", process.env.PORT || process.env.PIXEL_RPC_PORT || "8545"));
     const gossipPort = Number(arg("gossip", process.env.PIXEL_GOSSIP_PORT || "9001"));
@@ -210,6 +354,13 @@ Friends — join crowned tip:
     });
     await node.start();
     startRpcServer(node, rpcPort);
+    // Said out loud at every start, not once at seal time. An operator who has been
+    // meaning to seal it for three months should be reminded on the three-month-th day.
+    if (keyAtRest() === "plaintext") {
+      console.warn(plaintextKeyWarning(datadir));
+    } else {
+      console.log(`[pixel-ledger] node key is sealed at rest ✓`);
+    }
     console.log(`${PIXEL_LEDGER_NAME} node running. Ctrl+C to stop.`);
     await new Promise(() => {});
     return;

@@ -38,13 +38,13 @@ keep your stack where it is, shine in once.
 
 ## Why it fits what already exists
 
-| Piece | Already built |
-| --- | --- |
-| PQ signatures | `PIX-ML-DSA-65` is the default scheme |
-| Authorship | `lit-cell.ts` names whose moment a pixel records |
-| Human-readable content | `ReadableMeta` on every transaction |
-| Independent verifiability | `anchor.ts` + `anchor-evm.ts`, multi-venue |
-| Continuity when origin dies | `siso.ts`, mirrors, the continuity desk |
+| Piece                       | Already built                                    |
+| --------------------------- | ------------------------------------------------ |
+| PQ signatures               | `PIX-ML-DSA-65` is the default scheme            |
+| Authorship                  | `lit-cell.ts` names whose moment a pixel records |
+| Human-readable content      | `ReadableMeta` on every transaction              |
+| Independent verifiability   | `anchor.ts` + `anchor-evm.ts`, multi-venue       |
+| Continuity when origin dies | `siso.ts`, mirrors, the continuity desk          |
 
 Nothing new is required at the protocol layer. That is the point — if this needed
 a bridge or a second token, it would be the wrong product.

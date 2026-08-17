@@ -2,12 +2,12 @@
 
 ## 1. Value structure (why PIX is scarce)
 
-Bitcoin’s 21,000,000 cap works because it is **knowable, finite, and tied to security**.
+Bitcoin’s cap works because it is **knowable, finite, and tied to security**. Pixel’s ceiling is meant to hold the same three properties while being chosen for a reason rather than inherited.
 Pixel Ledger copies the **math**, not Proof-of-Work power plants:
 
 | Parameter       | Bitcoin        | Pixel Ledger                   |
 | --------------- | -------------- | ------------------------------ |
-| Hard cap        | 21,000,000 BTC | **21,000,000 PIX**             |
+| Hard cap        | 21,000,000 BTC | **10,300,000,000 PIX**         |
 | Era length      | 210,000 blocks | **210,000 illuminated pixels** |
 | Initial reward  | 50 BTC         | **50 PIX**                     |
 | Issuance engine | Proof of Work  | **Proof of Light Sequence**    |
@@ -32,8 +32,8 @@ Policy in code (`sovereignty.ts`) — **enforced when a ≥7-provider registry i
 - No country > 34% of sequencers
 - Cloud-hosted sequencers ≤ 34%; single vendor ≤ 20%
 - Majority-cloud quorums rejected by honest peers
-- **Multiple light subnets** checkpoint each other *(roadmap — Gate J)*
-- Light clients dial **many peers** — there is no required `api.*` hostname *(Gate F/G)*
+- **Multiple light subnets** checkpoint each other _(roadmap — Gate J)_
+- Light clients dial **many peers** — there is no required `api.*` hostname _(Gate F/G)_
 
 Marketing websites may sit on Cloudflare. **Pixel Ledger nodes must not need to.**
 
@@ -53,10 +53,10 @@ It emits **Universal Light Attestations (ULA)**:
 4. Destination verifies hash-OTS light proof + message commitment
 5. Destination mints/unlocks — Pixel never runs their VM
 
-| Direction    | Meaning                                                                  |
-| ------------ | ------------------------------------------------------------------------ |
+| Direction    | Meaning                                                                    |
+| ------------ | -------------------------------------------------------------------------- |
 | **shineOut** | Lock/escrow PIX → attest → unlock on ETH / BTC / Cosmos / Solana / ICP / … |
-| **shineIn**  | Lock on foreign chain → commitment on Pixel → release PIX                |
+| **shineIn**  | Lock on foreign chain → commitment on Pixel → release PIX                  |
 
 **Custody inversion (law):** foreign chain = receipt; Pixel = vault.  
 `ULAVerifier.accept` / foreign verify never releases master PIX. Release is only `illuminateIngress` after a bound foreign receipt (`BRIDGE_CUSTODY_AXIOM`, `bun run test:bridge-custody`).
