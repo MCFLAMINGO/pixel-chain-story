@@ -143,5 +143,17 @@ Wire examples: gossip frames must preserve JSON key order for signed bodies — 
 **Invitation:** open an issue titled `second-client: <language>` with your verify tip hash
 against `fixtures/crowned-47.json`. Vectors are the contract; this TypeScript repo is not.
 
+### Reference verify-only client (Python)
+
+```bash
+python3 clients/verify_crowned.py
+bun run test:second-client
+```
+
+Checks canvas identity, prevHash linkage, merkle roots (SHA-512 over `left|right`),
+emission arithmetic, and UTXO-fold supply. Honest about not verifying ML-DSA/OTS yet —
+full PQ replay remains `bun run verify:crowned` / `people:verify` until another crypto
+stack lands.
+
 Please tell us what was ambiguous. A specification that only its author can implement is a
 specification with one implementation, which is where this project is now.
