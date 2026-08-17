@@ -16,6 +16,32 @@ Frozen with: [`THREAT-MODEL.md`](./THREAT-MODEL.md) **v1.1** · evidence dates v
 | ULA EVM twin                | `contracts/ULAVerifier.sol`, `src/lib/pixel/ula-evm.ts`                          | Foreign receipt forgery          |
 | ULA ML-DSA off-chain + gate | `src/lib/pixel/ula-mldsa.ts`, `contracts/ULAOffchainMldsaGate.sol`               | PQ birth ↔ foreign receipt story |
 | Bridge custody inversion    | `bridge-custody.ts`                                                              | Foreign verify ≠ vault release   |
+| **Sequencer membership**    | `src/lib/pixel/membership.ts`, `electableAt` in `chain.ts`                       | Who may produce a pixel at all   |
+| **Signature eras**          | `src/lib/pixel/sig-era.ts`, `legacy-sig.ts`                                      | Two rule sets; downgrade risk    |
+| **Mempool admission**       | `src/lib/pixel/mempool.ts`                                                       | Public unauthenticated door      |
+| **Gossip wire parsing**     | `src/lib/pixel/wire-schema.ts`, `node/gossip-bun.ts`                             | Peer-facing parse surface        |
+| **Bounds**                  | `src/lib/pixel/limits.ts`, `rate-limit.ts`                                       | Resource exhaustion              |
+| **Node key at rest**        | `src/node/key-seal.ts`, `node/store.ts`                                          | The key that signs every block   |
+
+### Findings this package should be read against
+
+A soundness pass on 16–17 August 2026 found and fixed the following. An external
+reviewer should treat these as the areas where this codebase has already been wrong, and
+therefore where it is most worth looking again. Each has a permanent regression test;
+`docs/STATE-2026-08-17.md` is the narrative.
+
+| Finding                              | Was                                                           | Test                   |
+| ------------------------------------ | ------------------------------------------------------------- | ---------------------- |
+| Stranger could extend the tip        | producer registered from the block being validated            | `test:membership`      |
+| `verifyChain` rejected pixels 0–12   | `c8d5d54` changed three signature constructions, no migration | `test:sig-era`         |
+| Unauthenticated `/tx` drove emission | no signature check, no cap; 300 curls minted 15,050 PIX       | `test:bounds`          |
+| Gossip wire unvalidated              | `JSON.parse` and a cast                                       | `test:wire-schema`     |
+| `sequence` unbound                   | the lottery's own input was grindable                         | `test:adversarial`     |
+| Transaction identity unbound         | txid never recomputed from content                            | `test:adversarial`     |
+| `field` / `wave` arrays unbound      | only their digests were checked                               | `test:adversarial`     |
+| Fees counted as issuance             | first nonzero fee would break `verifyChain`                   | `test:fee-accounting`  |
+| Gift/record rules producer-side only | absent from `acceptBlock`                                     | `test:gift-and-record` |
+| Node key plaintext on disk           | seed and ML-DSA secret in plain JSON                          | `test:key-seal`        |
 
 ## Scope (out — for this package)
 
