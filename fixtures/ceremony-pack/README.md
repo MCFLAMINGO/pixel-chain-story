@@ -40,7 +40,6 @@ Read genesis prefix back over a second channel: `f1d193f62d54e982`
 
 ## Honesty
 
-- This pack does **not** make Pixel host-independent by itself — you still need someone
-  serving `/sync` (see `docs/DURABILITY.md`).
+- This pack does **not** remove the need for someone serving `/sync` (see `docs/DURABILITY.md`).
 - Sequencing remains invitation-only until the hybrid PIX-bond door ships.
 - Phones: open `/wallet` — do not run `pixel init`.

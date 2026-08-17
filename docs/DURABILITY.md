@@ -103,6 +103,24 @@ network 20553.
 
 ---
 
+## D3 threat model (hybrid bond — design lock, not shipped)
+
+Before any electable-path code lands on a fresh network id:
+
+| Attack | Defence |
+| --- | --- |
+| August grind-keypair takeover | Bond floor + activation delay; invitation path unchanged while set ≥ K |
+| Extinction when last inviter dies | Bond door opens after electable count < K for time T |
+| AI / energy auction (Bitcoin problem) | No PoW admission; lottery stays trivial hash; seats never sold for Light Credits |
+| Millions of sleeping phones stall the tip | Active producer set = bonded/invited operators who opted to **carry** (reachable); `POLS_MAX_SKIP` stays a liveness bound |
+| Light-only majority misses a bad UTXO fold | Keep Tier 1 full copies + `people:verify` / `verify:crowned`; bond does not replace full verifiers |
+| Quantum forge of bond / tip signatures | Unchanged — ML-DSA / hash-OTS only; no classical sequencer committee |
+| Cheap Sybil bonds | Bond paid in PIX; parameters (floor, K, T) are monetary decisions recorded here before code |
+
+Parameters **not** set yet (must be before vectors): bond floor, K, T, carry heartbeat, slash rules (slash may ship later than bond).
+
+---
+
 ## Related
 
 - [`OPERATOR.md`](./OPERATOR.md) — Tier 1 copy, Tier 2 gossip, Tier 3 invite
@@ -110,3 +128,4 @@ network 20553.
 - [`STATE-2026-08-17.md`](./STATE-2026-08-17.md) — soundness session that made hybrid possible
 - [`QUANTUM.md`](./QUANTUM.md) — PQ posture (unchanged by bonding)
 - [`PHONE-WALLET.md`](./PHONE-WALLET.md) — phone is pay face, not `pixel init`
+- People verify: `bun run people:verify` (offline) · `bun run people:verify -- --live`

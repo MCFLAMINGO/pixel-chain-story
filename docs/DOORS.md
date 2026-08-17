@@ -3,6 +3,8 @@
 **Purpose:** Pixel Ledger is a light-settlement picture. Scarce PIX settle under Proof of Light Sequence. Light reveals; without it, color is absent. Shine existence and value onto one shared picture — verification, continuity, or custody — not metaphor alone.
 
 **Not (today’s claims):** host the internet, Visa, a second Facebook, or “USD with a new name.”
+**Not (yet):** a permissionless sequencer set or host-free tip — grades in [`DURABILITY.md`](./DURABILITY.md).
+People can still **verify** without permission: `bun run people:verify`.
 
 Live map: **`/doors`** on the site.
 

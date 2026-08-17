@@ -60,7 +60,18 @@ function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : undefined;
 }
-const useFixture = process.argv.includes("--fixture");
+/** True when --fixture is present (with or without a path argument). */
+const fixtureFlag = process.argv.includes("--fixture");
+const fixturePathArg = (() => {
+  const i = process.argv.indexOf("--fixture");
+  if (i < 0) return undefined;
+  const next = process.argv[i + 1];
+  // `--fixture` alone, or `--fixture --rpc …` → default path
+  if (!next || next.startsWith("--")) return undefined;
+  return next;
+})();
+const useFixture = fixtureFlag;
+const offline = process.argv.includes("--offline") || useFixture;
 const rpc = (arg("rpc") ?? PUBLIC_TIP_RPC_DEFAULT).replace(/\/$/, "");
 
 let failures = 0;
@@ -138,7 +149,11 @@ const dynBytes = (hex: string) => {
 
 console.log("═══ VERIFY THE CROWNED CHAIN ═══\n");
 console.log(useFixture ? "source: committed fixture (offline)" : `source: ${rpc}`);
-console.log("");
+if (offline && !useFixture) {
+  console.log("( --offline without --fixture still needs a source; use --fixture )\n");
+} else {
+  console.log("");
+}
 
 // ── obtain the chain ──────────────────────────────────────────────────────
 let pixels: LedgerPixel[];
@@ -146,7 +161,12 @@ let networkId: number;
 let sequencers: Array<{ address: string; publicKey: string }>;
 
 if (useFixture) {
-  const fx = JSON.parse(readFileSync(join(root, "fixtures/crowned-47.json"), "utf8")) as {
+  const fxPath = fixturePathArg
+    ? fixturePathArg.startsWith("/")
+      ? fixturePathArg
+      : join(root, fixturePathArg)
+    : join(root, "fixtures/crowned-47.json");
+  const fx = JSON.parse(readFileSync(fxPath, "utf8")) as {
     networkId: number;
     pixels: LedgerPixel[];
     sequencers: Array<{ address: string; publicKey: string }>;
@@ -154,6 +174,7 @@ if (useFixture) {
   pixels = fx.pixels;
   networkId = fx.networkId;
   sequencers = fx.sequencers;
+  console.log(`fixture: ${fxPath}`);
 } else {
   const res = await fetch(`${rpc}/sync`, { signal: AbortSignal.timeout(120_000) });
   if (!res.ok) {
@@ -259,14 +280,20 @@ console.log(`  · fees collected over the whole chain: ${feeTotal} PIX`);
 // ── 4. the anchors, read directly ─────────────────────────────────────────
 // The step that does not require trusting this repository at all.
 console.log("\n4. anchors (read by eth_call, not through our tooling)");
+let venuesChecked = 0;
+let venuesAgreed = 0;
+if (offline) {
+  console.log(
+    "  · skipped under --fixture / --offline (air-gap). Steps 1–3 still prove internal\n" +
+      "    consistency. Re-run without --fixture when you want public-chain confirmation.",
+  );
+} else {
 const anchors = JSON.parse(readFileSync(join(root, "anchors.json"), "utf8")) as Anchors;
 const VENUE_RPC: Record<string, string> = {
   "ethereum-sepolia": process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com",
   "robinhood-testnet": process.env.ROBINHOOD_RPC_URL ?? "https://testnet.rpc.robinhood.com",
 };
 
-let venuesChecked = 0;
-let venuesAgreed = 0;
 for (const [venue, contract] of Object.entries(anchors.venues)) {
   const url = VENUE_RPC[venue];
   if (!url) {
@@ -325,6 +352,7 @@ if (venuesChecked === 0) {
     `every reachable venue agrees (${venuesAgreed}/${venuesChecked})`,
   );
 }
+} // end online anchors
 
 // ── verdict ───────────────────────────────────────────────────────────────
 console.log("");

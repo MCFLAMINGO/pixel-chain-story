@@ -8,10 +8,12 @@ Light reveals proximity. Color is absent without it.
 ## Do this right now
 
 Full playbook: [`docs/QUICKSTART.md`](docs/QUICKSTART.md)  
-**Every door illuminated:** [`docs/DOORS.md`](docs/DOORS.md) · site **`/doors`**
+**Every door illuminated:** [`docs/DOORS.md`](docs/DOORS.md) · site **`/doors`**  
+**Durability grades (honest):** [`docs/DURABILITY.md`](docs/DURABILITY.md)
 
 ```bash
 bun install
+bun run people:verify          # offline — check the crowned picture yourself
 bun run dev                    # /wallet = phone hold · /doors · / = live field
 # People: open /wallet (Add to Home Screen). Tip: VITE_PIXEL_RPC=…
 bun run test:all
@@ -23,11 +25,10 @@ bun run test:all
 ## Node (operator / friend laptop)
 
 ```bash
-# Join the public tip (or a local tip you already have) — do not init a new Earth
-bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend
-bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
+# Join via tip-mirrors.json (tries listed /sync hosts in order) — do not init a new Earth
+bun run pixel -- join --public-tip --datadir ./data/friend --require-crowned
+bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002 --advertise <your-host>
 ```
-
 ## Docs engineers should read
 
 | Doc                                                                  | Why                                                                            |
