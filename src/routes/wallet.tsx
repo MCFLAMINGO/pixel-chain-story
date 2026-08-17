@@ -55,19 +55,19 @@ export const Route = createFileRoute("/wallet")({
       { rel: "apple-touch-icon", href: "/icons/pixel-wallet.svg" },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => {
+  validateSearch: (s: Record<string, unknown>): { rpc?: string; tab?: Tab; to?: string } => {
     const toRaw = typeof s.to === "string" ? s.to.trim().toLowerCase() : undefined;
     const to = toRaw && isPixelAddress(toRaw) ? toRaw : undefined;
-    return {
-      rpc: typeof s.rpc === "string" ? s.rpc : undefined,
-      tab:
-        s.tab === "send" || s.tab === "bridge" || s.tab === "hold" || s.tab === "concept"
-          ? s.tab
-          : to
-            ? ("send" as const)
-            : undefined,
-      to,
-    };
+    // Annotated as `Tab` rather than inferred: the inferred type widened to `string`,
+    // so `useState<Tab>(tabQuery ?? …)` could not accept it even though every value
+    // this function can produce is a valid tab.
+    const tab: Tab | undefined =
+      s.tab === "send" || s.tab === "bridge" || s.tab === "hold" || s.tab === "concept"
+        ? s.tab
+        : to
+          ? "send"
+          : undefined;
+    return { rpc: typeof s.rpc === "string" ? s.rpc : undefined, tab, to };
   },
   component: WalletPage,
 });
@@ -916,7 +916,10 @@ function WalletPage() {
                         Paste
                       </button>
                       {scanning ? (
-                        <button type="button" className="wallet-chip" onClick={stopScan}>
+                        // `stopScan(opts?: { keepBlaze?: boolean })` — React hands onClick a MouseEvent,
+                        // which would arrive as `opts` and be read for `.keepBlaze`. It happens to
+                        // be undefined today, so this worked by luck rather than by design.
+                        <button type="button" className="wallet-chip" onClick={() => stopScan()}>
                           Stop
                         </button>
                       ) : null}

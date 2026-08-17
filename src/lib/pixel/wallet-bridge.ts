@@ -258,6 +258,15 @@ export async function shineInForPhoneWallet(params: {
       balance: number;
       summary: string;
       canvasId: null;
+      /**
+       * Present-but-absent on the lab rail, so the two arms of this union share a
+       * shape. Without them a caller reading `res.lab` had to narrow on `plane`
+       * first — and the caller that did not was a type error nobody could act on,
+       * because widening the union was the actual fix.
+       */
+      lab?: boolean;
+      lockTx?: string;
+      humanUsd?: number;
     }
 > {
   if (params.rpc?.trim()) {
