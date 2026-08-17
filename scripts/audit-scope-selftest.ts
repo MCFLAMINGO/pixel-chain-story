@@ -2,10 +2,178 @@
  * Gate I — audit package invariants (not “audited”).
  * bun scripts/audit-scope-selftest.ts
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_SCHEME, quantumStatus } from "../src/lib/pixel/scheme";
 import { transportStatus } from "../src/lib/pixel/transport-kem";
+
+/**
+ * Protocol surface — every module classified, and the boundary enforced.
+ *
+ * `docs/PROTOCOL-SURFACE.md` says nineteen of the eighty-five modules under
+ * `src/lib/pixel` are the protocol and the rest are not. A document saying that is
+ * worth something; a build that fails when it stops being true is worth more.
+ *
+ * Two rules:
+ *
+ *   1. Every module is classified. A new file fails the build until someone says what
+ *      it is, which is the only way the list stays complete without anyone policing it.
+ *   2. **No consensus module may import a model.** Models are reasoning, not rules —
+ *      the moment one is imported by the accept path it has silently become a rule
+ *      nobody reviewed as one.
+ */
+function checkProtocolSurface(root: string): void {
+  const CONSENSUS = new Set([
+    "chain",
+    "pol",
+    "transaction",
+    "membership",
+    "sig-era",
+    "legacy-sig",
+    "economics",
+    "limits",
+    "crypto",
+    "scheme",
+    "light-digest",
+    "light-color",
+    "field-witness",
+    "wave",
+    "spatial-picture",
+    "optical",
+    "gift-and-record",
+    "sovereignty",
+    "crowned-genesis",
+  ]);
+
+  /** Reasoning, measurement and argument. Enforced by nothing, by definition. */
+  const MODELS = new Set([
+    "presence-peg",
+    "economy-model",
+    "mint-harm",
+    "energy-truth",
+    "farm-signature",
+    "lit-supply",
+    "end-state",
+    "uptake",
+    "expression",
+    "interactions",
+    "provenance",
+  ]);
+
+  /** Doors: not block validity, but the surface an attacker knocks on. */
+  const GATEWAY = new Set(["mempool", "wire-schema", "validators", "rate-limit"]);
+
+  /** Products and plumbing — wallets, bridges, Continuity, optical, UI feeds. */
+  const SURFACE = new Set([
+    "access",
+    "anchor",
+    "anchor-evm",
+    "anchor-venues",
+    "benchmark",
+    "bootstrap",
+    "bridge",
+    "bridge-custody",
+    "browser-eth-lock",
+    "build-marker",
+    "canvas-id",
+    "chain-mirror",
+    "chain-mirror-idb",
+    "continuity-invite-pack",
+    "continuity-ops",
+    "continuity-settlement",
+    "custody",
+    "eth-usdc-lock",
+    "firefly",
+    "index",
+    "kindling",
+    "lattice",
+    "light-client",
+    "lit-cell",
+    "lock-feeder",
+    "lock-lead",
+    "one",
+    "optical-capture",
+    "optical-profile",
+    "pay-face-optical",
+    "pay-link",
+    "pay-matrix-scan",
+    "pay-qr-scan",
+    "peer-score",
+    "people-wallet",
+    "people-wallet-idb",
+    "people-wallet-seal",
+    "people-wallet-webauthn",
+    "rpc",
+    "siso",
+    "spatial-index",
+    "spatial-sink",
+    "tip-host-contract",
+    "tip-mark",
+    "transport-kem",
+    "ula-evm",
+    "ula-mldsa",
+    "wallet-bridge",
+    "wave-bus",
+    "wave-rules",
+    "worldlight",
+  ]);
+
+  const dir = join(root, "src/lib/pixel");
+  const modules = readdirSync(dir)
+    .filter((f) => f.endsWith(".ts"))
+    .map((f) => f.replace(/\.ts$/, ""));
+
+  const unclassified = modules.filter(
+    (m) => !CONSENSUS.has(m) && !MODELS.has(m) && !GATEWAY.has(m) && !SURFACE.has(m),
+  );
+  if (unclassified.length > 0) {
+    throw new Error(
+      `unclassified module(s): ${unclassified.join(", ")} — add to CONSENSUS, MODELS, ` +
+        `GATEWAY or SURFACE in this file and to docs/PROTOCOL-SURFACE.md`,
+    );
+  }
+
+  const stale = [...CONSENSUS, ...MODELS, ...GATEWAY, ...SURFACE].filter(
+    (m) => !modules.includes(m),
+  );
+  if (stale.length > 0) {
+    throw new Error(`classified module(s) that no longer exist: ${stale.join(", ")}`);
+  }
+  console.log(
+    `\u25b8 all ${modules.length} pixel modules classified ` +
+      `(${CONSENSUS.size} consensus, ${MODELS.size} models) \u2713`,
+  );
+
+  // The rule that matters: consensus must not depend on reasoning.
+  const violations: string[] = [];
+  for (const m of CONSENSUS) {
+    const src = readFileSync(join(dir, `${m}.ts`), "utf8");
+    for (const match of src.matchAll(/from "\.\/([a-z0-9-]+)"/g)) {
+      if (MODELS.has(match[1]!)) violations.push(`${m}.ts imports model ${match[1]}`);
+    }
+  }
+  if (violations.length > 0) {
+    throw new Error(
+      `consensus imports a model: ${violations.join("; ")} — a rule that lives in a ` +
+        `model is a rule nobody reviewed as one. Move it into the accept path or drop it.`,
+    );
+  }
+  console.log("\u25b8 no consensus module imports a model \u2713");
+
+  // The doc must agree with the registry, or it becomes decoration.
+  const doc = readFileSync(join(root, "docs/PROTOCOL-SURFACE.md"), "utf8");
+  for (const m of CONSENSUS) {
+    if (!doc.includes(`\`${m}.ts\``)) {
+      throw new Error(`docs/PROTOCOL-SURFACE.md does not list consensus module ${m}.ts`);
+    }
+  }
+  for (const m of MODELS) {
+    if (!doc.includes(`\`${m}.ts\``)) {
+      throw new Error(`docs/PROTOCOL-SURFACE.md does not list model ${m}.ts`);
+    }
+  }
+  console.log("\u25b8 docs/PROTOCOL-SURFACE.md matches the registry \u2713");
+}
 
 async function main() {
   console.log("═══ GATE I — AUDIT SCOPE PACKAGE ═══\n");
@@ -73,6 +241,8 @@ async function main() {
     throw new Error("acceptBlock surface missing");
   }
   console.log("▸ acceptBlock (docs: acceptPixel) export surface ✓");
+
+  checkProtocolSurface(root);
 
   console.log("\n═══ PASS — audit package prepared; external review pending ═══");
 }

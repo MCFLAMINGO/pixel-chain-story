@@ -118,6 +118,7 @@ Discovery index for crawlers/LLMs: [`llms.txt`](llms.txt).
 | ---------------------------------------------------------------------------- | ---------------------------- |
 | [`docs/PATH.md`](docs/PATH.md)                                               | Gates A→J, claim unlocks     |
 | [`docs/QUANTUM.md`](docs/QUANTUM.md)                                         | PQ posture                   |
+| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md)                       | Which modules are consensus  |
 | [`docs/SPEC.md`](docs/SPEC.md)                                               | Normative behavior           |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)                               | Lanes, checklist, rejects    |
 | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md)                         | SISO doctrine                |
