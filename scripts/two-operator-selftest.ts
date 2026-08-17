@@ -179,7 +179,14 @@ async function spend(url: string, datadir: string, to: string, amount: number): 
     });
     if (res.ok) return true;
     const body = (await res.json().catch(() => ({}))) as { code?: string };
-    if (body.code === "input-reserved" || body.code === "duplicate") {
+    // `unknown-input` joins the retry list: it means a block sealed between reading /sync
+    // and submitting, so the input this transfer was built against is already spent. The
+    // world moved, which is the normal condition with two live producers — not an error.
+    if (
+      body.code === "input-reserved" ||
+      body.code === "duplicate" ||
+      body.code === "unknown-input"
+    ) {
       await Bun.sleep(600);
       continue;
     }

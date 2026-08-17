@@ -43,6 +43,7 @@ bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 | [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md) | **Where the project actually stands** — read before starting work              |
 | [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md) | **Which 20 of 86 modules are consensus** — open this first                     |
 | [`docs/SPEC.md`](docs/SPEC.md)                         | Normative behavior (constants machine-checked against code)                    |
+| [`docs/VECTORS.md`](docs/VECTORS.md)                   | Frozen protocol vectors — what a second implementation is built against        |
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md)         | Honest risks                                                                   |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md)                   | Checklist tied to PATH gates                                                   |
 | [`docs/ONE.md`](docs/ONE.md)                           | Simple API                                                                     |

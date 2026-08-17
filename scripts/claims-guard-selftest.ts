@@ -95,6 +95,10 @@ const HISTORICAL: Record<string, { count: number; why: string }> = {
     count: 2,
     why: "records why the axiom assertion stopped keying on a dollar figure",
   },
+  "scripts/vectors-generate.ts": {
+    count: 1,
+    why: "the emission vector's note says 'Flat, not halving' — naming the absence for a second implementation",
+  },
   "scripts/spec-conformance-selftest.ts": {
     count: 4,
     why: "asserts SPEC.md still says 'no halving', and explains the drift it was written to catch",

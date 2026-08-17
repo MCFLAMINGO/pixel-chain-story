@@ -295,10 +295,24 @@ export const PIXEL_LAB_NETWORK_ID = 0x504c; // "PL"
 export async function createGenesis(
   sequencer: LightKeypair,
   networkId = PIXEL_LAB_NETWORK_ID,
+  /**
+   * Genesis timestamp. Defaults to the clock.
+   *
+   * Injectable because genesis is hashed over its own timestamp, so a clock read makes
+   * the genesis hash — and therefore every hash above it — unreproducible. Frozen
+   * protocol vectors (`fixtures/vectors/`) need a genesis that regenerates identically;
+   * nothing in production should pass this.
+   */
+  opts: { now?: number } = {},
 ): Promise<PixelChainState> {
   const genesisReward = lightReward(0);
   assertUnderCap(0, genesisReward);
+  const genesisTimestamp = opts.now ?? Date.now();
   const mint = await createTransaction({
+    // Same instant as the pixel, so a genesis built from a named timestamp is fully
+    // reproducible — the mint's timestamp is inside its own canonical body and therefore
+    // decides the genesis merkle root.
+    timestamp: genesisTimestamp,
     inputs: [],
     outputs: [{ amount: genesisReward, address: sequencer.address }],
     metadata: {
@@ -322,7 +336,7 @@ export async function createGenesis(
     merkleRoot: root,
     priorTipHashes: [],
   });
-  const timestamp = Date.now();
+  const timestamp = genesisTimestamp;
   const beacon = await opticalBeacon(0, prevHash);
   const hash = await hashBlock({
     index: 0,
@@ -1017,6 +1031,10 @@ export async function sequenceBlock(
   const coinbase = finalizeTransaction(
     revealTransaction(
       await createTransaction({
+        // The coinbase belongs to this pixel, so it is stamped with the pixel's own
+        // timestamp rather than a second, slightly later clock read. That also makes a
+        // block built from a named timestamp fully reproducible, which frozen vectors need.
+        timestamp,
         inputs: [],
         outputs: [{ amount: reward + fees, address: localSequencer.address }],
         metadata: {
