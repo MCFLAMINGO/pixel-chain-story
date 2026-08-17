@@ -25,9 +25,8 @@ message. It takes your worst case from _the chain is gone_ to _someone else pres
 git clone https://github.com/MCFLAMINGO/pixel-chain-story
 cd pixel-chain-story && bun install
 
-# Pull the real chain, and refuse anything that is not it
-bun run pixel -- join --peer https://pixel-tip-production.up.railway.app \
-  --datadir ./pixel-data --require-crowned
+# Pull the real chain — tries tip-mirrors.json in order (not only one Railway URL)
+bun run pixel -- join --public-tip --datadir ./pixel-data --require-crowned
 
 # Check it themselves — replays every pixel, recomputes the supply independently,
 # then reads the anchor contract on Sepolia directly
@@ -36,8 +35,13 @@ bun run verify:crowned
 # Seal the key before ever running a node with it
 PIXEL_KEY_PASSPHRASE='<a real passphrase they choose>' \
   bun run pixel -- key seal --datadir ./pixel-data
+
+# Optional: keyless backup they can store offline (does NOT carry your producer key)
+bun run pixel -- backup --datadir ./pixel-data --out ~/pixel-tier1-backup.json
 ```
 
+Ceremony pack (USB / mirror): `fixtures/ceremony-pack/` — mirrors, anchors, hashes.
+See [`DURABILITY.md`](./DURABILITY.md).
 ### Then confirm the genesis out loud
 
 `join --require-crowned` prints the genesis hash. Have them read the first sixteen characters
@@ -63,8 +67,9 @@ that is fine — this tier is worth doing even if you stop here.
 
 ## Tier 2 — your side: make gossip reachable
 
-Right now your node advertises `gossipUrl: ws://127.0.0.1:9001/gossip` and reports `peers: 0`.
-That is localhost. A second node can sync over HTTP `/sync`, but it cannot join the mesh.
+Right now a tip that omitted `--advertise` reports `gossipUrl: ws://127.0.0.1:…/gossip`
+and `/health.advertiseIsLocalhost: true`. That is localhost. A second node can sync over
+HTTP `/sync`, but it cannot join the mesh.
 
 ```bash
 # On the machine running the tip
@@ -72,13 +77,14 @@ bun run pixel -- node --datadir ./pixel-data \
   --rpc 8545 --gossip 9001 --advertise <your-public-host>
 ```
 
-…and open port 9001 to them.
+…and open port 9001 to them. Then add a public gossip URL to `tip-mirrors.json` →
+`gossipSeeds` (and re-run `bun run ceremony:pack`) so joiners can dial without a
+side channel.
 
 **Do this deliberately, and only now.** That closed port is the only reason the takeover found
 on 16 August was never remotely exploitable. Opening it is safe _because_ Phase 1 landed:
 membership is a fold over chain history, so a stranger reaching the gossip port can no longer
 produce anything. Sequencing the soundness work before this was the entire point of the gate.
-
 ---
 
 ## Tier 3 — make them a producing operator

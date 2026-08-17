@@ -69,6 +69,20 @@ Env: `PORT` (Railway sets this), `PIXEL_DATADIR=/data/pixel`.
 
 **Do not** deploy the Vite site as the tip. Tip = long-running node. Site = static/Lovable build that _reads_ the tip.
 
+### D. Second mirror / failover (required for durability)
+
+One Railway volume is still one copy. See [`DURABILITY.md`](./DURABILITY.md).
+
+1. On the live tip: `bun run pixel -- backup --datadir $PIXEL_DATADIR --out tip-backup.json`
+2. Store that file offline **and** on a second machine (keyless by default — safe to give a friend).
+3. List every public `/sync` URL in repo-root [`tip-mirrors.json`](../tip-mirrors.json).
+4. Friends join with `bun run pixel -- join --public-tip --require-crowned` (tries mirrors in order).
+5. If the primary dies: restore the backup onto a new host (`bun run pixel -- restore --in tip-backup.json`), start `tip:host` / `node`, update `tip-mirrors.json`, run `bun run ceremony:pack`.
+
+Proven in CI: `bun run test:tip-failover` (lab network — dead host, live replacement, friend joins via mirrors).
+
+Always pass `--advertise <public-host>` on any tip meant to be dialed; `/health.advertiseIsLocalhost` must be `false`.
+
 ---
 
 ## Step 2 — Public HTTPS URL

@@ -1,0 +1,13 @@
+{
+  "networkId": 20553,
+  "genesisHash": "f1d193f62d54e98230da5e4b40fbaebb31c176bef241fcb4a44e8f025c8df04f163e7525cc9f0e99172368380d1e1f5341c0a4b2099c17b1f4ba3c0b6739b777",
+  "genesisPrefix": "f1d193f62d54e982",
+  "defaultTip": "https://pixel-tip-production.up.railway.app",
+  "files": {
+    "tip-mirrors.json": "65b6058415cb1b3f3222ec4a55b409ef3aa30bf5940965628085813f19b0a793",
+    "anchors.json": "d481d8b68fc5aba85bc0bffa5ef01b54628e9125e090437d1d501189cb04336e",
+    "../crowned-47.json": "2676e0173b82c9466df937f3959f48c62f1b5a72440d99e21e56bf26f11d7914",
+    "../vectors/protocol-v1.json": "cf53964507a7012f257ace025f6d9798573a8b3004d3b7b5daed9e31fd1977eb"
+  },
+  "builtAt": "2026-08-17T13:04:18.375Z"
+}

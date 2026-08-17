@@ -77,3 +77,4 @@ export * from "./membership";
 export * from "./rate-limit";
 export * from "./mempool";
 export * from "./sig-era";
+export * from "./tip-mirrors";

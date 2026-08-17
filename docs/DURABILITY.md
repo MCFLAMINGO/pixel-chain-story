@@ -32,9 +32,9 @@ not Bitcoin-class survival.
 | Cryptographic self-custody for people | **Green** | `/wallet` PIN seal; no server holds seeds |
 | Open source / no phone-home to GitHub | **Green** | Clone and run; node software does not phone home |
 | Frozen vectors / second-implementation path | **Yellow** | Vectors exist; second client does not |
-| Permissionless **verification** | **Yellow** | Possible; discovery still leans on one tip URL |
-| Many independent full copies | **Red** | One always-on volume is the live history |
-| Tip discovery without one magic host | **Red** | `join --peer` defaults to the Railway tip |
+| Permissionless **verification** | **Yellow** | `verify:crowned` + ceremony pack; discovery uses mirrors but only one live host listed |
+| Many independent full copies | **Yellow** | Backup + `test:tip-failover` prove restore; still need a second human holding a copy |
+| Tip discovery without one magic host | **Yellow** | `tip-mirrors.json` + `join --mirrors` / `--public-tip`; add more live mirrors to leave Yellow |
 | Permissionless **sequencing** | **Red** | Membership needs an active member’s authorization |
 | Economic recruitment of strangers | **Red** | Coinbase exists; strangers cannot claim seats |
 | Hosting independence (GitHub/Railway = convenience) | **Red** | Tip liveness is a cloud bill today |

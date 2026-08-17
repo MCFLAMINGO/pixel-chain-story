@@ -1,0 +1,21 @@
+{
+  "$comment": [
+    "HTTP /sync endpoints and optional gossip seeds for network 20553 (crowned Earth).",
+    "Join tries mirrors in order until one returns a verifying chain.",
+    "This list is discovery convenience — not consensus. Anyone may host another mirror;",
+    "add it here (or pass --mirrors FILE) so friends are not stuck on one Railway URL.",
+    "See docs/DURABILITY.md."
+  ],
+  "networkId": 20553,
+  "genesisHash": "f1d193f62d54e98230da5e4b40fbaebb31c176bef241fcb4a44e8f025c8df04f163e7525cc9f0e99172368380d1e1f5341c0a4b2099c17b1f4ba3c0b6739b777",
+  "genesisPrefix": "f1d193f62d54e982",
+  "mirrors": [
+    {
+      "id": "railway-primary",
+      "rpc": "https://pixel-tip-production.up.railway.app",
+      "role": "primary",
+      "note": "Current always-on tip host. Cattle — replaceable via backup restore (DURABILITY.md D1/D4)."
+    }
+  ],
+  "gossipSeeds": []
+}

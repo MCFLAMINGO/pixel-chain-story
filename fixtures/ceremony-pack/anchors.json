@@ -1,0 +1,19 @@
+{
+  "$comment": [
+    "Where the Pixel tip is anchored. Contract addresses are public information —",
+    "the whole point is that strangers can check them without asking us.",
+    "",
+    "Both venues share an address because CREATE derives it from sender + nonce,",
+    "so the same anchorer key at nonce 0 lands identically on every chain.",
+    "",
+    "Anchoring proves publication time and immutability afterwards. It does NOT",
+    "prove the anchored root is correct — see docs/ANCHORING.md."
+  ],
+  "networkId": 20553,
+  "genesisHash": "f1d193f62d54e98230da5e4b40fbaebb31c176be",
+  "anchorer": "0xdF928F1eeC2e5e6EB9869f3462EbAAC4c20bc2df",
+  "venues": {
+    "robinhood-testnet": "0xA4Dc733fcb075b5c880eB1067225f5064bbff963",
+    "ethereum-sepolia": "0xA4Dc733fcb075b5c880eB1067225f5064bbff963"
+  }
+}

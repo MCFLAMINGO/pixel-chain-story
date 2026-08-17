@@ -69,7 +69,9 @@ async function main() {
 
   if (cmd === "help" || flag("help")) {
     console.log(`${PIXEL_LEDGER_NAME} CLI
-  join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip] [--require-crowned]
+  join --peer http://HOST:RPC [--datadir DIR] [--mirrors FILE] [--gossip-seed ws://HOST/gossip] [--require-crowned]
+  join --mirrors FILE [--datadir DIR] [--require-crowned]   # try each mirror in tip-mirrors.json
+  join --public-tip [--datadir DIR] [--require-crowned]     # peer = default + mirrors file
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
   key status|seal [--datadir DIR]        seal the node key at rest (PIXEL_KEY_PASSPHRASE)
   membership status [--peer URL]         who may produce, and when a new record activates
@@ -85,11 +87,11 @@ async function main() {
   interactions
 
 People (phone): /wallet — not this CLI.
-Friends — join crowned tip:
-  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ./data/friend --require-crowned
-  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
+Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-tip):
+  bun run pixel -- join --public-tip --datadir ./data/friend --require-crowned
+  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002 --advertise <your-host>
   # confirm genesis ${CROWNED_GENESIS_PREFIX}…
-  # see docs/demos/friend-invite.md
+  # see docs/demos/friend-invite.md · docs/DURABILITY.md
 `);
     return;
   }
@@ -108,47 +110,47 @@ Friends — join crowned tip:
   }
 
   if (cmd === "join") {
-    const peer = arg("peer") ?? (flag("public-tip") ? PUBLIC_TIP_RPC_DEFAULT : undefined);
-    if (!peer) throw new Error(`--peer http://host:port required (or --public-tip)`);
-    const base = peer.replace(/\/$/, "");
+    const mirrorsPath = arg("mirrors");
+    const peer =
+      arg("peer") ?? (flag("public-tip") ? PUBLIC_TIP_RPC_DEFAULT : undefined);
+    if (!peer && !mirrorsPath && !flag("public-tip")) {
+      throw new Error(
+        `--peer http://host:port required (or --public-tip / --mirrors tip-mirrors.json)`,
+      );
+    }
     await ensureDatadir(datadir);
     const { keypair } = await loadOrCreateIdentity(datadir, "joiner");
 
-    let sync: {
-      pixels: import("../lib/pixel/index").LedgerPixel[];
-      sequencers?: SequencerId[];
-      networkId?: number;
-      gossipUrl?: string | null;
-      address?: string;
-      publicKey?: string;
-      genesisHash?: string;
-    };
-    const syncRes = await fetch(`${base}/sync`);
-    if (syncRes.ok) {
-      sync = (await syncRes.json()) as typeof sync;
-    } else {
-      const pixels = (await fetch(`${base}/pixels`).then((r) => r.json())) as typeof sync.pixels;
-      const health = (await fetch(`${base}/health`).then((r) => r.json())) as {
-        address: string;
-        publicKey?: string;
-        gossipUrl?: string;
-        genesisHash?: string;
-        networkId?: number;
-      };
-      sync = {
-        pixels,
-        gossipUrl: health.gossipUrl,
-        address: health.address,
-        publicKey: health.publicKey,
-        genesisHash: health.genesisHash,
-        networkId: health.networkId,
-      };
+    const { fetchSyncViaMirrors, TipMirrorError, loadTipMirrorsOrBuiltin } = await import(
+      "../lib/pixel/tip-mirrors"
+    );
+    // --public-tip or an explicit mirrors file loads the list; bare --peer does not
+    // surprise-dial Railway after a lab peer fails.
+    const useMirrors = Boolean(mirrorsPath || flag("public-tip"));
+    const requireCrowned =
+      flag("require-crowned") ||
+      Boolean(peer?.includes("pixel-tip-production")) ||
+      flag("public-tip");
+
+    let sync: Awaited<ReturnType<typeof fetchSyncViaMirrors>>;
+    try {
+      sync = await fetchSyncViaMirrors({
+        peer,
+        mirrorsPath: useMirrors ? mirrorsPath : undefined,
+        mirrors: useMirrors ? undefined : peer ? { ...loadTipMirrorsOrBuiltin(), mirrors: [] } : undefined,
+        requireCrowned,
+      });
+    } catch (err) {
+      if (err instanceof TipMirrorError) {
+        console.error(`join failed after ${err.attempts.length} mirror attempt(s):`);
+        for (const a of err.attempts) console.error(`  ${a.rpc} → ${a.error}`);
+      }
+      throw err;
     }
-    if (!sync.pixels?.length) throw new Error("peer returned no pixels — is the tip running?");
 
     const genesisHash = sync.genesisHash ?? sync.pixels[0]!.hash;
-    const networkId = sync.networkId ?? 0x5049;
-    if (flag("require-crowned") || base.includes("pixel-tip-production")) {
+    const networkId = sync.networkId ?? loadTipMirrorsOrBuiltin(mirrorsPath).networkId;
+    if (requireCrowned) {
       assertCrownedPublicTip({ genesisHash, networkId });
     } else if (!isCrownedGenesisHash(genesisHash)) {
       console.warn(
@@ -181,21 +183,30 @@ Friends — join crowned tip:
     }
     await saveChain(datadir, chain);
 
-    const gossipSeed = arg("gossip-seed") ?? sync.gossipUrl ?? undefined;
-    if (gossipSeed?.startsWith("ws")) {
+    const mirrorsFile = loadTipMirrorsOrBuiltin(mirrorsPath);
+    const gossipSeed =
+      arg("gossip-seed") ??
+      sync.gossipUrl ??
+      mirrorsFile.gossipSeeds?.[0] ??
+      undefined;
+    if (gossipSeed?.startsWith("ws") && !/127\.0\.0\.1|localhost/.test(gossipSeed)) {
       const { savePeers } = await import("./store");
       await savePeers(datadir, [gossipSeed]);
       console.log(`  gossip seed saved: ${gossipSeed}`);
+    } else if (gossipSeed && /127\.0\.0\.1|localhost/.test(gossipSeed)) {
+      console.log(
+        `  gossip seed from peer is localhost (${gossipSeed}) — not saved; pass --gossip-seed or --advertise on the tip`,
+      );
     }
 
-    console.log(`Joined ${PIXEL_LEDGER_NAME} from ${base}`);
+    console.log(`Joined ${PIXEL_LEDGER_NAME} from ${sync.sourceRpc}${sync.sourceId ? ` (${sync.sourceId})` : ""}`);
     console.log(`  pixels: ${chain.pixels.length}`);
     console.log(`  sequencers: ${chain.sequencers.length}`);
     console.log(`  genesis: ${genesisHash.slice(0, 24)}…`);
     console.log(`  local: ${keypair.address}`);
     console.log(`  next: bun run pixel -- node --datadir ${datadir} --rpc 8546 --gossip 9002 \\`);
     console.log(
-      `          --seed ${gossipSeed ?? "ws://<peer-host>:<gossip>/gossip"} --advertise <your-host>`,
+      `          --seed ${gossipSeed && !/127\.0\.0\.1|localhost/.test(gossipSeed) ? gossipSeed : "ws://<peer-host>:<gossip>/gossip"} --advertise <your-host>`,
     );
     return;
   }
