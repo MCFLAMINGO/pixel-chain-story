@@ -68,23 +68,71 @@ exactly what [`QUANTUM.md`](./QUANTUM.md) puts out of scope, and adopting one wo
 sentence "classical ECC is not used" stops being true for the most security-critical part of
 consensus.
 
-The PQ-friendly constructions that exist are hash-based, and the honest ones are large:
+The PQ-friendly constructions that exist are hash-based:
 
 | Construction                 | Verifiable | PQ     | Cost                                        |
 | ---------------------------- | ---------- | ------ | ------------------------------------------- |
 | ECVRF (RFC 9381)             | yes        | **no** | small, and out of scope here                |
-| hash-based VRF via OTS       | yes        | yes    | one one-time key per height, forever        |
+| hash-based VRF via OTS       | yes        | yes    | the signing key becomes a consumable        |
 | VRF from a SNARK over a hash | yes        | yes    | a proving system this project does not have |
 
-The hash-based OTS route deserves a moment because it is tempting and it is a trap. Pixel already
-has `PIX-HASH-OTS-128` with a Merkle window of 32 leaves and a consensus-enforced reuse ledger. A
-producer could commit to a Merkle root and reveal one leaf per height as its VRF output. It works,
-and it means **every operator needs a fresh window every 32 pixels, forever**, with a key rotation
-ceremony to match. That is a permanent operational tax on the thing this project is currently
-short of: operators willing to run a node.
+### The OTS route, costed properly
 
-**Verdict: not now.** Revisit if a PQ VRF becomes standard, or if the operator set is large enough
-that key rotation is somebody's job rather than an obstacle to recruitment.
+Pixel already has `PIX-HASH-OTS-128`: a Merkle window of `OTS_LEAF_COUNT` one-time leaves, with
+single-use enforced at consensus by `usedOtsLeaves`. A producer could publish a Merkle root and
+reveal one leaf per height as its VRF output. It works.
+
+First, why the leaves are one-time at all, since the rest of the argument depends on it. Lamport
+signing pre-commits to _two_ secrets per signed bit — one for "0", one for "1" — and publishes
+hashes of both; signing reveals whichever the message selected. So signing **spends** the leaf. Sign
+two different messages with one leaf and every bit where they differ has now revealed both secrets,
+and the halves can be recombined to forge a third message that was never signed. That is what a
+hash-based one-time signature is, not a policy choice, which is why single-use is a consensus rule
+rather than wallet etiquette.
+
+`OTS_LEAF_COUNT` is currently **32**, and that number is a wallet decision sitting at the corner of
+a three-way tradeoff:
+
+| Leaves | Window at ~1 pixel/hour | Auth path per signature | Keygen work   |
+| ------ | ----------------------- | ----------------------- | ------------- |
+| **32** | **1.3 days**            | **5 hashes**            | ~33k hashes   |
+| 256    | 10.7 days               | 8 hashes                | ~262k hashes  |
+| 1024   | 42.7 days               | 10 hashes               | ~1.05M hashes |
+
+The auth path grows as log₂, so it is nearly free — 32 → 1024 costs five extra hashes per
+signature. Keygen grows linearly, and that is what bites: OTS keygen already benchmarks around
+**190 ms** against **8.8 ms** for ML-DSA-65 (`bun run test:bench`), roughly 22× slower, so a
+1024-leaf window is about six seconds of key generation. 32 was chosen for a phone signing a
+handful of payments, and for that it is right.
+
+### Two corrections to an earlier version of this document
+
+It said "every operator needs a fresh window every 32 pixels, forever". Both halves were wrong in
+ways worth naming, because a document that is wrong in a memorable direction is worse than no
+document.
+
+**Sequencers are not affected today.** `DEFAULT_SCHEME` is `PIX-ML-DSA-65`, which is multi-use. A
+node signs unlimited blocks with one key and rotates nothing. The 32-leaf ceiling binds only
+hash-OTS keys, which are the constrained and optical path — not the sequencer default.
+
+**32 is not a wall.** It is one constant. If a VRF genuinely needed a leaf per height you would
+raise it; 1024 leaves is six weeks per window for five extra hashes and a one-off six-second
+keygen. Annoying, not fatal.
+
+### So the objection, in its narrower and surviving form
+
+- A VRF-per-height turns every operator's signing key into a **consumable with a hard expiry
+  measured in pixels**. Rotation stops being set-and-forget and becomes a recurring duty with a
+  deadline, and missing the deadline means you can no longer produce.
+- The window size becomes **coupled to block rate**. Speed the chain up and every operator's
+  rotation schedule tightens — an ugly hidden dependency between two parameters that have no
+  business knowing about each other.
+- It buys unpredictability that a commit-reveal beacon provides using SHA-512 and **no new key
+  management at all**.
+
+**Verdict: not now** — because the alternative is cheaper, not because the mathematics is
+impossible. Revisit if a post-quantum VRF becomes standard, or if commit-reveal's last-revealer
+bias turns out to matter more than the rotation duty.
 
 ---
 
