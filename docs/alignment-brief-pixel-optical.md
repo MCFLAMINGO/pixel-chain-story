@@ -8,15 +8,15 @@ Light is the API. Tip RPC is **not** required to paint or scan a pay face. Vault
 
 ## Constants (from Pixel — do not invent)
 
-| Name | Value |
-| --- | --- |
-| Magic | `PXP1` = `[0x50, 0x58, 0x50, 0x31]` |
-| Grid | 16×16 = **256 cells** |
-| Payload | **32 bytes** (256 bits) |
-| Address | `pix1` + 19-byte body at payload bytes `[4..22]` |
-| Reserved | bytes `[23..31]` |
+| Name      | Value                                                                                |
+| --------- | ------------------------------------------------------------------------------------ |
+| Magic     | `PXP1` = `[0x50, 0x58, 0x50, 0x31]`                                                  |
+| Grid      | 16×16 = **256 cells**                                                                |
+| Payload   | **32 bytes** (256 bits)                                                              |
+| Address   | `pix1` + 19-byte body at payload bytes `[4..22]`                                     |
+| Reserved  | bytes `[23..31]`                                                                     |
 | Discovery | `https://pixelledger.org/optical-profile.json` · `/.well-known/optical-profile.json` |
-| Doc | Pixel `docs/optical-profile.md` |
+| Doc       | Pixel `docs/optical-profile.md`                                                      |
 
 **PXP2** is reserved for real layout changes. Do **not** put `PXP1-P` in the magic.
 
@@ -28,11 +28,11 @@ Light is the API. Tip RPC is **not** required to paint or scan a pay face. Vault
 
 Same magic, same 32 bytes, same grid, same cell order. **Only the paint rule changes.**
 
-| | PXP1-A (lab / do not project) | PXP1-P (default physical) |
-| --- | --- | --- |
-| Paint | cell luminance ≈ byte | cell **ON=255** / **OFF=0** (1 bit) |
-| Decode | absolute level | threshold vs **midpoint of captured min/max** |
-| Projectable on RGB565 | no | yes |
+|                       | PXP1-A (lab / do not project) | PXP1-P (default physical)                     |
+| --------------------- | ----------------------------- | --------------------------------------------- |
+| Paint                 | cell luminance ≈ byte         | cell **ON=255** / **OFF=0** (1 bit)           |
+| Decode                | absolute level                | threshold vs **midpoint of captured min/max** |
+| Projectable on RGB565 | no                            | yes                                           |
 
 ### Bit order (interop-critical)
 
@@ -55,7 +55,8 @@ export function encodePayFaceBinary(payload: Uint8Array): number[] {
 
 export function decodePayFaceBinary(cells: number[]): Uint8Array | null {
   if (cells.length !== 256) return null;
-  let min = 255, max = 0;
+  let min = 255,
+    max = 0;
   for (const c of cells) {
     const v = Math.max(0, Math.min(255, c));
     if (v < min) min = v;
@@ -85,7 +86,10 @@ If those 40 cells match, bit order is right. If not, check **MSB-first** and **r
 ```ts
 const p = new Uint8Array(32);
 p.set([0x50, 0x58, 0x50, 0x31, 0x3f]);
-const hex = encodePayFaceBinary(p).slice(0, 40).map((c) => c.toString(16).padStart(2, "0")).join("");
+const hex = encodePayFaceBinary(p)
+  .slice(0, 40)
+  .map((c) => c.toString(16).padStart(2, "0"))
+  .join("");
 // hex === "00ff00ff0000000000ff00ffff00000000ff00ff000000000000ffff000000ff0000ffffffffffff"
 ```
 
@@ -101,11 +105,11 @@ At nHD (~18px cells): binary stays exact to ~**5px** blur; bits lose past ~**7px
 
 ## Transport selection (design call — locked)
 
-| Role | Rule |
-| --- | --- |
-| **Renderer / projector** | Implicit: if the medium is physical projection (or phone Show face), paint **PXP1-P**. Do not change the payload or magic. |
-| **Decoder** | Prefer **PXP1-P** (midpoint threshold → unpack magic). Amplitude (PXP1-A) is lab-only; do not require it for interop. |
-| **Unknown source** | Try PXP1-P first. If magic fails and you must support historical amplitude rasters, optional fallback — never the other way around for projectors. |
+| Role                     | Rule                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Renderer / projector** | Implicit: if the medium is physical projection (or phone Show face), paint **PXP1-P**. Do not change the payload or magic.                         |
+| **Decoder**              | Prefer **PXP1-P** (midpoint threshold → unpack magic). Amplitude (PXP1-A) is lab-only; do not require it for interop.                              |
+| **Unknown source**       | Try PXP1-P first. If magic fails and you must support historical amplitude rasters, optional fallback — never the other way around for projectors. |
 
 Signalling transport inside the payload is **out of scope** for PXP1; that would be a layout change → **PXP2**.
 

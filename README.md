@@ -45,7 +45,7 @@ bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
 | [`docs/ROADMAP.md`](docs/ROADMAP.md)                 | Checklist tied to PATH gates                                                   |
 | [`docs/ONE.md`](docs/ONE.md)                         | Simple API                                                                     |
 | [`docs/INVENT.md`](docs/INVENT.md)                   | Invent, don’t rename                                                           |
-| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)             | Day one without $21M myth                                                      |
+| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)             | Day one without the fundraising myth                                           |
 | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md) | **SISO clarion call** — no parallel rewrite                                    |
 | [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md)         | Agents / swarms: shine in or build a PATH gate                                 |
 

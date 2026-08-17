@@ -2,11 +2,11 @@
 
 ## What ships
 
-| Layer | Scheme | Where |
-| --- | --- | --- |
-| Pixel-native ULA / PoLS | **PIX-ML-DSA-65** (default) or hash-OTS | `bridge.ts` + `verifyLightProof` → `verifyPixel` |
-| EVM / CosmWasm twin | **PIX-HASH-OTS-256-KECCAK** | `ULAVerifier.sol` / CosmWasm — full verify on-chain |
-| ML-DSA foreign receipt (lab) | Off-chain ML-DSA verify → on-chain **commit gate** | `ula-mldsa.ts` + `ULAOffchainMldsaGate.sol` |
+| Layer                        | Scheme                                             | Where                                               |
+| ---------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| Pixel-native ULA / PoLS      | **PIX-ML-DSA-65** (default) or hash-OTS            | `bridge.ts` + `verifyLightProof` → `verifyPixel`    |
+| EVM / CosmWasm twin          | **PIX-HASH-OTS-256-KECCAK**                        | `ULAVerifier.sol` / CosmWasm — full verify on-chain |
+| ML-DSA foreign receipt (lab) | Off-chain ML-DSA verify → on-chain **commit gate** | `ula-mldsa.ts` + `ULAOffchainMldsaGate.sol`         |
 
 ## Why not full Dilithium verify in Solidity (yet)
 
@@ -20,10 +20,10 @@ Lab path instead:
 
 ## Forbidden claims
 
-| Forbidden | Allowed |
-| --- | --- |
+| Forbidden                         | Allowed                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- |
 | “On-chain ULA verifies Dilithium” | “Native ULAs verify ML-DSA off-chain; EVM twin is keccak-OTS; commit gate records PQ receipts” |
-| “Quantum-proof bridge” | “PQ-class Pixel birth; foreign twin verifies hash-OTS; ML-DSA gate is lab / trusted-submitter” |
+| “Quantum-proof bridge”            | “PQ-class Pixel birth; foreign twin verifies hash-OTS; ML-DSA gate is lab / trusted-submitter” |
 
 ## Tests
 

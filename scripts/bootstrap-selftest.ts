@@ -1,5 +1,5 @@
 /**
- * Chicken-and-egg bootstrap — no $21M IPO myth.
+ * Chicken-and-egg bootstrap — no fundraising myth.
  * bun scripts/bootstrap-selftest.ts
  */
 
@@ -40,8 +40,20 @@ async function main() {
   console.log("\nChicken-egg resolution:");
   for (const line of snap.chickenEgg.resolution) console.log(" —", line);
 
-  if (!Bootstrap.axiom.includes("not a $")) throw new Error("axiom");
-  console.log("\n═══ PASS — start by lighting, not by buying 21M ═══");
+  // Asserts the substance, not a dollar sign. The old check was
+  // `includes("not a $")`, which passed only because the axiom happened to say
+  // "$21,000,000" — so rewording the figure broke a test that was never about the
+  // figure. A claim test should fail when the claim changes, not when its punctuation does.
+  if (!/scarcity schedule/i.test(Bootstrap.axiom)) {
+    throw new Error("axiom must call the ceiling a scarcity schedule");
+  }
+  if (!/not a dollar raise/i.test(Bootstrap.axiom)) {
+    throw new Error("axiom must deny the fundraising / FDV framing");
+  }
+  if (/\$\s?\d/.test(Bootstrap.axiom)) {
+    throw new Error("axiom must not put a dollar figure on the ceiling at all");
+  }
+  console.log("\n═══ PASS — start by lighting, not by buying the ceiling ═══");
 }
 
 main().catch((e) => {

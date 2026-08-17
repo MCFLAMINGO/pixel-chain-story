@@ -260,7 +260,7 @@ provenance that outlives the venue — see [`RWA-CONTINUITY.md`](./RWA-CONTINUIT
    Worth one coherent pass rather than a partial one.
 
 1. Commission external Gate I review from [`AUDIT.md`](./AUDIT.md) scope; publish report link
-2. Decide the emission question — reachable supply is 20,370,000 of a 21,000,000 ceiling, and PoLS has no expensive work to subsidise ([`EMISSION.md`](./EMISSION.md))
+2. Decide the emission question — the ceiling is 10,300,000,000 and flat emission reaches it exactly, but PoLS still has no expensive work to subsidise, so whether a per-pixel reward belongs here at all is open ([`EMISSION.md`](./EMISSION.md))
 3. Public testnet ULA links (Sepolia) + deepen on-chain ML-DSA beyond commit gate when gas path exists
 4. [x] Opt-in ML-KEM sealed gossip (`PIXEL_TRANSPORT_KEM=1`, `test:kem-wire`) — default still plaintext
 5. [x] Continuity merchant handshake (one-button join) + map fee / till-on-origin-dark bookkeeping — agentic booth runners still held

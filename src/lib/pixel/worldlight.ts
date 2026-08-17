@@ -37,7 +37,7 @@ export type IngressKind = "usd_value" | "domain" | "treasury" | "application" | 
 
 /**
  * @deprecated Use BOOTSTRAP_INGRESS_PIX_PER_USD — bridge quote, NOT a dollar peg / FDV.
- * Never multiply by 21M and call it market cap.
+ * Never multiply the PIX ceiling by a quote and call it market cap.
  */
 export const DEMO_PIX_PER_USD = BOOTSTRAP_INGRESS_PIX_PER_USD;
 

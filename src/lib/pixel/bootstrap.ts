@@ -2,10 +2,10 @@
  * Bootstrap — breaking the chicken-and-egg without a founder dump.
  *
  * Wrong story:
- *   "1 PIX = $1, therefore 21M PIX = $21M, so we need $21M to start."
+ *   "1 PIX = $1, therefore the whole cap in dollars is what we need to start."
  *
  * Right story:
- *   - 21M is a **scarcity schedule**, not a dollar IPO / FDV promise.
+ *   - The ceiling is a **scarcity schedule**, not a dollar IPO / FDV promise.
  *   - PIX price is **discovered** by trade and bridge quotes over time.
  *   - Day one you do not buy the whole canvas. You light the next cell,
  *     shine in a little value, or receive from someone who already lit.
@@ -19,15 +19,15 @@
  *      without "airdrop me 1000."
  */
 
-import { GENESIS_LIGHT_REWARD, LIGHT_ERA_LENGTH, PIX_HARD_CAP, lightReward } from "./economics";
+import { GENESIS_LIGHT_REWARD, LIGHT_HORIZON, PIX_HARD_CAP, lightReward } from "./economics";
 
 /** Hard cap is scarcity math — never treat as dollar market cap. */
 export const BOOTSTRAP_AXIOM =
-  "21,000,000 PIX is a scarcity schedule, not a $21,000,000 IPO. Price is discovered; illumination starts at zero dollars of 'FDV'.";
+  "The PIX ceiling is a scarcity schedule, not a dollar raise. Price is discovered; illumination starts at zero dollars of 'FDV'.";
 
 /**
  * Bridge ingress quote for tests / early pilots — NOT an official peg.
- * Operators publish their own quotes; markets diverge. Never multiply by 21M
+ * Operators publish their own quotes; markets diverge. Never multiply by the cap
  * and call that "the valuation."
  */
 export const BOOTSTRAP_INGRESS_PIX_PER_USD = 1;
@@ -55,7 +55,7 @@ export const DAY_ONE_PATHS: readonly DayOnePath[] = [
     needsDollars: false,
     whatYouDo:
       "Run a sovereign node / join the sequencer set; illuminate pending Kindling or heartbeats",
-    whatYouGet: `${GENESIS_LIGHT_REWARD} PIX per early pixel (halves every ${LIGHT_ERA_LENGTH} pixels)`,
+    whatYouGet: `${GENESIS_LIGHT_REWARD} PIX per pixel, flat, to a horizon of ${LIGHT_HORIZON.toLocaleString()} pixels`,
   },
   {
     id: "shine_in",
@@ -76,7 +76,7 @@ export const DAY_ONE_PATHS: readonly DayOnePath[] = [
     needsPixAlready: false,
     needsDollars: false,
     whatYouDo: "Ship apps / SISO / Lumen — spend Light Credits",
-    whatYouGet: "Builder fuel without touching the 21M PIX cap",
+    whatYouGet: "Builder fuel without touching the PIX ceiling",
   },
   {
     id: "register_world",
@@ -94,7 +94,7 @@ export interface BootstrapSnapshot {
   dollarFdvFromCap: null;
   genesisRewardPix: number;
   rewardAtPixel: (index: number) => number;
-  eraLength: number;
+  horizonPixels: number;
   ingressQuotePixPerUsd: number;
   ingressQuoteDisclaimer: string;
   dayOne: readonly DayOnePath[];
@@ -111,14 +111,14 @@ export function bootstrapSnapshot(): BootstrapSnapshot {
     dollarFdvFromCap: null,
     genesisRewardPix: GENESIS_LIGHT_REWARD,
     rewardAtPixel: lightReward,
-    eraLength: LIGHT_ERA_LENGTH,
+    horizonPixels: LIGHT_HORIZON,
     ingressQuotePixPerUsd: BOOTSTRAP_INGRESS_PIX_PER_USD,
     ingressQuoteDisclaimer:
-      "Ingress PIX-per-USD is a bridge operator quote for pilots — not a peg, not a market cap. Do not multiply by 21M.",
+      "Ingress PIX-per-USD is a bridge operator quote for pilots — not a peg, not a market cap. Do not multiply by the ceiling.",
     dayOne: DAY_ONE_PATHS,
     chickenEgg: {
       problem:
-        "People need PIX to Kindling, but PIX only exists after illumination — and pricing 1:1 with USD makes the cap look like a $21M buy-in.",
+        "People need PIX to Kindling, but PIX only exists after illumination — and pricing 1:1 with USD makes the ceiling look like a fundraising target.",
       resolution: [
         "Illumination is the fair launch: no prior PIX required to earn the light reward.",
         "Shine-in needs dollars + a lock, not prior PIX; escrow is filled from earned PIX.",

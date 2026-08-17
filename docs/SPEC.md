@@ -6,7 +6,7 @@ Status: **draft, implemented in this repo**. Normative text is what the tests en
 
 - Name: **Pixel Ledger** (not a “blockchain of blocks”)
 - Settlement unit: **pixel** (illuminated ledger cell)
-- Native asset: **PIX** (hard cap 21_000_000; base unit 1e8)
+- Native asset: **PIX** (hard cap 10_300_000_000; base unit 1e8)
 - Builder fuel: **Light Credits** (uncapped; not monetary)
 - Consensus: **Proof of Light Sequence (PoLS)**
 - API face: **Source · Word · Light** (`One`)
@@ -137,8 +137,9 @@ Invariants:
 ## 5. Economics
 
 - Genesis reward: 50 PIX at pixel 0
-- Halving every 210_000 pixels
-- Cap: 21_000_000 PIX
+- Flat emission: 50 PIX per pixel, no halving
+- Horizon: 206_000_000 rewarded pixels, which reaches the cap exactly
+- Cap: 10_300_000_000 PIX — one per human alive at the projected peak of humanity
 - No burn
 - Bridge value uses **lock/escrow**, not destruction
 - **Bridge custody inversion:** foreign chain holds receipts only; Pixel holds the vault; foreign verify alone never releases master PIX (`BRIDGE_CUSTODY_AXIOM`, `bun run test:bridge-custody`)

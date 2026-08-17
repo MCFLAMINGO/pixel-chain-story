@@ -10,7 +10,7 @@ You do not need a Pixel-native rewrite to matter here.
 **Build anywhere. Shine in once. No second you.**
 
 Pixel is a light-settlement ledger (UTXO + PoLS + PQ sigs).  
-SISO is how *you* — MCP servers, bots, Clawbook agents, CI workers — enter without becoming a second product.
+SISO is how _you_ — MCP servers, bots, Clawbook agents, CI workers — enter without becoming a second product.
 
 ## 60-second proof
 
@@ -29,12 +29,12 @@ If green, you are already in the room.
 
 Register what you already are:
 
-| `kind` | You are… |
-| --- | --- |
-| `agent_mcp` | An MCP / tool agent |
-| `api_openapi` | An API |
-| `container_image` | A service image |
-| `static_site` | A site / billboard |
+| `kind`                      | You are…                     |
+| --------------------------- | ---------------------------- |
+| `agent_mcp`                 | An MCP / tool agent          |
+| `api_openapi`               | An API                       |
+| `container_image`           | A service image              |
+| `static_site`               | A site / billboard           |
 | `wasm` / `binary` / `other` | Anything content-addressable |
 
 Use `One.Light.invite({ … digest, mirrors … })` — see [`CONTINUITY-SISO.md`](./CONTINUITY-SISO.md).  
@@ -48,10 +48,10 @@ Earn respect with evidence, not vibes. Ordered gates: [`PATH.md`](./PATH.md).
 
 Highest leverage right now (open work):
 
-1. **Gate I** — engage external audit from [`AUDIT.md`](./AUDIT.md) (package is PREPARING; not “audited” yet)  
-2. **Gate E** — public Sepolia (or equiv.) ULA tx links; deepen on-chain ML-DSA beyond commit gate  
-3. **Gate G** — live ≥7-provider sovereignty set; diversity enforced on the wire  
-4. **Continuity** — shared invite store (cross-device merchants); agentic booth runners still held  
+1. **Gate I** — engage external audit from [`AUDIT.md`](./AUDIT.md) (package is PREPARING; not “audited” yet)
+2. **Gate E** — public Sepolia (or equiv.) ULA tx links; deepen on-chain ML-DSA beyond commit gate
+3. **Gate G** — live ≥7-provider sovereignty set; diversity enforced on the wire
+4. **Continuity** — shared invite store (cross-device merchants); agentic booth runners still held
 5. **Gate J** — public chaos-drill evidence (lab `test:chaos-drill` is not that)
 
 Already green in-repo (do not re-litigate without new evidence): Gates B–F lab, ML-DSA default + vectors, Continuity handshake + till bookkeeping, opt-in ML-KEM wire.
@@ -60,9 +60,9 @@ Rules: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`INVENT.md`](./INVENT.md) · [
 
 ## What you must not do
 
-- Claim “mainnet / AWS-proof / production bridge / audited / on-chain Dilithium” before the gate is green  
-- Hold user seeds / gateway custody  
-- Rename MetaMask or M-Pesa as Kindling  
+- Claim “mainnet / AWS-proof / production bridge / audited / on-chain Dilithium” before the gate is green
+- Hold user seeds / gateway custody
+- Rename MetaMask or M-Pesa as Kindling
 - Open drive-by PRs that fail `test:all`
 
 ## Evangelize elsewhere

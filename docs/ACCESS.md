@@ -5,9 +5,9 @@ A peasant and a farmer enter through whatever signal they have.
 
 ## Ladder
 
-1. **Signal** — SMS / USSD / voice: balance, status, Kindling invite  
-2. **Presence** — Kindling: two lights + your Personal Source signs  
-3. **Sovereign** — optical vault + optional own node  
+1. **Signal** — SMS / USSD / voice: balance, status, Kindling invite
+2. **Presence** — Kindling: two lights + your Personal Source signs
+3. **Sovereign** — optical vault + optional own node
 
 See `docs/CUSTODY.md`, `docs/KINDLING.md`, `docs/INVENT.md`.
 

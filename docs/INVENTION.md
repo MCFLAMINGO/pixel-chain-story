@@ -5,14 +5,14 @@ Short answer: **primitives are borrowed; the composition and several surfaces ar
 
 ## Borrowed (and fine)
 
-| Piece                  | Source                                  |
-| ---------------------- | --------------------------------------- |
-| SHA-512                | Web Crypto / NIST                       |
-| ML-DSA-65              | NIST FIPS-204 via `@noble/post-quantum` |
-| UTXO accounting        | Bitcoin-shaped                          |
-| 21M / halving math     | Bitcoin-shaped scarcity                 |
-| Escrow lock pattern    | Standard Solidity                       |
-| React / TanStack / Bun | Host stack                              |
+| Piece                        | Source                                  |
+| ---------------------------- | --------------------------------------- |
+| SHA-512                      | Web Crypto / NIST                       |
+| ML-DSA-65                    | NIST FIPS-204 via `@noble/post-quantum` |
+| UTXO accounting              | Bitcoin-shaped                          |
+| Fixed ceiling, flat emission | Scarcity with a stated reason           |
+| Escrow lock pattern          | Standard Solidity                       |
+| React / TanStack / Bun       | Host stack                              |
 
 Borrowing audited crypto is a virtue. Re-implementing Dilithium from scratch would be reckless.
 

@@ -302,7 +302,11 @@ export async function createGenesis(
     inputs: [],
     outputs: [{ amount: genesisReward, address: sequencer.address }],
     metadata: {
-      description: "Genesis light — first illumination (21M PIX hard cap)",
+      // Changing this string affects only genesis blocks forged from here on: a stored
+      // genesis keeps the txid, merkle root and hash it was recorded with, and genesis
+      // embeds Date.now() so it was never reproducible from source anyway. The crowned
+      // genesis is unaffected — test:crowned-replay proves it on every commit.
+      description: "Genesis light — first illumination",
       reference: "GENESIS",
     },
   });

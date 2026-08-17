@@ -4,11 +4,11 @@ This is the missing production piece: a **verified foreign lock** before Worldli
 
 ## Paths
 
-| Venue | Lock surface | Receipt |
-| --- | --- | --- |
-| USDC (Ethereum) | `contracts/PixelUsdcLock.sol` (+ `MockUSDC.sol`) | `Locked` event → `LockReceipt` |
-| USDC (CI / local) | `LocalUsdcRail` in `lock-feeder.ts` | same receipt shape |
-| Bank wire | `BankWireAttestor` (hash-OTS) | signed wire claim → `LockReceipt` |
+| Venue             | Lock surface                                     | Receipt                           |
+| ----------------- | ------------------------------------------------ | --------------------------------- |
+| USDC (Ethereum)   | `contracts/PixelUsdcLock.sol` (+ `MockUSDC.sol`) | `Locked` event → `LockReceipt`    |
+| USDC (CI / local) | `LocalUsdcRail` in `lock-feeder.ts`              | same receipt shape                |
+| Bank wire         | `BankWireAttestor` (hash-OTS)                    | signed wire claim → `LockReceipt` |
 
 ## Pipeline
 

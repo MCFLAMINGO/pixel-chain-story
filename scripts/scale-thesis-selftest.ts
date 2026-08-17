@@ -1,12 +1,11 @@
 /**
- * Sovereignty + 21M emission + agnostic bridge — executable thesis.
+ * Sovereignty + emission schedule + agnostic bridge — executable thesis.
  * bun scripts/scale-thesis-selftest.ts
  */
 
 import {
   PIX_HARD_CAP,
   PIX_SCHEDULE_TOTAL,
-  LIGHT_ERA_LENGTH,
   LIGHT_HORIZON,
   GENESIS_LIGHT_REWARD,
   lightReward,
@@ -37,8 +36,13 @@ async function main() {
   const thesis = valueThesis();
   if (thesis.cap !== 10_300_000_000) throw new Error("cap");
   if (lightReward(0) !== GENESIS_LIGHT_REWARD) throw new Error("genesis reward");
-  if (lightReward(LIGHT_ERA_LENGTH) !== GENESIS_LIGHT_REWARD) {
+  // 210,000 was where the inherited halving used to bite. Kept as the probe point on
+  // purpose: if a halving is ever reintroduced by accident, this is where it shows.
+  if (lightReward(210_000) !== GENESIS_LIGHT_REWARD) {
     throw new Error("reward must be flat — every moment worth the same");
+  }
+  if (lightReward(LIGHT_HORIZON / 2) !== GENESIS_LIGHT_REWARD) {
+    throw new Error("reward must still be flat halfway to the horizon");
   }
   if (lightReward(LIGHT_HORIZON) !== 0) throw new Error("reward must stop at the horizon");
   if (lightReward(LIGHT_HORIZON - 1) !== GENESIS_LIGHT_REWARD) {
