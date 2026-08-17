@@ -99,6 +99,21 @@ There is a real cost to that strictness: any legitimate protocol change needs
 `vectors:write` in the same commit, with the change named in the message. That is the point.
 A change to a preimage should be impossible to make quietly.
 
+## Verifying the live chain yourself
+
+Separate from the vectors, and the other half of the same idea:
+
+```bash
+bun run verify:crowned              # against the live public tip
+bun run verify:crowned -- --fixture # against the committed snapshot, offline
+```
+
+It replays every pixel, recomputes the UTXO set and total supply independently of the
+verifier, and then reads the anchor contracts directly by `eth_call` — so the tip digest is
+confirmed by public chains this project does not control. It exits non-zero and says what
+failed, because a verifier whose failure looks like success is worse than no verifier. If no
+anchor venue is reachable it says so explicitly rather than implying the check passed.
+
 ## If you are writing the second implementation
 
 Start at `transactionIdentity` and `pols` — those two sections are where an independent
