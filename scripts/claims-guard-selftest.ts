@@ -80,8 +80,8 @@ const HISTORICAL: Record<string, { count: number; why: string }> = {
     why: "explains what the number used to be and why it changed, next to the constant",
   },
   "docs/SPEC.md": {
-    count: 1,
-    why: "the normative line 'Flat emission: 50 PIX per pixel, no halving' names what is absent",
+    count: 3,
+    why: "names the absent halving in §5, and the status note records the five-day drift that made this guard necessary",
   },
   "docs/VALUE-SOVEREIGNTY-BRIDGE.md": {
     count: 1,
@@ -94,6 +94,10 @@ const HISTORICAL: Record<string, { count: number; why: string }> = {
   "scripts/bootstrap-selftest.ts": {
     count: 2,
     why: "records why the axiom assertion stopped keying on a dollar figure",
+  },
+  "scripts/spec-conformance-selftest.ts": {
+    count: 4,
+    why: "asserts SPEC.md still says 'no halving', and explains the drift it was written to catch",
   },
 };
 
