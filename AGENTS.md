@@ -123,6 +123,7 @@ Discovery index for crawlers/LLMs: [`llms.txt`](llms.txt).
 | [`docs/SPEC.md`](docs/SPEC.md)                                               | Normative behavior           |
 | [`docs/OPERATOR.md`](docs/OPERATOR.md)                                       | Adding a second operator     |
 | [`docs/FINALITY.md`](docs/FINALITY.md)                                       | What cannot revert           |
+| [`docs/LEADER-UNPREDICTABILITY.md`](docs/LEADER-UNPREDICTABILITY.md)         | Design only, not implemented |
 | [`docs/VECTORS.md`](docs/VECTORS.md)                                         | Frozen protocol vectors      |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)                               | Lanes, checklist, rejects    |
 | [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md)                         | SISO doctrine                |
