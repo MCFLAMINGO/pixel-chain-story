@@ -37,7 +37,7 @@ not Bitcoin-class survival.
 | Tip discovery without one magic host | **Yellow** | `tip-mirrors.json` + `join --mirrors` / `--public-tip`; add more live mirrors to leave Yellow |
 | Permissionless **sequencing** | **Red** | Membership needs an active member’s authorization |
 | Economic recruitment of strangers | **Red** | Coinbase exists; strangers cannot claim seats |
-| Hosting independence (GitHub/Railway = convenience) | **Red** | Tip liveness is a cloud bill today |
+| Hosting independence (GitHub/Railway = convenience) | **Yellow** | Runbook in [`HOSTING-INDEPENDENCE.md`](./HOSTING-INDEPENDENCE.md); still one live mirror listed |
 | Finality without maintained cron | **Red** | Anchors help; finality flag off; venues are testnets |
 
 Honest public sentence until the red rows move:
@@ -117,14 +117,19 @@ Before any electable-path code lands on a fresh network id:
 | Quantum forge of bond / tip signatures | Unchanged — ML-DSA / hash-OTS only; no classical sequencer committee |
 | Cheap Sybil bonds | Bond paid in PIX; parameters (floor, K, T) are monetary decisions recorded here before code |
 
-Parameters **not** set yet (must be before vectors): bond floor, K, T, carry heartbeat, slash rules (slash may ship later than bond).
+Parameters **not** activated on network 20553. Provisional lab defaults (for the future
+devnet only): `K=2`, `T=10080` minutes (~7 days below K), bond floor `50 PIX` (one light
+reward). Recorded so code cannot invent different numbers silently; still require a fresh
+network id + vectors before electable-path code.
 
 ---
 
 ## Related
 
 - [`OPERATOR.md`](./OPERATOR.md) — Tier 1 copy, Tier 2 gossip, Tier 3 invite
+- [`HOSTING-INDEPENDENCE.md`](./HOSTING-INDEPENDENCE.md) — tip migration, mirrors, split anchors
 - [`CANONICAL-TIP.md`](./CANONICAL-TIP.md) — how the tip is hosted today (honest ops)
+- [`VECTORS.md`](./VECTORS.md) — second-implementation contract
 - [`STATE-2026-08-17.md`](./STATE-2026-08-17.md) — soundness session that made hybrid possible
 - [`QUANTUM.md`](./QUANTUM.md) — PQ posture (unchanged by bonding)
 - [`PHONE-WALLET.md`](./PHONE-WALLET.md) — phone is pay face, not `pixel init`

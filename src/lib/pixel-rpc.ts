@@ -1,9 +1,16 @@
-import { PUBLIC_TIP_RPC_DEFAULT } from "./pixel/crowned-genesis";
+import {
+  CROWNED_GENESIS_HASH,
+  CROWNED_NETWORK_ID,
+  PUBLIC_TIP_RPC_DEFAULT,
+} from "./pixel/crowned-genesis";
+import { builtinTipMirrors } from "./pixel/tip-mirrors";
 
 /**
  * Default RPC for the public live field + /wallet.
  * Env wins; otherwise the crowned public tip (friends can open /wallet with no build vars).
  * Local tip: VITE_PIXEL_RPC=http://127.0.0.1:8545
+ *
+ * Prefer {@link tipRpcCandidates} when probing — one dead host must not brick the site.
  */
 export function defaultPixelRpc(): string | undefined {
   const fromEnv =
@@ -13,6 +20,32 @@ export function defaultPixelRpc(): string | undefined {
   const trimmed = fromEnv?.trim();
   if (trimmed) return trimmed;
   return PUBLIC_TIP_RPC_DEFAULT;
+}
+
+/**
+ * Ordered tip HTTP bases to try for people surfaces.
+ * Env (or explicit override) first, then builtin `tip-mirrors.json` entries, deduped.
+ */
+export function tipRpcCandidates(override?: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (u?: string) => {
+    const t = u?.trim().replace(/\/$/, "");
+    if (!t || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+  push(override);
+  push(defaultPixelRpc());
+  try {
+    const mirrors = builtinTipMirrors();
+    if (mirrors.networkId === CROWNED_NETWORK_ID && mirrors.genesisHash === CROWNED_GENESIS_HASH) {
+      for (const m of mirrors.mirrors) push(m.rpc);
+    }
+  } catch {
+    /* builtin always works */
+  }
+  return out;
 }
 
 /**

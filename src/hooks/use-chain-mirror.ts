@@ -8,6 +8,9 @@
  *
  * Failures are reported rather than swallowed. A device that could not keep a copy
  * must not look like one that did.
+ *
+ * Tip hosts are cattle: {@link tipRpcCandidates} tries env / mirrors in order so a
+ * single dead Railway URL does not strand the phone copy.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +21,7 @@ import {
   type MirrorState,
 } from "@/lib/pixel/chain-mirror";
 import { clearMirror, idbMirrorStore } from "@/lib/pixel/chain-mirror-idb";
+import { tipRpcCandidates } from "@/lib/pixel-rpc";
 
 export type MirrorStatus = "idle" | "syncing" | "held" | "unavailable" | "diverged";
 
@@ -25,31 +29,42 @@ export function useChainMirror(rpc?: string, expectGenesis?: string) {
   const [state, setState] = useState<MirrorState | null>(null);
   const [status, setStatus] = useState<MirrorStatus>("idle");
   const [note, setNote] = useState<string | null>(null);
+  const [activeRpc, setActiveRpc] = useState<string | null>(null);
 
   const sync = useCallback(async () => {
-    if (!rpc) return;
+    const candidates = tipRpcCandidates(rpc);
+    if (candidates.length === 0) return;
     setStatus("syncing");
-    try {
-      const res = await syncMirror({ rpcBase: rpc, store: idbMirrorStore(), expectGenesis });
-      if (res.ok) {
-        setState(res.state);
-        setStatus("held");
-        setNote(null);
-        return;
+    let lastDetail: string | null = null;
+    for (const base of candidates) {
+      try {
+        const res = await syncMirror({ rpcBase: base, store: idbMirrorStore(), expectGenesis });
+        if (res.ok) {
+          setState(res.state);
+          setStatus("held");
+          setNote(null);
+          setActiveRpc(base);
+          return;
+        }
+        // A feed that does not continue what we hold is a different history, and
+        // saying so is the entire reason to keep a copy.
+        if (res.reason === "fork" || res.reason === "wrong-earth") {
+          setStatus("diverged");
+          setNote(`${res.reason}: ${res.detail}`);
+          setActiveRpc(base);
+          return;
+        }
+        lastDetail = res.detail;
+      } catch (e) {
+        lastDetail = e instanceof Error ? e.message : "cannot keep a copy on this device";
       }
-      // A feed that does not continue what we hold is a different history, and
-      // saying so is the entire reason to keep a copy.
-      if (res.reason === "fork" || res.reason === "wrong-earth") {
-        setStatus("diverged");
-        setNote(`${res.reason}: ${res.detail}`);
-        return;
-      }
-      setStatus(state ? "held" : "idle");
-      setNote(res.detail);
-    } catch (e) {
-      // Storage unavailable — private browsing, quota, eviction. Not a copy.
+    }
+    if (state) {
+      setStatus("held");
+      setNote(lastDetail);
+    } else {
       setStatus("unavailable");
-      setNote(e instanceof Error ? e.message : "cannot keep a copy on this device");
+      setNote(lastDetail ?? "no tip mirror answered");
     }
   }, [rpc, expectGenesis, state]);
 
@@ -83,7 +98,8 @@ export function useChainMirror(rpc?: string, expectGenesis?: string) {
     await clearMirror();
     setState(null);
     setStatus("idle");
+    setActiveRpc(null);
   }, []);
 
-  return { state, status, note, sync, download, forget };
+  return { state, status, note, sync, download, forget, activeRpc };
 }

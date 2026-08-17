@@ -5,6 +5,7 @@
 **Not (today’s claims):** host the internet, Visa, a second Facebook, or “USD with a new name.”
 **Not (yet):** a permissionless sequencer set or host-free tip — grades in [`DURABILITY.md`](./DURABILITY.md).
 People can still **verify** without permission: `bun run people:verify`.
+Second client: start at [`VECTORS.md`](./VECTORS.md) (verify-only first).
 
 Live map: **`/doors`** on the site.
 

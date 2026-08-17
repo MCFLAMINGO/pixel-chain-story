@@ -81,6 +81,8 @@ One Railway volume is still one copy. See [`DURABILITY.md`](./DURABILITY.md).
 
 Proven in CI: `bun run test:tip-failover` (lab network — dead host, live replacement, friend joins via mirrors).
 
+Full cattle runbook (VPS cutover, USB source pack, split anchors): [`HOSTING-INDEPENDENCE.md`](./HOSTING-INDEPENDENCE.md).
+
 Always pass `--advertise <public-host>` on any tip meant to be dialed; `/health.advertiseIsLocalhost` must be `false`.
 
 ---

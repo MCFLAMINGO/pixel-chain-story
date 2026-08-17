@@ -17,6 +17,9 @@ Deep agent call: /docs/AGENTS-SISO.md
 - [WORLD-CANVAS](docs/WORLD-CANVAS.md): one public picture; people wallet; CanvasId + tip-mark planes; init ≠ mass onboarding
 - [SPATIAL](docs/SPATIAL.md): lattice S1–S5 — coords/blend (S1) + tip-bound lead waves (S2), not voxel costume
 - [CANONICAL-TIP](docs/CANONICAL-TIP.md): host tip (tip:host / Docker / Railway) → set VITE_PIXEL_RPC
+- [DURABILITY](docs/DURABILITY.md): Bitcoin-shaped survival grades; hybrid sequencer design (not shipped)
+- [HOSTING-INDEPENDENCE](docs/HOSTING-INDEPENDENCE.md): tip migration, mirrors, split anchors
+- [VECTORS](docs/VECTORS.md): frozen protocol bytes for a second implementation
 - [README](README.md): human front door + doc table
 
 ## Doctrine
@@ -73,3 +76,5 @@ bun install && bun run test:all
 - Not AWS-proof network / Pixel-as-second-AWS
 - Not "audited" until AUDIT.md has a public report link
 - Continuity till chaos drill = lab journal until Gate J; booth Pay with Pixel settles real UTXOs in-browser (not Popmenu webhook / DNS)
+- Not a permissionless sequencer set / not host-free tip — see DURABILITY.md grades
+- People verify without permission: `bun run people:verify` (offline) · vectors: docs/VECTORS.md

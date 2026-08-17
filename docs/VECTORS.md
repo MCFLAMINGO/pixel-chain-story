@@ -122,5 +122,26 @@ primitives underneath them. Then `membership` and `eras`, which are rules rather
 formats. Leave `block` for last: if you can accept that pixel and verify the two-pixel
 chain, you have the acceptance rule, and everything else was a prerequisite.
 
+### Implementer checklist (verify-only first)
+
+A verify-only client already unlocks “many implementations” for **readable forever**
+([`DURABILITY.md`](./DURABILITY.md)). Produce, then gossip, can wait.
+
+1. Parse `fixtures/crowned-47.json` (or `/sync` pixels) into your pixel type.
+2. Recompute every `txid` / merkle root / light-proof binding from `protocol-v1.json` recipes.
+3. Implement era-aware signature verify (`eras` section + `docs/QUANTUM.md`).
+4. Fold membership records the way `membership` vectors show — electable at height H.
+5. Accept the `block` vector pixel; reject the mutations listed in `test:coverage-harness` spirit.
+6. Recompute supply via `emission` vectors; match `mintedThrough`.
+7. Print tip hash + genesis prefix `f1d193f62d54e982` for out-loud confirm.
+8. Optional: `eth_call` anchors from `anchors.json` (no project library required).
+
+Wire examples: gossip frames must preserve JSON key order for signed bodies — see
+`test:wire-schema` (byte identity after parse). Live membership records travel in
+`LedgerPixel.membership` + `lightProof.membershipDigest`.
+
+**Invitation:** open an issue titled `second-client: <language>` with your verify tip hash
+against `fixtures/crowned-47.json`. Vectors are the contract; this TypeScript repo is not.
+
 Please tell us what was ambiguous. A specification that only its author can implement is a
 specification with one implementation, which is where this project is now.

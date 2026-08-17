@@ -684,6 +684,7 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
     console.log(`Backup written — verified by replaying every pixel.`);
     console.log(`  file       ${out}`);
     for (const line of describeBackup(bundle.manifest)) console.log(`  ${line}`);
+    console.log(`  content-addressed name  pixel-backup-${bundle.manifest.chainDigest.slice(0, 16)}.json`);
     if (!includeKey) {
       console.log("");
       console.log("This file holds the history, not the key. Anyone can hold it safely,");
