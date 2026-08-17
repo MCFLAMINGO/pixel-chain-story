@@ -80,7 +80,11 @@ function startNode(tag: string, datadir: string, rpc: number, gossip: number, se
       for await (const chunk of stream) {
         const line = dec.decode(chunk).trim();
         // Only surface the lines that matter to the story being told.
-        if (/illuminated|accepted pixel|committed|queued|REORG|skip|sequence failed/.test(line)) {
+        if (
+          /illuminated|accepted pixel|committed|queued|REORG|skip|sequence failed|reject|refus|malformed|Error/i.test(
+            line,
+          )
+        ) {
           console.log(`    [${tag}] ${line.replace(/^\[pixel-ledger\]\s*/, "")}`);
         }
       }
@@ -146,26 +150,42 @@ async function waitTip(url: string, min: number, ms = 60_000): Promise<number> {
  * submitting again before the previous transfer is sealed hits `input-reserved` — which
  * is the mempool door working correctly (T1.8) and the harness being impatient.
  */
-async function spend(url: string, datadir: string, to: string, amount: number): Promise<void> {
-  for (let i = 0; i < 40; i++) {
-    const h = (await (await fetch(`${url}/health`)).json()) as { pending: number };
-    if (h.pending === 0) break;
-    await Bun.sleep(300);
+async function spend(url: string, datadir: string, to: string, amount: number): Promise<boolean> {
+  // Retry on `input-reserved` rather than failing. The sequencer wallet spends one UTXO
+  // chain, and once BOTH operators are live either of them may seal — so a transfer built
+  // against a moment-old view can find its input already promised. That is the T1.8
+  // mempool door working exactly as designed; the harness just has to be patient. Waiting
+  // on one node's `pending` count is not sufficient, because the other node's mempool is
+  // where the reservation may live.
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const seq = await loadWallet(datadir, "sequencer");
+    if (!seq) throw new Error("no sequencer wallet");
+    const sync = (await (await fetch(`${url}/sync`)).json()) as SerializedChain;
+    const live = deserializeChain({ ...sync, utxos: [] });
+    let tx;
+    try {
+      ({ tx } = await proposeTransfer(live, seq, [{ amount, address: to }], {
+        description: "two-operator",
+      }));
+    } catch {
+      await Bun.sleep(500);
+      continue;
+    }
+    await saveWallet(datadir, "sequencer", seq);
+    const res = await fetch(`${url}/tx`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(tx),
+    });
+    if (res.ok) return true;
+    const body = (await res.json().catch(() => ({}))) as { code?: string };
+    if (body.code === "input-reserved" || body.code === "duplicate") {
+      await Bun.sleep(600);
+      continue;
+    }
+    throw new Error(`tx refused: ${JSON.stringify(body)}`);
   }
-  const seq = await loadWallet(datadir, "sequencer");
-  if (!seq) throw new Error("no sequencer wallet");
-  const sync = (await (await fetch(`${url}/sync`)).json()) as SerializedChain;
-  const live = deserializeChain({ ...sync, utxos: [] });
-  const { tx } = await proposeTransfer(live, seq, [{ amount, address: to }], {
-    description: "two-operator",
-  });
-  await saveWallet(datadir, "sequencer", seq);
-  const res = await fetch(`${url}/tx`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(tx),
-  });
-  if (!res.ok) throw new Error(`tx refused: ${await res.text()}`);
+  return false;
 }
 
 async function electableAtTip(url: string): Promise<string[]> {
@@ -242,7 +262,7 @@ try {
   let guard = 0;
   while ((await tipOf(urlA)) < activeAt && guard < 40) {
     await spend(urlA, dirA, bob, 1);
-    await Bun.sleep(900);
+    await Bun.sleep(700);
     guard++;
   }
   const tipAfterDelay = await waitTip(urlA, activeAt);
@@ -263,7 +283,7 @@ try {
   const beforeShare = await tipOf(urlA);
   for (let i = 0; i < 8; i++) {
     await spend(urlA, dirA, bob, 1);
-    await Bun.sleep(800);
+    await Bun.sleep(900);
   }
   const afterShare = await waitTip(urlA, beforeShare + 3);
   const producers = new Set<string>();
@@ -299,7 +319,7 @@ try {
   // exercised here against a process that genuinely is not coming back on its own.
   await sh(["wallet", "from-node", "sequencer", "--datadir", survivorDir]).catch(() => "");
   for (let i = 0; i < 10; i++) {
-    await spend(survivorUrl, survivorDir, bob, 1).catch(() => {});
+    await spend(survivorUrl, survivorDir, bob, 1).catch(() => false);
     await Bun.sleep(1200);
     if ((await tipOf(survivorUrl)) > tipBeforeKill + 1) break;
   }

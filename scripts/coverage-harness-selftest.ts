@@ -238,6 +238,26 @@ check(
   "read routes are deliberately not throttled",
 );
 
+// A real block to check the wire against. Built here because §3b needs it.
+const wireFounder = await generatePixelKeypair("PIX-ML-DSA-65");
+const wireGenesis = await createGenesis(wireFounder);
+const wireSealed = await sequenceBlock(
+  {
+    ...wireGenesis,
+    pending: [
+      await createTransaction({
+        inputs: [{ txid: "00".repeat(64), vout: 0 }],
+        outputs: [{ amount: 1, address: wireFounder.address }],
+        metadata: { description: "opens the mempool" },
+      }),
+    ],
+  },
+  wireFounder,
+);
+const honestForWire = JSON.parse(
+  JSON.stringify(wireSealed.pixels[wireSealed.pixels.length - 1]!),
+) as LedgerPixel;
+
 // ── 3. WIRE ───────────────────────────────────────────────────────────────
 const p2pSource = readFileSync(join(root, "src/node/p2p.ts"), "utf8");
 const declaredMsgs = [
@@ -249,6 +269,62 @@ const schemaless = declaredMsgs.filter(
 check(
   schemaless.length === 0,
   `every gossip message has a schema${schemaless.length ? ` — MISSING: ${schemaless.join(", ")}` : ` (${declaredMsgs.length})`}`,
+);
+
+// ── 3b. WIRE FIELD COVERAGE ───────────────────────────────────────────────
+// A gap this harness had, found the hard way.
+//
+// The check above asserts every message *type* has a schema. It did not assert that
+// every *field* of a consensus type appears in that schema — and `wire-schema.ts` uses
+// `.strict()`, so a field it does not know about makes the whole message unparseable.
+//
+// T1.1 added `LightProof.membershipDigest` and `LedgerPixel.membership`. Both were
+// registered in FIELDS above, both were enforced by `acceptBlock`, and neither was in the
+// wire schema. The result: a pixel carrying a membership record was rejected as malformed
+// by every peer, so a second operator could be invited locally and the invitation could
+// never replicate. Enforced, specified, and unable to cross a socket.
+//
+// The registry knowing about a field is not the same as the wire knowing about it, so
+// both are checked now.
+const wireSource = readFileSync(join(root, "src/lib/pixel/wire-schema.ts"), "utf8");
+const wireGaps: string[] = [];
+for (const typeName of ["LedgerPixel", "LightProof"] as const) {
+  for (const field of Object.keys(FIELDS[typeName]!)) {
+    // `lightProof` is the nested schema itself rather than a leaf field.
+    if (field === "lightProof") continue;
+    if (!new RegExp(`(^|\\s)${field}:`, "m").test(wireSource)) {
+      wireGaps.push(`${typeName}.${field}`);
+    }
+  }
+}
+check(
+  wireGaps.length === 0,
+  wireGaps.length === 0
+    ? "every consensus field of a block appears in the wire schema"
+    : `NOT ON THE WIRE: ${wireGaps.join(", ")} — .strict() will reject any message carrying it`,
+);
+
+// And prove it end to end: a pixel carrying a membership record must survive the wire.
+const { peerMessageSchema } = await import("../src/lib/pixel/wire-schema");
+const withMembership = {
+  ...honestForWire,
+  membership: [
+    {
+      kind: "sequencer-join" as const,
+      address: "pix1" + "a".repeat(38),
+      publicKey: "ab".repeat(32),
+      scheme: "PIX-ML-DSA-65" as const,
+      includedAt: honestForWire.index,
+      possession: JSON.stringify({ alg: "PIX-ML-DSA-65", sig: "aa" }),
+      authorizedBy: "pix1" + "b".repeat(38),
+      authorization: JSON.stringify({ alg: "PIX-ML-DSA-65", sig: "bb" }),
+    },
+  ],
+  lightProof: { ...honestForWire.lightProof, membershipDigest: "cd".repeat(64) },
+};
+check(
+  peerMessageSchema.safeParse({ type: "pixel", pixel: withMembership }).success,
+  "a pixel carrying a membership record parses on the wire (this was the bug)",
 );
 
 // ── 4. MUTATION ───────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@
 
 import { z } from "zod";
 import {
+  MAX_BLOCK_MEMBERSHIP_RECORDS,
   MAX_BLOCK_TXS,
   MAX_GOSSIP_FRAME_BYTES,
   MAX_HELLO_SEQUENCERS,
@@ -113,6 +114,29 @@ const lightProofSchema = z
     fieldDigest: hex,
     waveDigest: hex,
     spatialRoot: hex,
+    /**
+     * Present only when the pixel changes membership (T1.1).
+     *
+     * Omitting it here made every pixel carrying a membership record unparseable to
+     * every peer — `.strict()` rejected the unknown key, so a join could be committed
+     * locally and could never cross the network. Membership was enforced, specified,
+     * and unable to replicate.
+     */
+    membershipDigest: hex.optional(),
+  })
+  .strict();
+
+/** A sequencer membership record as it travels inside a pixel. */
+const sequencerRecordWireSchema = z
+  .object({
+    kind: z.enum(["sequencer-join", "sequencer-leave"]),
+    address,
+    publicKey: hex,
+    scheme: z.enum(["PIX-HASH-OTS-128", "PIX-ML-DSA-65"]),
+    includedAt: z.number().int().min(0),
+    possession: z.string().max(262_144),
+    authorizedBy: address,
+    authorization: z.string().max(262_144),
   })
   .strict();
 
@@ -138,6 +162,7 @@ export const ledgerPixelSchema = z
     proximity: z.array(z.number().int()).max(4096),
     field: z.array(fieldWitnessSchema).max(4096),
     wave: z.array(waveHitSchema).max(4096).optional(),
+    membership: z.array(sequencerRecordWireSchema).max(MAX_BLOCK_MEMBERSHIP_RECORDS).optional(),
   })
   .strict();
 
