@@ -10,7 +10,7 @@ import { transportStatus } from "../src/lib/pixel/transport-kem";
 /**
  * Protocol surface — every module classified, and the boundary enforced.
  *
- * `docs/PROTOCOL-SURFACE.md` says nineteen of the eighty-five modules under
+ * `docs/PROTOCOL-SURFACE.md` says twenty-two of the 89 modules under
  * `src/lib/pixel` are the protocol and the rest are not. A document saying that is
  * worth something; a build that fails when it stops being true is worth more.
  *
@@ -28,6 +28,7 @@ function checkProtocolSurface(root: string): void {
     "pol",
     "transaction",
     "membership",
+    "membership-bond",
     "sig-era",
     "legacy-sig",
     "fork-choice",
@@ -111,6 +112,7 @@ function checkProtocolSurface(root: string): void {
     "spatial-sink",
     "tip-host-contract",
     "tip-mark",
+    "tip-mirrors",
     "transport-kem",
     "ula-evm",
     "ula-mldsa",

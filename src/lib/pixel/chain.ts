@@ -605,6 +605,7 @@ async function assertMembershipRecords(params: {
   }
 }
 
+/** Genesis' producer — the seed of every membership fold, and never evictable. */
 export function founderOf(state: PixelChainState): string {
   const genesis = state.pixels[0];
   if (!genesis) throw new Error("Cannot derive membership without a genesis pixel");

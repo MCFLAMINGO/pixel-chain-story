@@ -44,7 +44,7 @@ bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002 --adverti
 | [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md)               | **Where the project actually stands** — read before starting work              |
 | [`docs/DURABILITY.md`](docs/DURABILITY.md)                           | **Relic beyond operators** — grades vs Bitcoin; hybrid design (not shipped)    |
 | [`docs/HOSTING-INDEPENDENCE.md`](docs/HOSTING-INDEPENDENCE.md)       | Tip migration runbook — Railway/GitHub are cattle                              |
-| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md)               | **Which 21 of 87 modules are consensus** — open this first                     |
+| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md)               | **Which 22 of 89 modules are consensus** — open this first                     |
 | [`docs/SPEC.md`](docs/SPEC.md)                                       | Normative behavior (constants machine-checked against code)                    |
 | [`docs/OPERATOR.md`](docs/OPERATOR.md)                               | **Adding a second operator** — the step-by-step runbook                        |
 | [`docs/FINALITY.md`](docs/FINALITY.md)                               | What cannot revert — anchored checkpoints (off by default)                     |

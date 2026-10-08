@@ -832,6 +832,11 @@ export class PixelLedgerNode {
     } else if (nextSequencerAddress(this.chain, 0) !== this.keypair.address) {
       return false;
     }
+    // Records are stamped with the height they are included at, and that height is
+    // signed, so a record built for one pixel cannot be carried into another. Re-stamping
+    // is not possible without the signers, so a record that misses its slot is dropped
+    // and must be rebuilt — which is correct: it was authorised for a specific height.
+    // Membership commit goes through sealPixel so faucet and sequence cannot diverge.
     try {
       const { pixel } = await this.sealPixel(this.chain, { skipCount: skip });
       this.gossip.broadcast({ type: "pixel", pixel });

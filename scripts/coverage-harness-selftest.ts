@@ -146,6 +146,10 @@ const FIELDS: Record<string, Record<string, FieldClaim>> = {
     possession: { binding: "checked", why: "verified against publicKey" },
     authorizedBy: { binding: "checked", why: "must be an active member at includedAt" },
     authorization: { binding: "checked", why: "verified against the authorizer's historical key" },
+    bondUnits: {
+      binding: "checked",
+      why: "required ≥ floor for sequencer-bond-join; signed into bond claim; lock verified on accept",
+    },
   },
 };
 
