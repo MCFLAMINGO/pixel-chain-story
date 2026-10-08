@@ -190,9 +190,9 @@ export function bondAuthorizationMessage(
  * unspendable bond lock address.
  */
 export function bondLockPaidInTxs(params: {
-  txs: readonly Array<{
-    inputs: readonly Array<{ txid: string; vout: number }>;
-    outputs: readonly Array<{ address: string; amount: number }>;
+  txs: ReadonlyArray<{
+    inputs: ReadonlyArray<{ txid: string; vout: number }>;
+    outputs: ReadonlyArray<{ address: string; amount: number }>;
   }>;
   utxoOwner: (txid: string, vout: number) => string | undefined;
   joiner: string;

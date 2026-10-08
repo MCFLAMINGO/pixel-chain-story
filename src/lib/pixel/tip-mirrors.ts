@@ -8,6 +8,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   CROWNED_GENESIS_HASH,
@@ -55,7 +56,7 @@ export class TipMirrorError extends Error {
   }
 }
 
-const DEFAULT_MIRRORS_PATH = join(import.meta.dir, "../../../tip-mirrors.json");
+const DEFAULT_MIRRORS_PATH = fileURLToPath(new URL("../../../tip-mirrors.json", import.meta.url));
 
 export function defaultTipMirrorsPath(): string {
   return DEFAULT_MIRRORS_PATH;
