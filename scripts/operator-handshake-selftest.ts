@@ -23,6 +23,7 @@ import { spawn } from "bun";
 import { join } from "node:path";
 
 import { MEMBERSHIP_ACTIVATION_DELAY } from "../src/lib/pixel/membership";
+import { POLS_STALL_MS } from "../src/lib/pixel/pol";
 import { loadIdentity } from "../src/node/store";
 
 const ROOT = join(import.meta.dir, "..");
@@ -179,19 +180,37 @@ try {
   // Drive pixels until the activation height. The faucet is idempotent per address — it
   // reports "already funded" and produces nothing — so each iteration funds a *fresh*
   // address. That was the first version's bug: sixty no-ops and a tip that never moved.
+  //
+  // After activation the electable set grows; PoLS may elect the offline joiner. The lab
+  // faucet then waits for Gate C stall and skip-illuminates — so when we hear "stall …
+  // required", wait that window once instead of spinning forever at tip #activeAt-1.
   const { generatePixelKeypair } = await import("../src/lib/pixel/scheme");
   let reached = -1;
-  for (let i = 0; i < 40; i++) {
+  let waitedStall = false;
+  for (let i = 0; i < 90; i++) {
     const cur = (await (await fetch(`${url}/health`)).json()) as { tip: number };
     reached = cur.tip;
     if (cur.tip >= activeAt) break;
     const fresh = await generatePixelKeypair("PIX-ML-DSA-65");
-    await fetch(`${url}/faucet`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address: fresh.address, amount: 1 }),
-    }).catch(() => {});
-    await Bun.sleep(500);
+    let faucetBody: Record<string, unknown> = {};
+    try {
+      const fr = await fetch(`${url}/faucet`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address: fresh.address, amount: 1 }),
+      });
+      faucetBody = (await fr.json().catch(() => ({}))) as Record<string, unknown>;
+    } catch {
+      /* retry */
+    }
+    const errText = String(faucetBody.error ?? "");
+    const needsStall = /stall \d+ms required|Not this node's turn/i.test(errText);
+    if (needsStall && !waitedStall) {
+      waitedStall = true;
+      await Bun.sleep(POLS_STALL_MS + 50);
+      continue;
+    }
+    await Bun.sleep(faucetBody.ok === true ? 50 : 400);
   }
   check(reached >= activeAt, `the chain reached #${reached}, at or past the activation height`);
   const statusOut = await pixel(["membership", "status", "--peer", url]);

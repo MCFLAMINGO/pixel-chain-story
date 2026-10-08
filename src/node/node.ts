@@ -11,6 +11,7 @@ import {
   createPeerBook,
   extractHeaders,
   handlePixelRpc,
+  electableAt,
   nextSequencerAddress,
   notePeerHello,
   POLS_STALL_MS,
@@ -750,6 +751,24 @@ export class PixelLedgerNode {
       if (vaultBal < need) {
         throw new Error(`faucet vault needs ${need} PIX (has ${vaultBal})`);
       }
+      const nextHeight = this.chain.pixels.length;
+      const electable = electableAt(this.chain, nextHeight);
+      const elected0 = nextSequencerAddress(this.chain, 0);
+      // Same Gate C path as trySequenceLocked: after membership activation the lottery
+      // may elect an offline peer. Lab faucet used to seal only at skip=0, so the tip
+      // stalled forever whenever that happened (operator-handshake tip stuck at #8).
+      const skipForUs = skipCountForAddress(this.chain, this.keypair.address);
+      const stallReady = Date.now() >= stallAnchorMs(this.chain) + POLS_STALL_MS;
+      if (skipForUs === null) {
+        throw new Error(
+          `Not electable to sequence at #${nextHeight} (electable ${electable.length})`,
+        );
+      }
+      if (skipForUs > 0 && !stallReady) {
+        throw new Error(
+          `Not this node's turn to sequence (need ${elected0}, skip=${skipForUs}; stall ${POLS_STALL_MS}ms required)`,
+        );
+      }
       const spoken = await proposeTransfer(
         this.chain,
         this.keypair,
@@ -761,7 +780,7 @@ export class PixelLedgerNode {
         },
       );
       // Through sealPixel, so a queued membership record is not lost to a faucet request.
-      const { pixel: tip } = await this.sealPixel(spoken.state);
+      const { pixel: tip } = await this.sealPixel(spoken.state, { skipCount: skipForUs });
       this.gossip?.broadcast({ type: "pixel", pixel: tip });
       this.noteTipProgress();
       this.fanoutWave(tip, "sequence");
