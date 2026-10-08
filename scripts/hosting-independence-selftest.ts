@@ -50,8 +50,14 @@ check(
 );
 
 const spec = readFileSync(join(ROOT, "docs/SPEC.md"), "utf8");
-check(/4\.2\.1 Hybrid bond door \(DRAFT/.test(spec), "SPEC drafts hybrid bond door as non-normative");
-check(/not shipped/i.test(spec), "SPEC draft says not shipped");
+check(
+  /4\.2\.1 Hybrid bond door \(lab — network `0x5042` only\)/.test(spec),
+  "SPEC norms hybrid bond door on lab 0x5042 only",
+);
+check(
+  /Not active.*crowned Earth/i.test(spec) && /invitation-only/i.test(spec),
+  "SPEC keeps crowned Earth invitation-only",
+);
 
 console.log();
 if (failures > 0) {

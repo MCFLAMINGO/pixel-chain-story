@@ -8,8 +8,9 @@ Read [`DURABILITY.md`](./DURABILITY.md) for what Tier 1 vs sequencing actually b
 vs extendable), then [`FINALITY.md`](./FINALITY.md) and [`STATE-2026-08-17.md`](./STATE-2026-08-17.md)
 if you want the reasoning. This file is just the steps.
 
-**Today sequencing is invitation-only.** A PIX-bond door for phone light-verifiers is designed
-in `DURABILITY.md` (hybrid) and not shipped — do not tell a joiner they can stake their way in.
+**Today sequencing on crowned Earth is invitation-only.** A PIX-bond door exists on lab
+network `0x5042` (`DURABILITY.md`, `test:bond-door`) — do not tell a crowned joiner they can
+stake their way in.
 
 ---
 

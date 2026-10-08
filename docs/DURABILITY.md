@@ -16,7 +16,7 @@ the build (`test:claims-guard` durability section).
 | Goal | Meaning | Status (2026-08-17) |
 | --- | --- | --- |
 | **Readable forever** | Anyone can verify the picture from a copy, offline if needed | **Yellow** — `verify:crowned` + fixtures work; copies are still too few |
-| **Extendable forever** | New pixels keep appearing with no designated living authorizer | **Red** — sequencing is invitation-only today; hybrid bond door is designed, not shipped |
+| **Extendable forever** | New pixels keep appearing with no designated living authorizer | **Red** — crowned Earth (`20553`) is invitation-only; hybrid bond door is live only on lab `0x5042` |
 
 Do not collapse these into one slogan. A chain that stops growing but still verifies is a
 relic people can still read. A chain that grows only while one Railway account is paid is
@@ -70,24 +70,24 @@ Allowed:
 
 ---
 
-## Hybrid design (locked 2026-08-17 — not shipped)
+## Hybrid design (locked 2026-08-17 — lab shipped on `0x5042`)
 
 Erik’s decisions, recorded so code does not invent a different story:
 
 1. **Always-on sequencers remain required for liveness.** Phones do not replace them.
 2. **Phones** are light verifiers + optional PIX bond holders (`/wallet`). Most people
    bond; few **carry** (opt into the reachable producer set).
-3. **Two doors into the producer set (when D3 ships):**
-   - **Invitation** (today’s T1.1) while the set is healthy.
-   - **PIX bond** so the set cannot go extinct when the last human disappears.
+3. **Two doors into the producer set:**
+   - **Invitation** (today’s T1.1) while the set is healthy — **only path on crowned `20553`.**
+   - **PIX bond** on lab network `0x5042` (`test:bond-door`) so a set can recover without a
+     living authorizer. **Not activated on crowned Earth** without an explicit ceremony.
 4. **Rejected doors:** Proof-of-work admission (recreates Bitcoin vs AI compute auction);
    Light-Credits-gated seats (conflates builder fuel with security).
 5. **Quantum:** bonding does not weaken ML-DSA / hash-OTS. Bonds and tips stay on PQ
    schemes. Classical bridge risk stays bridge risk; it is not a sequencer committee.
 
-Threat model and parameters (K, T, bond floor, active-set derivation) land in this file
-before any electable-path code ships. Until then, invitation-only remains the rule on
-network 20553.
+Parameters (K, T, bond floor) live in `membership-bond.ts` + `fixtures/vectors/bond-door-v1.json`.
+Invitation-only remains the rule on network 20553.
 
 ---
 
@@ -97,15 +97,15 @@ network 20553.
 | --- | --- |
 | One copy | Tier 1 holders + tip mirrors + failover test ([`OPERATOR.md`](./OPERATOR.md)) |
 | One magic URL | `tip-mirrors.json` + `join --mirrors` |
-| Invitation-only extinction | D3 hybrid bond door (design → vectors → fresh network id) |
+| Invitation-only extinction | D3 hybrid bond door (lab `0x5042` shipped; crowned activation = ceremony) |
 | Hosting dependence | Tip-as-cattle runbook; non-GitHub mirrors |
 | One implementation | Second client verifying vectors + crowned fixture |
 
 ---
 
-## D3 threat model (hybrid bond — design lock, not shipped)
+## D3 threat model (hybrid bond — lab on `0x5042`; crowned still invitation-only)
 
-Before any electable-path code lands on a fresh network id:
+Before activating the bond door on crowned Earth (or any public network id):
 
 | Attack | Defence |
 | --- | --- |
