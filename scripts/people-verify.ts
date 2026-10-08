@@ -12,10 +12,7 @@
 import { spawn } from "bun";
 import { join } from "node:path";
 
-import {
-  CROWNED_GENESIS_PREFIX,
-  CROWNED_NETWORK_ID,
-} from "../src/lib/pixel/crowned-genesis";
+import { CROWNED_GENESIS_PREFIX, CROWNED_NETWORK_ID } from "../src/lib/pixel/crowned-genesis";
 
 const ROOT = join(import.meta.dir, "..");
 const live = process.argv.includes("--live");

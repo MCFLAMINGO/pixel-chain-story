@@ -33,12 +33,22 @@ const code = await proc.exited;
 
 check(code === 0, "python3 clients/verify_crowned.py exits 0");
 check(/VERIFIED/.test(out), "Python client prints VERIFIED");
-check(/merkleRoot recomputes/.test(out) || /merkleRoot/.test(out), "Python recomputes merkle roots");
+check(
+  /merkleRoot recomputes/.test(out) || /merkleRoot/.test(out),
+  "Python recomputes merkle roots",
+);
 check(/UTXO fold supply/.test(out) || /supply/.test(out), "Python checks supply vs emission");
 check(/Signatures not checked/.test(out), "Python honestly declines PQ signature verify for now");
 check(!/FAILED/.test(out), "no FAILED line");
 
-console.log(out.trim().split("\n").slice(-4).map((l) => `    ${l}`).join("\n"));
+console.log(
+  out
+    .trim()
+    .split("\n")
+    .slice(-4)
+    .map((l) => `    ${l}`)
+    .join("\n"),
+);
 
 console.log();
 if (failures > 0) {

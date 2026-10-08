@@ -596,11 +596,15 @@ async function assertMembershipRecords(params: {
             bondUnits: record.bondUnits ?? 0,
           })
         : false;
-    const problem = await sequencerRecordProblem(record, electableKeysAt(params.state, params.height), {
-      networkId: params.state.networkId,
-      bondDoorOpen: door.open,
-      bondBurnSatisfied: burnOk,
-    });
+    const problem = await sequencerRecordProblem(
+      record,
+      electableKeysAt(params.state, params.height),
+      {
+        networkId: params.state.networkId,
+        bondDoorOpen: door.open,
+        bondBurnSatisfied: burnOk,
+      },
+    );
     if (problem) throw new Error(problem);
   }
 }

@@ -52,8 +52,14 @@ const thesis = bondDoorThesis();
 check(thesis.network === HYBRID_BOND_NETWORK_ID, "thesis pins hybrid network id");
 check(!hybridBondDoorEnabled(CROWNED_NETWORK_ID), "crowned Earth cannot open the door");
 check(hybridBondDoorEnabled(HYBRID_BOND_NETWORK_ID), "hybrid network enables the door");
-check(thesis.refusals.some((r) => /PoW/i.test(r)), "thesis refuses PoW seats");
-check(thesis.refusals.some((r) => /Credits/i.test(r)), "thesis refuses Credits seats");
+check(
+  thesis.refusals.some((r) => /PoW/i.test(r)),
+  "thesis refuses PoW seats",
+);
+check(
+  thesis.refusals.some((r) => /Credits/i.test(r)),
+  "thesis refuses Credits seats",
+);
 
 const founder = await generatePixelKeypair("PIX-ML-DSA-65");
 const joiner = await generatePixelKeypair("PIX-ML-DSA-65");
@@ -177,12 +183,9 @@ check(await verifyChain(chain), "bond path chain verifies end-to-end");
     sign: async (msg, who) => signPixel(msg, who === "joiner" ? third : founder),
   });
   const { selectSequencer } = await import("../src/lib/pixel/pol");
-  const { state } = await proposeTransfer(
-    chain,
-    founder,
-    [{ address: third.address, amount: 1 }],
-    { description: "invite path still works" },
-  );
+  const { state } = await proposeTransfer(chain, founder, [{ address: third.address, amount: 1 }], {
+    description: "invite path still works",
+  });
   const tip = state.pixels[state.pixels.length - 1]!;
   const electable = membersAt({
     founder: founder.address,
@@ -259,12 +262,9 @@ check(await verifyChain(chain), "bond path chain verifies end-to-end");
   let c = await createGenesis(f, HYBRID_BOND_NETWORK_ID, { now: genesisTs });
   // Earn enough coinbase to fund both joiners.
   for (let i = 0; i < 3; i++) {
-    const { state } = await proposeTransfer(
-      c,
-      f,
-      [{ address: f.address, amount: 1 }],
-      { description: `earn ${i}` },
-    );
+    const { state } = await proposeTransfer(c, f, [{ address: f.address, amount: 1 }], {
+      description: `earn ${i}`,
+    });
     c = await sequenceBlock(state, f, { now: now - 4_000 + i });
   }
   for (const j of [j1, j2]) {

@@ -288,70 +288,71 @@ if (offline) {
       "    consistency. Re-run without --fixture when you want public-chain confirmation.",
   );
 } else {
-const anchors = JSON.parse(readFileSync(join(root, "anchors.json"), "utf8")) as Anchors;
-const VENUE_RPC: Record<string, string> = {
-  "ethereum-sepolia": process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com",
-  "robinhood-testnet": process.env.ROBINHOOD_RPC_URL ?? "https://testnet.rpc.robinhood.com",
-};
+  const anchors = JSON.parse(readFileSync(join(root, "anchors.json"), "utf8")) as Anchors;
+  const VENUE_RPC: Record<string, string> = {
+    "ethereum-sepolia":
+      process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com",
+    "robinhood-testnet": process.env.ROBINHOOD_RPC_URL ?? "https://testnet.rpc.robinhood.com",
+  };
 
-for (const [venue, contract] of Object.entries(anchors.venues)) {
-  const url = VENUE_RPC[venue];
-  if (!url) {
-    console.log(`  · ${venue}: no public RPC configured, skipped`);
-    continue;
+  for (const [venue, contract] of Object.entries(anchors.venues)) {
+    const url = VENUE_RPC[venue];
+    if (!url) {
+      console.log(`  · ${venue}: no public RPC configured, skipped`);
+      continue;
+    }
+    // `highestAnchored` is a public mapping(uint64 => uint64), so its getter takes uint64.
+    // Guessing uint256 here produced a different selector and a bare `execution reverted`,
+    // which is the least informative failure Ethereum offers.
+    const highest = await ethCall(
+      url,
+      contract,
+      keccakSelector("highestAnchored(uint64)") + word(anchors.networkId),
+    );
+    if (highest === null) {
+      console.log(`  · ${venue}: unreachable, skipped (not a failure of the chain)`);
+      continue;
+    }
+    venuesChecked++;
+    const highestNum = Number(BigInt(highest));
+    console.log(`  · ${venue}: highestAnchored(${anchors.networkId}) = ${highestNum}`);
+
+    // matches(uint256,uint256,bytes32) -> bool, for the highest anchored height we hold
+    const height = Math.min(highestNum, tip.index);
+    const pixel = pixels[height];
+    if (!pixel) continue;
+    // matches(uint64 networkId, uint64 pixelIndex, bytes tipHash, bytes spatialRoot).
+    // Both digests are 64 bytes, and the contract reverts on any other length — so this
+    // confirms the FULL tip hash and the spatial root together, not a truncated prefix.
+    const head = word(anchors.networkId) + word(height) + word(0x80) + word(0x80 + 32 + 64);
+    const matches = await ethCall(
+      url,
+      contract,
+      keccakSelector("matches(uint64,uint64,bytes,bytes)") +
+        head +
+        dynBytes(pixel.hash) +
+        dynBytes(pixel.lightProof.spatialRoot),
+    );
+    const agreed = matches !== null && BigInt(matches) === 1n;
+    if (agreed) venuesAgreed++;
+    check(
+      agreed,
+      `${venue} confirms our pixel #${height} tip hash AND spatial root`,
+      agreed ? undefined : `matches() returned ${matches ?? "no result"}`,
+    );
   }
-  // `highestAnchored` is a public mapping(uint64 => uint64), so its getter takes uint64.
-  // Guessing uint256 here produced a different selector and a bare `execution reverted`,
-  // which is the least informative failure Ethereum offers.
-  const highest = await ethCall(
-    url,
-    contract,
-    keccakSelector("highestAnchored(uint64)") + word(anchors.networkId),
-  );
-  if (highest === null) {
-    console.log(`  · ${venue}: unreachable, skipped (not a failure of the chain)`);
-    continue;
+
+  if (venuesChecked === 0) {
+    console.log(
+      "  · no anchor venue was reachable. Steps 1-3 still hold: the chain is internally\n" +
+        "    consistent. What is unconfirmed is that it is the same chain others saw.",
+    );
+  } else {
+    check(
+      venuesAgreed === venuesChecked,
+      `every reachable venue agrees (${venuesAgreed}/${venuesChecked})`,
+    );
   }
-  venuesChecked++;
-  const highestNum = Number(BigInt(highest));
-  console.log(`  · ${venue}: highestAnchored(${anchors.networkId}) = ${highestNum}`);
-
-  // matches(uint256,uint256,bytes32) -> bool, for the highest anchored height we hold
-  const height = Math.min(highestNum, tip.index);
-  const pixel = pixels[height];
-  if (!pixel) continue;
-  // matches(uint64 networkId, uint64 pixelIndex, bytes tipHash, bytes spatialRoot).
-  // Both digests are 64 bytes, and the contract reverts on any other length — so this
-  // confirms the FULL tip hash and the spatial root together, not a truncated prefix.
-  const head = word(anchors.networkId) + word(height) + word(0x80) + word(0x80 + 32 + 64);
-  const matches = await ethCall(
-    url,
-    contract,
-    keccakSelector("matches(uint64,uint64,bytes,bytes)") +
-      head +
-      dynBytes(pixel.hash) +
-      dynBytes(pixel.lightProof.spatialRoot),
-  );
-  const agreed = matches !== null && BigInt(matches) === 1n;
-  if (agreed) venuesAgreed++;
-  check(
-    agreed,
-    `${venue} confirms our pixel #${height} tip hash AND spatial root`,
-    agreed ? undefined : `matches() returned ${matches ?? "no result"}`,
-  );
-}
-
-if (venuesChecked === 0) {
-  console.log(
-    "  · no anchor venue was reachable. Steps 1-3 still hold: the chain is internally\n" +
-      "    consistent. What is unconfirmed is that it is the same chain others saw.",
-  );
-} else {
-  check(
-    venuesAgreed === venuesChecked,
-    `every reachable venue agrees (${venuesAgreed}/${venuesChecked})`,
-  );
-}
 } // end online anchors
 
 // ── verdict ───────────────────────────────────────────────────────────────

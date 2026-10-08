@@ -111,8 +111,7 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
 
   if (cmd === "join") {
     const mirrorsPath = arg("mirrors");
-    const peer =
-      arg("peer") ?? (flag("public-tip") ? PUBLIC_TIP_RPC_DEFAULT : undefined);
+    const peer = arg("peer") ?? (flag("public-tip") ? PUBLIC_TIP_RPC_DEFAULT : undefined);
     if (!peer && !mirrorsPath && !flag("public-tip")) {
       throw new Error(
         `--peer http://host:port required (or --public-tip / --mirrors tip-mirrors.json)`,
@@ -121,9 +120,8 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
     await ensureDatadir(datadir);
     const { keypair } = await loadOrCreateIdentity(datadir, "joiner");
 
-    const { fetchSyncViaMirrors, TipMirrorError, loadTipMirrorsOrBuiltin } = await import(
-      "../lib/pixel/tip-mirrors"
-    );
+    const { fetchSyncViaMirrors, TipMirrorError, loadTipMirrorsOrBuiltin } =
+      await import("../lib/pixel/tip-mirrors");
     // --public-tip or an explicit mirrors file loads the list; bare --peer does not
     // surprise-dial Railway after a lab peer fails.
     const useMirrors = Boolean(mirrorsPath || flag("public-tip"));
@@ -137,7 +135,11 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
       sync = await fetchSyncViaMirrors({
         peer,
         mirrorsPath: useMirrors ? mirrorsPath : undefined,
-        mirrors: useMirrors ? undefined : peer ? { ...loadTipMirrorsOrBuiltin(), mirrors: [] } : undefined,
+        mirrors: useMirrors
+          ? undefined
+          : peer
+            ? { ...loadTipMirrorsOrBuiltin(), mirrors: [] }
+            : undefined,
         requireCrowned,
       });
     } catch (err) {
@@ -185,10 +187,7 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
 
     const mirrorsFile = loadTipMirrorsOrBuiltin(mirrorsPath);
     const gossipSeed =
-      arg("gossip-seed") ??
-      sync.gossipUrl ??
-      mirrorsFile.gossipSeeds?.[0] ??
-      undefined;
+      arg("gossip-seed") ?? sync.gossipUrl ?? mirrorsFile.gossipSeeds?.[0] ?? undefined;
     if (gossipSeed?.startsWith("ws") && !/127\.0\.0\.1|localhost/.test(gossipSeed)) {
       const { savePeers } = await import("./store");
       await savePeers(datadir, [gossipSeed]);
@@ -199,7 +198,9 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
       );
     }
 
-    console.log(`Joined ${PIXEL_LEDGER_NAME} from ${sync.sourceRpc}${sync.sourceId ? ` (${sync.sourceId})` : ""}`);
+    console.log(
+      `Joined ${PIXEL_LEDGER_NAME} from ${sync.sourceRpc}${sync.sourceId ? ` (${sync.sourceId})` : ""}`,
+    );
     console.log(`  pixels: ${chain.pixels.length}`);
     console.log(`  sequencers: ${chain.sequencers.length}`);
     console.log(`  genesis: ${genesisHash.slice(0, 24)}…`);
@@ -684,7 +685,9 @@ Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-
     console.log(`Backup written — verified by replaying every pixel.`);
     console.log(`  file       ${out}`);
     for (const line of describeBackup(bundle.manifest)) console.log(`  ${line}`);
-    console.log(`  content-addressed name  pixel-backup-${bundle.manifest.chainDigest.slice(0, 16)}.json`);
+    console.log(
+      `  content-addressed name  pixel-backup-${bundle.manifest.chainDigest.slice(0, 16)}.json`,
+    );
     if (!includeKey) {
       console.log("");
       console.log("This file holds the history, not the key. Anyone can hold it safely,");

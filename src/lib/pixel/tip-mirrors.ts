@@ -124,7 +124,9 @@ export function loadTipMirrorsOrBuiltin(path?: string): TipMirrorsFile {
   }
 }
 
-export async function fetchTipSync(rpc: string): Promise<Omit<TipSyncPayload, "sourceRpc" | "sourceId">> {
+export async function fetchTipSync(
+  rpc: string,
+): Promise<Omit<TipSyncPayload, "sourceRpc" | "sourceId">> {
   const base = rpc.replace(/\/$/, "");
   const syncRes = await fetch(`${base}/sync`);
   if (syncRes.ok) {

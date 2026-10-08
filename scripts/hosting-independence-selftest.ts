@@ -44,10 +44,7 @@ check(
   tipRpcCandidates("http://127.0.0.1:8545")[0] === "http://127.0.0.1:8545",
   "explicit override sorts first",
 );
-check(
-  new Set(tipRpcCandidates()).size === tipRpcCandidates().length,
-  "candidates are deduped",
-);
+check(new Set(tipRpcCandidates()).size === tipRpcCandidates().length, "candidates are deduped");
 
 const spec = readFileSync(join(ROOT, "docs/SPEC.md"), "utf8");
 check(

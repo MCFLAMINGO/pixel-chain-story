@@ -11,9 +11,7 @@
  * - No PoW, no Light Credits. Slash is not in this module (honesty: later).
  */
 
-import {
-  CROWNED_NETWORK_ID,
-} from "./crowned-genesis";
+import { CROWNED_NETWORK_ID } from "./crowned-genesis";
 import type { SequencerRecord } from "./membership";
 import { MEMBERSHIP_ACTIVATION_DELAY, membersAt } from "./membership";
 
@@ -123,8 +121,7 @@ export function bondDoorAt(params: {
 
   const tStart = params.timestampAt(Math.max(0, start));
   const tipTs =
-    params.atTimestamp ??
-    (params.height <= 0 ? tStart : params.timestampAt(params.height - 1));
+    params.atTimestamp ?? (params.height <= 0 ? tStart : params.timestampAt(params.height - 1));
   const vacancyMs = Math.max(0, tipTs - tStart);
 
   if (vacancyMs < BOND_DOOR_T_MS) {
@@ -203,7 +200,9 @@ export function bondLockPaidInTxs(params: {
 }): boolean {
   let paid = 0;
   for (const tx of params.txs) {
-    const fromJoiner = tx.inputs.some((inp) => params.utxoOwner(inp.txid, inp.vout) === params.joiner);
+    const fromJoiner = tx.inputs.some(
+      (inp) => params.utxoOwner(inp.txid, inp.vout) === params.joiner,
+    );
     if (!fromJoiner) continue;
     for (const out of tx.outputs) {
       if (out.address === BOND_LOCK_ADDRESS) paid += out.amount;

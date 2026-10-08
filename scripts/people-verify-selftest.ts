@@ -21,7 +21,10 @@ function check(cond: unknown, msg: string): void {
 console.log("═══ PEOPLE VERIFY ═══\n");
 
 const src = readFileSync(join(ROOT, "scripts/people-verify.ts"), "utf8");
-check(!/submitMembership|sequenceBlock|createSequencerJoin/.test(src), "people:verify never sequences");
+check(
+  !/submitMembership|sequenceBlock|createSequencerJoin/.test(src),
+  "people:verify never sequences",
+);
 check(!/^import .*membership/m.test(src), "people:verify does not import membership");
 check(/DURABILITY/.test(src), "people:verify points at DURABILITY.md");
 check(/offline fixture|fixture/.test(src), "default path is offline fixture");

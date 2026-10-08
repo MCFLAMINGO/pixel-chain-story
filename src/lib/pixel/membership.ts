@@ -231,9 +231,8 @@ export async function sequencerRecordProblem(
   }
 
   if (record.kind === "sequencer-bond-join") {
-    const { hybridBondDoorEnabled, BOND_FLOOR_UNITS, bondAuthorizationMessage } = await import(
-      "./membership-bond"
-    );
+    const { hybridBondDoorEnabled, BOND_FLOOR_UNITS, bondAuthorizationMessage } =
+      await import("./membership-bond");
     if (opts?.networkId == null || !hybridBondDoorEnabled(opts.networkId)) {
       return "sequencer-bond-join is refused on this network (invitation-only)";
     }

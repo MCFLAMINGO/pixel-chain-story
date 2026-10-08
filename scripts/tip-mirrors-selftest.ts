@@ -13,10 +13,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 
 import { createGenesis, tipHash } from "../src/lib/pixel/chain";
-import {
-  CROWNED_GENESIS_HASH,
-  CROWNED_NETWORK_ID,
-} from "../src/lib/pixel/crowned-genesis";
+import { CROWNED_GENESIS_HASH, CROWNED_NETWORK_ID } from "../src/lib/pixel/crowned-genesis";
 import { generatePixelKeypair } from "../src/lib/pixel/scheme";
 import {
   TipMirrorError,
@@ -63,7 +60,10 @@ const seq = await generatePixelKeypair("PIX-ML-DSA-65");
 const lab = await createGenesis(seq, 0x5049);
 const tip = tipHash(lab);
 
-function serveSync(pixels: unknown, health: Record<string, unknown>): Promise<{ url: string; close: () => void }> {
+function serveSync(
+  pixels: unknown,
+  health: Record<string, unknown>,
+): Promise<{ url: string; close: () => void }> {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       const path = req.url ?? "/";

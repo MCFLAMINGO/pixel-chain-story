@@ -116,7 +116,10 @@ await mkdir(dirA, { recursive: true });
 
 startNode("A", dirA, RPC_A, GOSSIP_A);
 const healthA = await waitHealth(`http://127.0.0.1:${RPC_A}`);
-check(healthA.advertiseIsLocalhost === true, "/health reports advertiseIsLocalhost when --advertise is loopback");
+check(
+  healthA.advertiseIsLocalhost === true,
+  "/health reports advertiseIsLocalhost when --advertise is loopback",
+);
 check(typeof healthA.tipHash === "string", "A has a tip hash");
 const tipBefore = String(healthA.tipHash);
 
@@ -150,9 +153,9 @@ await Bun.sleep(300);
 
 // Restore history onto B without A's key — B forges its own identity
 await mkdir(dirB, { recursive: true });
-const restored = await (await import("../src/node/backup")).readBackup(
-  await Bun.file(backupPath).text(),
-);
+const restored = await (
+  await import("../src/node/backup")
+).readBackup(await Bun.file(backupPath).text());
 await saveChain(dirB, restored.chain);
 await loadOrCreateIdentity(dirB, "b-replacement-host");
 check(await verifyChain(restored.chain), "restored backup verifies before B starts");
@@ -162,7 +165,10 @@ startNode("B", dirB, RPC_B, GOSSIP_B);
 const healthB = await waitHealth(`http://127.0.0.1:${RPC_B}`);
 check(Number(healthB.pixels) === pixelsAtBackup, "B serves the same pixel count");
 check(String(healthB.tipHash) === tipAtBackup, "B's tip hash matches the backup");
-check(String(healthB.address) !== String(healthA.address), "B has a different key than A (keyless backup)");
+check(
+  String(healthB.address) !== String(healthA.address),
+  "B has a different key than A (keyless backup)",
+);
 
 const mirrorsPath = join(BASE, "mirrors.json");
 await writeFile(
@@ -180,15 +186,7 @@ await writeFile(
 await mkdir(dirC, { recursive: true });
 {
   const p = spawn({
-    cmd: [
-      "bun",
-      "src/node/cli.ts",
-      "join",
-      "--mirrors",
-      mirrorsPath,
-      "--datadir",
-      dirC,
-    ],
+    cmd: ["bun", "src/node/cli.ts", "join", "--mirrors", mirrorsPath, "--datadir", dirC],
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
