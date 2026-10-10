@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as SpatialRouteImport } from './routes/spatial'
 import { Route as ShineRouteImport } from './routes/shine'
+import { Route as MirrorRouteImport } from './routes/mirror'
 import { Route as McflamingoRouteImport } from './routes/mcflamingo'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as DoorsRouteImport } from './routes/doors'
@@ -35,6 +36,11 @@ const SpatialRoute = SpatialRouteImport.update({
 const ShineRoute = ShineRouteImport.update({
   id: '/shine',
   path: '/shine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MirrorRoute = MirrorRouteImport.update({
+  id: '/mirror',
+  path: '/mirror',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McflamingoRoute = McflamingoRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
+  '/mirror': typeof MirrorRoute
   '/shine': typeof ShineRoute
   '/spatial': typeof SpatialRoute
   '/wallet': typeof WalletRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
+  '/mirror': typeof MirrorRoute
   '/shine': typeof ShineRoute
   '/spatial': typeof SpatialRoute
   '/wallet': typeof WalletRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/doors': typeof DoorsRoute
   '/lab': typeof LabRoute
   '/mcflamingo': typeof McflamingoRoute
+  '/mirror': typeof MirrorRoute
   '/shine': typeof ShineRoute
   '/spatial': typeof SpatialRoute
   '/wallet': typeof WalletRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/doors'
     | '/lab'
     | '/mcflamingo'
+    | '/mirror'
     | '/shine'
     | '/spatial'
     | '/wallet'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/doors'
     | '/lab'
     | '/mcflamingo'
+    | '/mirror'
     | '/shine'
     | '/spatial'
     | '/wallet'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/doors'
     | '/lab'
     | '/mcflamingo'
+    | '/mirror'
     | '/shine'
     | '/spatial'
     | '/wallet'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   DoorsRoute: typeof DoorsRoute
   LabRoute: typeof LabRoute
   McflamingoRoute: typeof McflamingoRoute
+  MirrorRoute: typeof MirrorRoute
   ShineRoute: typeof ShineRoute
   SpatialRoute: typeof SpatialRoute
   WalletRoute: typeof WalletRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/shine'
       fullPath: '/shine'
       preLoaderRoute: typeof ShineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mirror': {
+      id: '/mirror'
+      path: '/mirror'
+      fullPath: '/mirror'
+      preLoaderRoute: typeof MirrorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcflamingo': {
@@ -283,6 +303,7 @@ const rootRouteChildren: RootRouteChildren = {
   DoorsRoute: DoorsRoute,
   LabRoute: LabRoute,
   McflamingoRoute: McflamingoRoute,
+  MirrorRoute: MirrorRoute,
   ShineRoute: ShineRoute,
   SpatialRoute: SpatialRoute,
   WalletRoute: WalletRoute,
