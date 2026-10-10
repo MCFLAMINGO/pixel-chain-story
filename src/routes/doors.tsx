@@ -71,6 +71,12 @@ const PEOPLE_DOORS = [
     cta: "Shine in",
   },
   {
+    title: "Hold the tip",
+    line: "Verifying mirror of the one crowned Earth — download pack, not a new genesis.",
+    to: "/mirror" as const,
+    cta: "Mirror pack",
+  },
+  {
     title: "Pay with Pixel",
     line: "Booth settlement when Continuity is live (lab).",
     to: "/continuity" as const,

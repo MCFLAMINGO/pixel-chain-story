@@ -59,6 +59,7 @@ Truth badges: `pix_protocolInfo.gates` and `.quantum`. Match every public senten
 | `/`                         | Live field (lab light vs public tip when rpc set)                        |
 | `/lab`                      | Kindling / Worldlight builders                                           |
 | `/shine`                    | Non-tech Continuity front door (brand → Shine in)                        |
+| `/mirror`                   | Download verifying mirror pack — crowned Earth only (not a new genesis)  |
 | `/continuity`               | Operator desk (offers, invites, till, chaos drill)                       |
 | `/continuity/join/$token`   | Merchant join (same-browser `localStorage` in lab)                       |
 | `/continuity/booth/$domain` | Customer booth — **Pay with Pixel** (real UTXOs + till when origin dark) |

@@ -1,0 +1,15 @@
+{
+  "$comment": "Hard pin — this pack only joins the one crowned tip. Never init. Never tip:host.",
+  "networkId": 20553,
+  "genesisPrefix": "f1d193f62d54e982",
+  "genesisHash": "f1d193f62d54e98230da5e4b40fbaebb31c176bef241fcb4a44e8f025c8df04f163e7525cc9f0e99172368380d1e1f5341c0a4b2099c17b1f4ba3c0b6739b777",
+  "primaryRpc": "https://pixel-tip-production.up.railway.app",
+  "repo": "https://github.com/MCFLAMINGO/pixel-chain-story.git",
+  "role": "verifying-mirror-only",
+  "forbidden": [
+    "pixel init",
+    "tip:host",
+    "PIXEL_GENESIS_CEREMONY",
+    "new Earth"
+  ]
+}

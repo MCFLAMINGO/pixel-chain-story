@@ -21,6 +21,11 @@ If this file and the tip disagree, the tip’s verifying fold wins.
 that pack and Bun (or a second client — see [`VECTORS.md`](./VECTORS.md)) can verify without
 opening github.com.
 
+**Ask friends to hold a verifying mirror (crowned Earth only):** site **`/mirror`** → download
+`/mirror-host.zip` → open `OPEN-ME.html` → run `start-mirror.bat` / `start-mirror.sh`.
+Scripts join with `--public-tip --require-crowned` and refuse any other genesis. Not a wallet;
+not `tip:host`; not a new Earth.
+
 Aspiration — additional public mirrors (Codeberg / self-hosted git) should be listed here
 when they exist. Until then: ceremony pack + your own clone.
 

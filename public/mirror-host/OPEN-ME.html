@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PIXEL — hold the one tip</title>
+    <style>
+      :root {
+        --bg0: #0c1210;
+        --bg1: #15201a;
+        --ink: #e8f0ea;
+        --mute: #8fa094;
+        --accent: #3dcf7a;
+        --warn: #d4a574;
+        --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+        --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        color: var(--ink);
+        background:
+          radial-gradient(1200px 700px at 15% -10%, #1b3a2a 0%, transparent 55%),
+          radial-gradient(900px 500px at 90% 10%, #243528 0%, transparent 50%),
+          linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0a0f0d);
+        font-family: var(--font-display);
+      }
+      main {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        max-width: 36rem;
+        margin: 0 auto;
+        padding: 3.5rem 1.5rem 4rem;
+      }
+      .brand {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        color: var(--accent);
+        opacity: 0;
+        animation: rise 0.7s ease-out forwards;
+      }
+      h1 {
+        margin: 1rem 0 0;
+        font-size: clamp(2.4rem, 8vw, 3.4rem);
+        line-height: 1.05;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        opacity: 0;
+        animation: rise 0.75s ease-out 0.08s forwards;
+      }
+      .lead {
+        margin: 1rem 0 0;
+        font-size: 1.15rem;
+        line-height: 1.45;
+        color: var(--mute);
+        opacity: 0;
+        animation: rise 0.75s ease-out 0.16s forwards;
+      }
+      .pin {
+        margin-top: 1.5rem;
+        padding: 0.9rem 1rem;
+        border-left: 3px solid var(--accent);
+        background: rgba(61, 207, 122, 0.06);
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        line-height: 1.55;
+        opacity: 0;
+        animation: rise 0.75s ease-out 0.24s forwards;
+      }
+      .pin strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        opacity: 0;
+        animation: rise 0.75s ease-out 0.32s forwards;
+      }
+      a.cta,
+      button.cta {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+        text-decoration: none;
+        color: #04140a;
+        background: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 0.95rem 1.2rem;
+        transition: transform 0.2s ease, filter 0.2s ease;
+      }
+      a.cta:hover,
+      button.cta:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.06);
+      }
+      a.ghost {
+        color: var(--mute);
+        text-decoration: none;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        align-self: center;
+        padding: 0.6rem 0.4rem;
+      }
+      a.ghost:hover {
+        color: var(--ink);
+      }
+      .not {
+        margin-top: 2.25rem;
+        color: var(--warn);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        opacity: 0;
+        animation: rise 0.75s ease-out 0.4s forwards;
+      }
+      .steps {
+        margin-top: 1.25rem;
+        padding: 0;
+        list-style: none;
+        color: var(--mute);
+        font-size: 0.98rem;
+        line-height: 1.55;
+        opacity: 0;
+        animation: rise 0.75s ease-out 0.48s forwards;
+      }
+      .steps li {
+        margin: 0.55rem 0;
+        padding-left: 1.1rem;
+        position: relative;
+      }
+      .steps li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.55em;
+        width: 0.4rem;
+        height: 0.4rem;
+        background: var(--accent);
+        border-radius: 1px;
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.86em;
+        color: var(--ink);
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="brand">Pixel · one Earth</p>
+      <h1>Hold the tip</h1>
+      <p class="lead">
+        Open this file. Run the starter for your computer. You join the
+        <em>same</em> crowned picture — not a private notebook.
+      </p>
+
+      <div class="pin" role="note">
+        Confirm out loud:<br />
+        <strong>network 20553</strong> · genesis <strong>f1d193f62d54e982…</strong>
+      </div>
+
+      <div class="actions">
+        <a class="cta" id="dl-zip" href="../mirror-host.zip">Download pack (.zip)</a>
+        <a class="ghost" href="/mirror">Site page</a>
+      </div>
+
+      <p class="not">
+        Verifying mirror only. Not a wallet. Not a sequencer invite. Not
+        <code>pixel init</code>. Not a new Earth.
+      </p>
+
+      <ol class="steps">
+        <li>Unzip if needed. Keep this folder together.</li>
+        <li>
+          <strong>Windows:</strong> double-click <code>start-mirror.bat</code>
+        </li>
+        <li>
+          <strong>Mac / Linux:</strong> <code>bash start-mirror.sh</code>
+        </li>
+        <li>Install Bun if asked · leave the machine awake.</li>
+        <li>
+          Put HTTPS in front (Cloudflare Tunnel), then send your
+          <code>/health</code> URL so it can be listed.
+        </li>
+      </ol>
+    </main>
+    <script>
+      // When opened from file:// inside the unzipped pack, zip sibling may be missing —
+      // point download at the live site pack instead.
+      (function () {
+        var a = document.getElementById("dl-zip");
+        if (!a) return;
+        if (location.protocol === "file:") {
+          a.href =
+            "https://github.com/MCFLAMINGO/pixel-chain-story/raw/main/public/mirror-host.zip";
+          a.textContent = "Download pack (.zip)";
+        }
+      })();
+    </script>
+  </body>
+</html>
