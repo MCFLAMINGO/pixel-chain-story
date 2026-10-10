@@ -11,6 +11,7 @@ import {
   createPeerBook,
   extractHeaders,
   handlePixelRpc,
+  electableAt,
   nextSequencerAddress,
   notePeerHello,
   POLS_STALL_MS,
@@ -50,6 +51,10 @@ import {
   admitTransaction,
   considerBranch,
   electableKeysAt,
+  finalityEnabled,
+  finalityGuard,
+  finalizedThrough,
+  type VenueAnchorObservation,
   MEMBERSHIP_ACTIVATION_DELAY,
   sequencerRecordProblem,
   MempoolRejected,
@@ -126,6 +131,16 @@ export class PixelLedgerNode {
    * enforced, and unreachable. A second operator was impossible for want of a queue.
    */
   private pendingMembership: SequencerRecord[] = [];
+
+  /**
+   * What the anchor venues have been observed to say.
+   *
+   * Fed by an operator or an anchoring job rather than fetched here: a consensus rule must
+   * not depend on this process being able to reach a third-party RPC at the moment a peer
+   * offers a branch. Empty means nothing is final, which is the correct default and exactly
+   * today's behaviour.
+   */
+  private anchorObservations: VenueAnchorObservation[] = [];
 
   private helloSig = "";
   private helloSigTip = "";
@@ -454,6 +469,44 @@ export class PixelLedgerNode {
     return [...this.pendingMembership];
   }
 
+  /**
+   * Record what a venue says about a height.
+   *
+   * Additive: an observation can raise the finalised height and never lower it, because the
+   * anchor contract is append-only and a height is written exactly once. A venue that
+   * "changes its mind" is a venue disagreeing with itself, which `finalizedThrough` treats
+   * as a reason to finalise nothing rather than as an update.
+   */
+  noteAnchorObservations(observations: readonly VenueAnchorObservation[]): void {
+    for (const obs of observations) {
+      const existing = this.anchorObservations.findIndex(
+        (o) => o.venue === obs.venue && o.pixelIndex === obs.pixelIndex,
+      );
+      if (existing >= 0) this.anchorObservations[existing] = { ...obs };
+      else this.anchorObservations.push({ ...obs });
+    }
+  }
+
+  /** Finality state, for `/health` and for operators deciding whether to enable the rule. */
+  finalityStatus(): {
+    enabled: boolean;
+    finalizedThrough: number;
+    observations: number;
+    venues: string[];
+    disagreements: number[];
+  } {
+    const { height, venueDisagreements } = finalizedThrough({
+      observations: this.anchorObservations,
+    });
+    return {
+      enabled: finalityEnabled(),
+      finalizedThrough: finalityEnabled() ? height : -1,
+      observations: this.anchorObservations.length,
+      venues: [...new Set(this.anchorObservations.map((o) => o.venue))].sort(),
+      disagreements: venueDisagreements,
+    };
+  }
+
   async submitTx(tx: Transaction): Promise<void> {
     return this.withChainLock(() => this.submitTxLocked(tx));
   }
@@ -698,6 +751,24 @@ export class PixelLedgerNode {
       if (vaultBal < need) {
         throw new Error(`faucet vault needs ${need} PIX (has ${vaultBal})`);
       }
+      const nextHeight = this.chain.pixels.length;
+      const electable = electableAt(this.chain, nextHeight);
+      const elected0 = nextSequencerAddress(this.chain, 0);
+      // Same Gate C path as trySequenceLocked: after membership activation the lottery
+      // may elect an offline peer. Lab faucet used to seal only at skip=0, so the tip
+      // stalled forever whenever that happened (operator-handshake tip stuck at #8).
+      const skipForUs = skipCountForAddress(this.chain, this.keypair.address);
+      const stallReady = Date.now() >= stallAnchorMs(this.chain) + POLS_STALL_MS;
+      if (skipForUs === null) {
+        throw new Error(
+          `Not electable to sequence at #${nextHeight} (electable ${electable.length})`,
+        );
+      }
+      if (skipForUs > 0 && !stallReady) {
+        throw new Error(
+          `Not this node's turn to sequence (need ${elected0}, skip=${skipForUs}; stall ${POLS_STALL_MS}ms required)`,
+        );
+      }
       const spoken = await proposeTransfer(
         this.chain,
         this.keypair,
@@ -708,8 +779,8 @@ export class PixelLedgerNode {
           reference: `FAUCET-${params.address.slice(0, 18)}`,
         },
       );
-      this.chain = await sequenceBlock(spoken.state, this.keypair);
-      const tip = this.chain.pixels[this.chain.pixels.length - 1]!;
+      // Through sealPixel, so a queued membership record is not lost to a faucet request.
+      const { pixel: tip } = await this.sealPixel(spoken.state, { skipCount: skipForUs });
       this.gossip?.broadcast({ type: "pixel", pixel: tip });
       this.noteTipProgress();
       this.fanoutWave(tip, "sequence");
@@ -723,6 +794,47 @@ export class PixelLedgerNode {
         summary: `fauceted ${need} PIX → ${params.address.slice(0, 20)}… (tip #${tip.index})`,
       };
     });
+  }
+
+  /**
+   * Seal one pixel — the ONLY place this node calls `sequenceBlock`.
+   *
+   * There were two. `trySequenceLocked` drained the membership queue and `faucetPayFace`
+   * had its own `sequenceBlock` call that did not, so a join record queued just before a
+   * faucet request was silently dropped: the record was stamped for a height that the
+   * faucet then produced without it, and since the height is signed it could never be
+   * committed afterwards. The operator handshake test caught it — a second operator was
+   * authorised, the chain passed the activation height, and nobody was electable.
+   *
+   * The lesson is the same one T1.6 drew about produce and accept: two implementations of
+   * one step will disagree, and the disagreement will be silent. So there is one now, and
+   * anything that wants a pixel comes through here.
+   */
+  private async sealPixel(
+    from: PixelChainState,
+    opts: { skipCount?: number } = {},
+  ): Promise<{ pixel: LedgerPixel; committed: SequencerRecord[] }> {
+    // Records are stamped with the height they are included at, and that height is signed,
+    // so a record built for one pixel cannot be carried into another. Re-stamping is
+    // impossible without the signers, so one that misses its slot is dropped and must be
+    // rebuilt — correct, because it was authorised for a specific height.
+    const nextIndex = from.pixels.length;
+    const committed = this.pendingMembership.filter((r) => r.includedAt === nextIndex);
+    this.chain = await sequenceBlock(from, this.keypair, {
+      skipCount: opts.skipCount,
+      membership: committed.length > 0 ? committed : undefined,
+    });
+    const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
+    if (committed.length > 0) {
+      this.pendingMembership = this.pendingMembership.filter((r) => !committed.includes(r));
+      for (const r of committed) {
+        console.log(
+          `[pixel-ledger] committed ${r.kind} for ${r.address.slice(0, 12)}… in pixel #${pixel.index}` +
+            ` (active at #${pixel.index + MEMBERSHIP_ACTIVATION_DELAY})`,
+        );
+      }
+    }
+    return { pixel, committed };
   }
 
   async trySequence(): Promise<boolean> {
@@ -743,23 +855,9 @@ export class PixelLedgerNode {
     // signed, so a record built for one pixel cannot be carried into another. Re-stamping
     // is not possible without the signers, so a record that misses its slot is dropped
     // and must be rebuilt — which is correct: it was authorised for a specific height.
-    const nextIndex = this.chain.pixels.length;
-    const membership = this.pendingMembership.filter((r) => r.includedAt === nextIndex);
+    // Membership commit goes through sealPixel so faucet and sequence cannot diverge.
     try {
-      this.chain = await sequenceBlock(this.chain, this.keypair, {
-        skipCount: skip,
-        membership: membership.length > 0 ? membership : undefined,
-      });
-      const pixel = this.chain.pixels[this.chain.pixels.length - 1]!;
-      if (membership.length > 0) {
-        this.pendingMembership = this.pendingMembership.filter((r) => !membership.includes(r));
-        for (const r of membership) {
-          console.log(
-            `[pixel-ledger] committed ${r.kind} for ${r.address.slice(0, 12)}… in pixel #${pixel.index}` +
-              ` (active at #${pixel.index + MEMBERSHIP_ACTIVATION_DELAY})`,
-          );
-        }
-      }
+      const { pixel } = await this.sealPixel(this.chain, { skipCount: skip });
       this.gossip.broadcast({ type: "pixel", pixel });
       this.noteTipProgress();
       this.fanoutWave(pixel, "sequence");
@@ -993,7 +1091,12 @@ export class PixelLedgerNode {
           // sequential path, which is cheaper and is the overwhelmingly common case.
           const first = msg.pixels[0];
           if (first && first.index === 0 && msg.pixels.length > this.chain.pixels.length) {
-            const outcome = await considerBranch({ state: this.chain, theirs: msg.pixels });
+            const outcome = await considerBranch({
+              state: this.chain,
+              theirs: msg.pixels,
+              // Off unless this network enabled it; empty observations finalise nothing.
+              isFinalized: finalityGuard({ observations: this.anchorObservations }),
+            });
             if (outcome.kind === "reorged") {
               this.chain = outcome.state;
               this.noteTipProgress();

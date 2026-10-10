@@ -8,10 +8,12 @@ Light reveals proximity. Color is absent without it.
 ## Do this right now
 
 Full playbook: [`docs/QUICKSTART.md`](docs/QUICKSTART.md)  
-**Every door illuminated:** [`docs/DOORS.md`](docs/DOORS.md) · site **`/doors`**
+**Every door illuminated:** [`docs/DOORS.md`](docs/DOORS.md) · site **`/doors`**  
+**Durability grades (honest):** [`docs/DURABILITY.md`](docs/DURABILITY.md)
 
 ```bash
 bun install
+bun run people:verify          # offline — check the crowned picture yourself
 bun run dev                    # /wallet = phone hold · /doors · / = live field
 # People: open /wallet (Add to Home Screen). Tip: VITE_PIXEL_RPC=…
 bun run test:all
@@ -23,33 +25,38 @@ bun run test:all
 ## Node (operator / friend laptop)
 
 ```bash
-# Join the public tip (or a local tip you already have) — do not init a new Earth
-bun run pixel -- join --peer https://pixel-tip-production.up.railway.app --datadir ./data/friend
-bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
+# Join via tip-mirrors.json (tries listed /sync hosts in order) — do not init a new Earth
+bun run pixel -- join --public-tip --datadir ./data/friend --require-crowned
+bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002 --advertise <your-host>
 ```
-
 ## Docs engineers should read
 
-| Doc                                                    | Why                                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| [`AGENTS.md`](AGENTS.md)                               | **LLMs / coding agents** — Pixel brief (creed, routes, do/don’t, claim bounds) |
-| [`llms.txt`](llms.txt)                                 | Machine-readable doc index for crawlers and agents                             |
-| [`docs/PATH.md`](docs/PATH.md)                         | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
-| [`docs/DOORS.md`](docs/DOORS.md)                       | **How to enter** — on / for / into + people use + seed ideas (`/doors`)        |
-| [`docs/QUANTUM.md`](docs/QUANTUM.md)                   | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65)                          |
-| [`docs/INVENTION.md`](docs/INVENTION.md)               | What is ours vs borrowed                                                       |
-| [`docs/LUMEN.md`](docs/LUMEN.md)                       | Light-native DSL — evolve, don’t abandon                                       |
-| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)         | **How to help** — lanes, checklist, what we reject                             |
-| [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md) | **Where the project actually stands** — read before starting work              |
-| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md) | **Which 20 of 86 modules are consensus** — open this first                     |
-| [`docs/SPEC.md`](docs/SPEC.md)                         | Normative behavior (constants machine-checked against code)                    |
-| [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md)         | Honest risks                                                                   |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md)                   | Checklist tied to PATH gates                                                   |
-| [`docs/ONE.md`](docs/ONE.md)                           | Simple API                                                                     |
-| [`docs/INVENT.md`](docs/INVENT.md)                     | Invent, don’t rename                                                           |
-| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)               | Day one without the fundraising myth                                           |
-| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md)   | **SISO clarion call** — no parallel rewrite                                    |
-| [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md)           | Agents / swarms: shine in or build a PATH gate                                 |
+| Doc                                                                  | Why                                                                            |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [`AGENTS.md`](AGENTS.md)                                             | **LLMs / coding agents** — Pixel brief (creed, routes, do/don’t, claim bounds) |
+| [`llms.txt`](llms.txt)                                               | Machine-readable doc index for crawlers and agents                             |
+| [`docs/PATH.md`](docs/PATH.md)                                       | **Gate A → J** — how this becomes a respected L1 / bridge / sovereignty regime |
+| [`docs/DOORS.md`](docs/DOORS.md)                                     | **How to enter** — on / for / into + people use + seed ideas (`/doors`)        |
+| [`docs/QUANTUM.md`](docs/QUANTUM.md)                                 | **Critical** — PQ posture (hash-OTS + NIST ML-DSA-65)                          |
+| [`docs/INVENTION.md`](docs/INVENTION.md)                             | What is ours vs borrowed                                                       |
+| [`docs/LUMEN.md`](docs/LUMEN.md)                                     | Light-native DSL — evolve, don’t abandon                                       |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)                       | **How to help** — lanes, checklist, what we reject                             |
+| [`docs/STATE-2026-08-17.md`](docs/STATE-2026-08-17.md)               | **Where the project actually stands** — read before starting work              |
+| [`docs/DURABILITY.md`](docs/DURABILITY.md)                           | **Relic beyond operators** — grades vs Bitcoin; hybrid design (not shipped)    |
+| [`docs/HOSTING-INDEPENDENCE.md`](docs/HOSTING-INDEPENDENCE.md)       | Tip migration runbook — Railway/GitHub are cattle                              |
+| [`docs/PROTOCOL-SURFACE.md`](docs/PROTOCOL-SURFACE.md)               | **Which 22 of 89 modules are consensus** — open this first                     |
+| [`docs/SPEC.md`](docs/SPEC.md)                                       | Normative behavior (constants machine-checked against code)                    |
+| [`docs/OPERATOR.md`](docs/OPERATOR.md)                               | **Adding a second operator** — the step-by-step runbook                        |
+| [`docs/FINALITY.md`](docs/FINALITY.md)                               | What cannot revert — anchored checkpoints (off by default)                     |
+| [`docs/LEADER-UNPREDICTABILITY.md`](docs/LEADER-UNPREDICTABILITY.md) | Design only — why the leader is predictable and what it would cost to fix      |
+| [`docs/VECTORS.md`](docs/VECTORS.md)                                 | Frozen protocol vectors — what a second implementation is built against        |
+| [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md)                       | Honest risks                                                                   |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)                                 | Checklist tied to PATH gates                                                   |
+| [`docs/ONE.md`](docs/ONE.md)                                         | Simple API                                                                     |
+| [`docs/INVENT.md`](docs/INVENT.md)                                   | Invent, don’t rename                                                           |
+| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)                             | Day one without the fundraising myth                                           |
+| [`docs/CONTINUITY-SISO.md`](docs/CONTINUITY-SISO.md)                 | **SISO clarion call** — no parallel rewrite                                    |
+| [`docs/AGENTS-SISO.md`](docs/AGENTS-SISO.md)                         | Agents / swarms: shine in or build a PATH gate                                 |
 
 ## Builders — on / for / into Pixel
 

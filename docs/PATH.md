@@ -1,6 +1,7 @@
 # Path to a respected L1 / bridge / sovereignty regime
 
-> **Start here:** [`STATE-2026-08-13.md`](./STATE-2026-08-13.md) — current state,
+> **Start here:** [`STATE-2026-08-13.md`](./STATE-2026-08-13.md) — current state ·
+> durability grades: [`DURABILITY.md`](./DURABILITY.md)
 > settled decisions, open questions, and the order things must be built in. The
 > gates below predate several of those decisions and still measure this project
 > against Ethereum's shape, which it is not.

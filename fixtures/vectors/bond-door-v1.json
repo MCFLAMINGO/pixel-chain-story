@@ -1,0 +1,20 @@
+{
+  "$comment": "Hybrid bond-door vectors — network 0x5042 only. Crowned 20553 stays invitation-only.",
+  "networkId": 20546,
+  "networkIdHex": "0x5042",
+  "constants": {
+    "BOND_DOOR_K": 2,
+    "BOND_DOOR_T_MS": 604800000,
+    "BOND_FLOOR_PIX": 50,
+    "BOND_LOCK_ADDRESS": "pix1b01d0000000000000000000000000000000000",
+    "MEMBERSHIP_ACTIVATION_DELAY": 8
+  },
+  "refusals": [
+    "PoW admission",
+    "Light-Credits seats",
+    "bond join on network 20553",
+    "bondUnits below floor",
+    "second bond claim in one vacancy"
+  ],
+  "bondAuthorizationPreimageRecipe": "pix-membership-bond|sequencer-bond-join|{address}|{publicKey}|{scheme}|{includedAt}|{bondUnits}|{BOND_LOCK_ADDRESS}"
+}

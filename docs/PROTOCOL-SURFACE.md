@@ -2,7 +2,7 @@
 
 This is the document to open first.
 
-Pixel has 85 modules under `src/lib/pixel`. **Twenty of them are the protocol.** The
+Pixel has 89 modules under `src/lib/pixel`. **Twenty-two of them are the protocol.** The
 rest are wallets, bridges, UI feeds, operator tooling, and models — some of it good work,
 none of it consensus. Until this file existed there was no way to tell which was which
 without reading the import graph, and the honest consequence is that careful readers
@@ -14,7 +14,7 @@ model.
 
 ## Consensus — changing these changes what a valid chain is
 
-These twenty are reachable from `acceptBlock`, `verifyChain` or `sequenceBlock`. A bug
+These twenty-two are reachable from `acceptBlock`, `verifyChain` or `sequenceBlock`. A bug
 here is a bug in the ledger.
 
 | Module               | What it decides                                                 |
@@ -23,9 +23,11 @@ here is a bug in the ledger.
 | `pol.ts`             | Leader lottery, light proofs, merkle roots, proof/block binding |
 | `transaction.ts`     | Transaction identity, canonical body, signature verification    |
 | `membership.ts`      | Who may produce a pixel — the fold over committed records       |
+| `membership-bond.ts` | Hybrid bond-door admission (lab `0x5042`) — validity on accept  |
 | `sig-era.ts`         | Which signature rules apply at which height                     |
 | `legacy-sig.ts`      | The pre-`c8d5d54` constructions, verification only              |
 | `fork-choice.ts`     | Which branch wins at any depth, and what a reorg may not cross  |
+| `finality.ts`        | What cannot revert: anchored checkpoints (off unless enabled)   |
 | `economics.ts`       | Emission schedule, hard cap, issuance arithmetic                |
 | `limits.ts`          | Block and metadata bounds; the paging helper                    |
 | `crypto.ts`          | SHA-512, hash-OTS, key derivation, OTS leaf accounting          |
@@ -74,7 +76,7 @@ module may import from this set.
 Wallets (`people-wallet*`, `custody`), bridges and anchoring (`bridge*`, `anchor*`,
 `ula-*`, `eth-usdc-lock`, `lock-*`), Continuity (`continuity-*`, `siso`), optical
 (`optical-capture`, `pay-*`), node infrastructure (`peer-score`, `transport-kem`,
-`rate-limit`, `light-client`, `chain-mirror*`), and UI feeds (`lattice`, `spatial-sink`,
+`rate-limit`, `light-client`, `chain-mirror*`, `tip-mirrors`), and UI feeds (`lattice`, `spatial-sink`,
 `wave-bus`, `firefly`, `tip-mark`, `spatial-index`, `wave-rules`).
 
 Real, useful, and not the ledger. A bug in any of them is a bug in a product surface, not

@@ -86,8 +86,17 @@ export async function createTransaction(params: {
   inputs: TxInput[];
   outputs: TxOutput[];
   metadata: ReadableMeta;
+  /**
+   * Creation time. Defaults to the clock.
+   *
+   * Injectable so a transaction can be built reproducibly — `timestamp` is inside
+   * `canonicalTxBody`, so it determines the commitment and the txid, and a value read
+   * from the clock makes the whole identity unreproducible. Frozen protocol vectors
+   * (`fixtures/vectors/`) need to name it; nothing else should.
+   */
+  timestamp?: number;
 }): Promise<Transaction> {
-  const timestamp = Date.now();
+  const timestamp = params.timestamp ?? Date.now();
   const body = canonicalTxBody({
     inputs: params.inputs,
     outputs: params.outputs,

@@ -1,5 +1,9 @@
 // Minimal ambient shim so node/*.ts typechecks without @types/bun.
 declare const Bun: {
+  /** Write a string or bytes to a path. Used by `pixel membership request --out`. */
+  write(path: string, data: string | Uint8Array): Promise<number>;
+  /** Read a file lazily. `.text()` is the only member this codebase uses. */
+  file(path: string): { text(): Promise<string>; size: number };
   serve(opts: {
     port?: number;
     fetch: (req: Request, server: BunServer) => Response | Promise<Response> | undefined;

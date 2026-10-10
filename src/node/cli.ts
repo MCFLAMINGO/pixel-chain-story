@@ -24,7 +24,12 @@ import { PixelLedgerNode } from "./node";
 import { startRpcServer } from "./rpc-server";
 import { ensureDatadir, loadOrCreateIdentity, loadWallet, saveChain, saveWallet } from "./store";
 import { keyAtRest } from "./store";
-import { createSequencerJoin, MEMBERSHIP_ACTIVATION_DELAY } from "../lib/pixel/membership";
+import {
+  authorizationMessage,
+  createSequencerJoin,
+  MEMBERSHIP_ACTIVATION_DELAY,
+  possessionMessage,
+} from "../lib/pixel/membership";
 import { signPixel } from "../lib/pixel/scheme";
 import {
   assertNodePassphrase,
@@ -64,10 +69,14 @@ async function main() {
 
   if (cmd === "help" || flag("help")) {
     console.log(`${PIXEL_LEDGER_NAME} CLI
-  join --peer http://HOST:RPC [--datadir DIR] [--gossip-seed ws://HOST/gossip] [--require-crowned]
+  join --peer http://HOST:RPC [--datadir DIR] [--mirrors FILE] [--gossip-seed ws://HOST/gossip] [--require-crowned]
+  join --mirrors FILE [--datadir DIR] [--require-crowned]   # try each mirror in tip-mirrors.json
+  join --public-tip [--datadir DIR] [--require-crowned]     # peer = default + mirrors file
   node [--datadir DIR] [--rpc PORT] [--gossip PORT] [--seed ws://host/gossip] [--advertise HOST]
   key status|seal [--datadir DIR]        seal the node key at rest (PIXEL_KEY_PASSPHRASE)
   membership status [--peer URL]         who may produce, and when a new record activates
+  membership request --datadir DIR --peer URL --authorizer <pix1…> [--out FILE] [--window N]
+  membership authorize --datadir DIR --request FILE [--peer URL]
   membership invite --datadir <incumbent> --joiner-datadir <joiner> [--peer URL]
   wallet create NAME [--datadir DIR]
   wallet from-node [NAME] [--datadir DIR]
@@ -78,11 +87,11 @@ async function main() {
   interactions
 
 People (phone): /wallet — not this CLI.
-Friends — join crowned tip:
-  bun run pixel -- join --peer ${PUBLIC_TIP_RPC_DEFAULT} --datadir ./data/friend --require-crowned
-  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002
+Friends — join crowned tip (tries tip-mirrors.json when --mirrors or --public-tip):
+  bun run pixel -- join --public-tip --datadir ./data/friend --require-crowned
+  bun run pixel -- node --datadir ./data/friend --rpc 8546 --gossip 9002 --advertise <your-host>
   # confirm genesis ${CROWNED_GENESIS_PREFIX}…
-  # see docs/demos/friend-invite.md
+  # see docs/demos/friend-invite.md · docs/DURABILITY.md
 `);
     return;
   }
@@ -101,47 +110,49 @@ Friends — join crowned tip:
   }
 
   if (cmd === "join") {
+    const mirrorsPath = arg("mirrors");
     const peer = arg("peer") ?? (flag("public-tip") ? PUBLIC_TIP_RPC_DEFAULT : undefined);
-    if (!peer) throw new Error(`--peer http://host:port required (or --public-tip)`);
-    const base = peer.replace(/\/$/, "");
+    if (!peer && !mirrorsPath && !flag("public-tip")) {
+      throw new Error(
+        `--peer http://host:port required (or --public-tip / --mirrors tip-mirrors.json)`,
+      );
+    }
     await ensureDatadir(datadir);
     const { keypair } = await loadOrCreateIdentity(datadir, "joiner");
 
-    let sync: {
-      pixels: import("../lib/pixel/index").LedgerPixel[];
-      sequencers?: SequencerId[];
-      networkId?: number;
-      gossipUrl?: string | null;
-      address?: string;
-      publicKey?: string;
-      genesisHash?: string;
-    };
-    const syncRes = await fetch(`${base}/sync`);
-    if (syncRes.ok) {
-      sync = (await syncRes.json()) as typeof sync;
-    } else {
-      const pixels = (await fetch(`${base}/pixels`).then((r) => r.json())) as typeof sync.pixels;
-      const health = (await fetch(`${base}/health`).then((r) => r.json())) as {
-        address: string;
-        publicKey?: string;
-        gossipUrl?: string;
-        genesisHash?: string;
-        networkId?: number;
-      };
-      sync = {
-        pixels,
-        gossipUrl: health.gossipUrl,
-        address: health.address,
-        publicKey: health.publicKey,
-        genesisHash: health.genesisHash,
-        networkId: health.networkId,
-      };
+    const { fetchSyncViaMirrors, TipMirrorError, loadTipMirrorsOrBuiltin } =
+      await import("../lib/pixel/tip-mirrors");
+    // --public-tip or an explicit mirrors file loads the list; bare --peer does not
+    // surprise-dial Railway after a lab peer fails.
+    const useMirrors = Boolean(mirrorsPath || flag("public-tip"));
+    const requireCrowned =
+      flag("require-crowned") ||
+      Boolean(peer?.includes("pixel-tip-production")) ||
+      flag("public-tip");
+
+    let sync: Awaited<ReturnType<typeof fetchSyncViaMirrors>>;
+    try {
+      sync = await fetchSyncViaMirrors({
+        peer,
+        mirrorsPath: useMirrors ? mirrorsPath : undefined,
+        mirrors: useMirrors
+          ? undefined
+          : peer
+            ? { ...loadTipMirrorsOrBuiltin(), mirrors: [] }
+            : undefined,
+        requireCrowned,
+      });
+    } catch (err) {
+      if (err instanceof TipMirrorError) {
+        console.error(`join failed after ${err.attempts.length} mirror attempt(s):`);
+        for (const a of err.attempts) console.error(`  ${a.rpc} → ${a.error}`);
+      }
+      throw err;
     }
-    if (!sync.pixels?.length) throw new Error("peer returned no pixels — is the tip running?");
 
     const genesisHash = sync.genesisHash ?? sync.pixels[0]!.hash;
-    const networkId = sync.networkId ?? 0x5049;
-    if (flag("require-crowned") || base.includes("pixel-tip-production")) {
+    const networkId = sync.networkId ?? loadTipMirrorsOrBuiltin(mirrorsPath).networkId;
+    if (requireCrowned) {
       assertCrownedPublicTip({ genesisHash, networkId });
     } else if (!isCrownedGenesisHash(genesisHash)) {
       console.warn(
@@ -174,21 +185,29 @@ Friends — join crowned tip:
     }
     await saveChain(datadir, chain);
 
-    const gossipSeed = arg("gossip-seed") ?? sync.gossipUrl ?? undefined;
-    if (gossipSeed?.startsWith("ws")) {
+    const mirrorsFile = loadTipMirrorsOrBuiltin(mirrorsPath);
+    const gossipSeed =
+      arg("gossip-seed") ?? sync.gossipUrl ?? mirrorsFile.gossipSeeds?.[0] ?? undefined;
+    if (gossipSeed?.startsWith("ws") && !/127\.0\.0\.1|localhost/.test(gossipSeed)) {
       const { savePeers } = await import("./store");
       await savePeers(datadir, [gossipSeed]);
       console.log(`  gossip seed saved: ${gossipSeed}`);
+    } else if (gossipSeed && /127\.0\.0\.1|localhost/.test(gossipSeed)) {
+      console.log(
+        `  gossip seed from peer is localhost (${gossipSeed}) — not saved; pass --gossip-seed or --advertise on the tip`,
+      );
     }
 
-    console.log(`Joined ${PIXEL_LEDGER_NAME} from ${base}`);
+    console.log(
+      `Joined ${PIXEL_LEDGER_NAME} from ${sync.sourceRpc}${sync.sourceId ? ` (${sync.sourceId})` : ""}`,
+    );
     console.log(`  pixels: ${chain.pixels.length}`);
     console.log(`  sequencers: ${chain.sequencers.length}`);
     console.log(`  genesis: ${genesisHash.slice(0, 24)}…`);
     console.log(`  local: ${keypair.address}`);
     console.log(`  next: bun run pixel -- node --datadir ${datadir} --rpc 8546 --gossip 9002 \\`);
     console.log(
-      `          --seed ${gossipSeed ?? "ws://<peer-host>:<gossip>/gossip"} --advertise <your-host>`,
+      `          --seed ${gossipSeed && !/127\.0\.0\.1|localhost/.test(gossipSeed) ? gossipSeed : "ws://<peer-host>:<gossip>/gossip"} --advertise <your-host>`,
     );
     return;
   }
@@ -206,6 +225,186 @@ Friends — join crowned tip:
       console.log(`electable now: ${(tip?.lightProof.electable ?? []).join(", ")}`);
       console.log(`next pixel: #${sync.pixels.length}`);
       console.log(`activation delay: ${MEMBERSHIP_ACTIVATION_DELAY} pixels`);
+      return;
+    }
+
+    /**
+     * JOINER SIDE — prove you hold the address, without sending anyone your key.
+     *
+     * Prints a request blob containing your address, public key, scheme, and a possession
+     * signature. It carries **no secret**; it is safe to send over any channel.
+     *
+     * ## Why a window of signatures rather than one
+     *
+     * `includedAt` is inside the signed claim, so both signers must agree on the height
+     * before the record is committed — and you cannot know when the incumbent will get
+     * round to authorising you. So this pre-signs a window of upcoming heights and the
+     * authorizer picks whichever one is current.
+     *
+     * Solving it in the CLI rather than in the record format is deliberate. The format is
+     * committed on-chain, specified in SPEC.md §4.2, and pinned in the frozen vectors —
+     * a scheduling inconvenience is not a reason to change consensus.
+     */
+    if (sub === "request") {
+      const { loadOrCreateIdentity: loadId } = await import("./store");
+      const { keypair } = await loadId(datadir, "node");
+      const scheme = (keypair.scheme ?? "PIX-ML-DSA-65") as "PIX-ML-DSA-65" | "PIX-HASH-OTS-128";
+
+      const health = (await (await fetch(`${peer}/health`)).json()) as {
+        pixels: number;
+        networkId: number;
+      };
+      const from = health.pixels;
+
+      // A hash-OTS key burns a one-time leaf per signature, so it gets a window of one and
+      // must be authorised promptly. ML-DSA is multi-use, so a window costs nothing.
+      const requested = Number(arg("window") ?? (scheme === "PIX-HASH-OTS-128" ? 1 : 24));
+      const window = scheme === "PIX-HASH-OTS-128" ? 1 : Math.max(1, Math.min(requested, 64));
+      if (scheme === "PIX-HASH-OTS-128" && requested > 1) {
+        console.error(
+          `note: hash-OTS signs once per leaf, so the window is 1 rather than ${requested}.\n` +
+            `      Ask the incumbent to authorise before pixel #${from + 1}.`,
+        );
+      }
+
+      const authorizedBy = arg("authorizer") ?? "";
+      if (!authorizedBy) {
+        console.error(
+          "usage: pixel membership request --datadir DIR --peer URL --authorizer <their pix1 address>\n" +
+            "       (the authorizer's address is inside the signed claim, so it must be named now)",
+        );
+        process.exit(1);
+      }
+
+      const offers: Array<{ includedAt: number; possession: string }> = [];
+      for (let h = from; h < from + window; h++) {
+        const claim = {
+          kind: "sequencer-join" as const,
+          address: keypair.address,
+          publicKey: keypair.publicKey,
+          scheme,
+          includedAt: h,
+          authorizedBy,
+        };
+        offers.push({
+          includedAt: h,
+          possession: await signPixel(possessionMessage(claim), keypair),
+        });
+      }
+
+      const request = {
+        v: 1 as const,
+        kind: "sequencer-join" as const,
+        address: keypair.address,
+        publicKey: keypair.publicKey,
+        scheme,
+        authorizedBy,
+        networkId: health.networkId,
+        tipAtRequest: from - 1,
+        offers,
+      };
+
+      const out = arg("out");
+      const text = JSON.stringify(request, null, 2);
+      if (out) {
+        await Bun.write(out, text + "\n");
+        console.error(`wrote ${out} — send this to ${authorizedBy}. It contains no secret.`);
+        console.error(`valid for pixels #${from}..#${from + window - 1}.`);
+      } else {
+        console.log(text);
+      }
+      return;
+    }
+
+    /**
+     * INCUMBENT SIDE — authorise a request, without ever holding the joiner's key.
+     *
+     * Picks the offer matching the height the tip is actually at, adds your authorization
+     * signature, and submits the completed record. If the window has passed, it says so and
+     * asks for a fresh request rather than guessing — a signature means what it signed.
+     */
+    if (sub === "authorize") {
+      const file = arg("request");
+      if (!file) {
+        console.error(
+          "usage: pixel membership authorize --datadir DIR --request FILE [--peer URL]",
+        );
+        process.exit(1);
+      }
+      const request = JSON.parse(await Bun.file(file).text()) as {
+        kind: "sequencer-join";
+        address: string;
+        publicKey: string;
+        scheme: "PIX-ML-DSA-65" | "PIX-HASH-OTS-128";
+        authorizedBy: string;
+        networkId: number;
+        offers: Array<{ includedAt: number; possession: string }>;
+      };
+
+      const { loadOrCreateIdentity: loadId } = await import("./store");
+      const { keypair: incumbent } = await loadId(datadir, "node");
+
+      if (request.authorizedBy !== incumbent.address) {
+        console.error(
+          `this request names ${request.authorizedBy} as authorizer, but this datadir holds\n` +
+            `${incumbent.address}. The authorizer is inside the signed claim, so it cannot be\n` +
+            `substituted — ask for a request naming this address.`,
+        );
+        process.exit(1);
+      }
+
+      const health = (await (await fetch(`${peer}/health`)).json()) as {
+        pixels: number;
+        networkId: number;
+      };
+      if (request.networkId !== health.networkId) {
+        console.error(
+          `request is for network ${request.networkId}, this node is ${health.networkId}`,
+        );
+        process.exit(1);
+      }
+
+      const includedAt = health.pixels;
+      const offer = request.offers.find((o) => o.includedAt === includedAt);
+      if (!offer) {
+        const lo = request.offers[0]?.includedAt;
+        const hi = request.offers[request.offers.length - 1]?.includedAt;
+        console.error(
+          `the tip is at pixel #${includedAt}, outside this request's window #${lo}..#${hi}.\n` +
+            `Ask for a fresh request: the height is signed, so nothing here can be adjusted.`,
+        );
+        process.exit(1);
+      }
+
+      const claim = {
+        kind: request.kind,
+        address: request.address,
+        publicKey: request.publicKey as `0x${string}` | string,
+        scheme: request.scheme,
+        includedAt,
+        authorizedBy: incumbent.address,
+      };
+      const record = {
+        ...claim,
+        possession: offer.possession,
+        authorization: await signPixel(authorizationMessage(claim), incumbent),
+      };
+
+      const res = await fetch(`${peer}/membership`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(record),
+      });
+      const body = (await res.json()) as Record<string, unknown>;
+      if (!res.ok || body.ok !== true) {
+        console.error(`membership refused: ${String(body.error ?? res.status)}`);
+        process.exit(1);
+      }
+      console.log(`authorised ${request.address}`);
+      console.log(`  committing at pixel #${includedAt}, electable from #${body.activeAt}`);
+      console.log(
+        `  the delay is deliberate: a producer must not be elected by a set it just wrote.`,
+      );
       return;
     }
 
@@ -263,7 +462,13 @@ Friends — join crowned tip:
       return;
     }
 
-    console.error("usage: pixel membership status|invite [--datadir DIR] [--peer URL]");
+    console.error(
+      "usage: pixel membership <status|request|authorize|invite> [--datadir DIR] [--peer URL]\n" +
+        "  status     who may produce, and when a new record activates\n" +
+        "  request    JOINER: prove you hold your address (no secret leaves your machine)\n" +
+        "  authorize  INCUMBENT: sign a request and submit it\n" +
+        "  invite     bootstrap only: both keys on one machine",
+    );
     process.exit(1);
   }
 
@@ -480,6 +685,9 @@ Friends — join crowned tip:
     console.log(`Backup written — verified by replaying every pixel.`);
     console.log(`  file       ${out}`);
     for (const line of describeBackup(bundle.manifest)) console.log(`  ${line}`);
+    console.log(
+      `  content-addressed name  pixel-backup-${bundle.manifest.chainDigest.slice(0, 16)}.json`,
+    );
     if (!includeKey) {
       console.log("");
       console.log("This file holds the history, not the key. Anyone can hold it safely,");

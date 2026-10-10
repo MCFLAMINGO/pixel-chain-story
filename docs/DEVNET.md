@@ -2,6 +2,9 @@
 
 **Status:** local multi-process lab — not a public mainnet.
 
+Hybrid bond-door lab network: `HYBRID_BOND_NETWORK_ID = 0x5042` (`test:bond-door`).
+Crowned Earth `20553` stays invitation-only.
+
 ## What ships
 
 | Artifact                    | Command                  |
@@ -10,6 +13,7 @@
 | 4-node mesh + tip extension | `bun run test:four-node` |
 | Leader lottery (lab)        | `bun run test:election`  |
 | OTS single-use at ledger    | `bun run test:ots-reuse` |
+| Hybrid bond door (0x5042)   | `bun run test:bond-door` |
 
 ## Honesty
 

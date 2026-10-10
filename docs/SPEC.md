@@ -199,6 +199,21 @@ compute the same set, so a block's validity cannot depend on which hello arrived
 Invariant: a block must bind an `electable` set byte-identical to the fold at its own
 height. Enforced identically by `acceptBlock` and `verifyChain`.
 
+#### 4.2.1 Hybrid bond door (lab — network `0x5042` only)
+
+**Normative on** `HYBRID_BOND_NETWORK_ID` (`0x5042`). **Not active** on crowned Earth
+(`20553`) — invitation-only (§4.2) remains the only electable path there.
+
+- While electable count ≥ `BOND_DOOR_K` (2), invitation (possession + authorization) is
+  the path; the bond door is closed.
+- If electable count < K for chain-time ≥ `BOND_DOOR_T_MS` (7 days), one
+  `sequencer-bond-join` may be included per vacancy, locking ≥ `BOND_FLOOR_PIX` (50) to
+  `BOND_LOCK_ADDRESS`.
+- Bond joins carry possession + a self-bond signature (`pix-membership-bond|…`); no
+  living authorizer.
+- **Rejected forever:** proof-of-work admission; Light-Credits-gated seats.
+- Vectors: `fixtures/vectors/bond-door-v1.json`. Evidence: `test:bond-door`.
+
 ### 4.3 Block validity
 
 Every field of a pixel is either recomputed from prior state, committed inside a hash

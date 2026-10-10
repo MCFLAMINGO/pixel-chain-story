@@ -44,6 +44,7 @@ import {
   sequencerRecordProblem,
   type SequencerRecord,
 } from "./membership";
+import { bondDoorAt, bondLockPaidInTxs } from "./membership-bond";
 import { assertMomentAllowed, giftAndRecordEnabled } from "./gift-and-record";
 import {
   createTransaction,
@@ -295,10 +296,24 @@ export const PIXEL_LAB_NETWORK_ID = 0x504c; // "PL"
 export async function createGenesis(
   sequencer: LightKeypair,
   networkId = PIXEL_LAB_NETWORK_ID,
+  /**
+   * Genesis timestamp. Defaults to the clock.
+   *
+   * Injectable because genesis is hashed over its own timestamp, so a clock read makes
+   * the genesis hash — and therefore every hash above it — unreproducible. Frozen
+   * protocol vectors (`fixtures/vectors/`) need a genesis that regenerates identically;
+   * nothing in production should pass this.
+   */
+  opts: { now?: number } = {},
 ): Promise<PixelChainState> {
   const genesisReward = lightReward(0);
   assertUnderCap(0, genesisReward);
+  const genesisTimestamp = opts.now ?? Date.now();
   const mint = await createTransaction({
+    // Same instant as the pixel, so a genesis built from a named timestamp is fully
+    // reproducible — the mint's timestamp is inside its own canonical body and therefore
+    // decides the genesis merkle root.
+    timestamp: genesisTimestamp,
     inputs: [],
     outputs: [{ amount: genesisReward, address: sequencer.address }],
     metadata: {
@@ -322,7 +337,7 @@ export async function createGenesis(
     merkleRoot: root,
     priorTipHashes: [],
   });
-  const timestamp = Date.now();
+  const timestamp = genesisTimestamp;
   const beacon = await opticalBeacon(0, prevHash);
   const hash = await hashBlock({
     index: 0,
@@ -542,6 +557,56 @@ export async function proposeTransfer(
  */
 export function canonicalElectable(addresses: string[]): string[] {
   return canonicalMembers(addresses);
+}
+
+/**
+ * Validate every membership record on a pixel against invitation and (when enabled)
+ * hybrid bond-door rules. Shared by sequence / accept / verify so the three paths
+ * cannot diverge.
+ */
+async function assertMembershipRecords(params: {
+  state: PixelChainState;
+  height: number;
+  records: readonly SequencerRecord[] | undefined;
+  txs: readonly Transaction[];
+  atTimestamp: number;
+}): Promise<void> {
+  const listProblem = membershipListProblem(params.records);
+  if (listProblem) throw new Error(listProblem);
+  const door = bondDoorAt({
+    networkId: params.state.networkId,
+    founder: founderOf(params.state),
+    height: params.height,
+    recordsAt: (index) => params.state.pixels[index]?.membership,
+    timestampAt: (index) => params.state.pixels[index]?.timestamp ?? 0,
+    atTimestamp: params.atTimestamp,
+  });
+  for (const record of params.records ?? []) {
+    if (record.includedAt !== params.height) {
+      throw new Error(
+        `Membership record claims includedAt #${record.includedAt} inside pixel #${params.height}`,
+      );
+    }
+    const burnOk =
+      record.kind === "sequencer-bond-join"
+        ? bondLockPaidInTxs({
+            txs: params.txs,
+            utxoOwner: (txid, vout) => params.state.utxos.get(utxoKey(txid, vout))?.address,
+            joiner: record.address,
+            bondUnits: record.bondUnits ?? 0,
+          })
+        : false;
+    const problem = await sequencerRecordProblem(
+      record,
+      electableKeysAt(params.state, params.height),
+      {
+        networkId: params.state.networkId,
+        bondDoorOpen: door.open,
+        bondBurnSatisfied: burnOk,
+      },
+    );
+    if (problem) throw new Error(problem);
+  }
 }
 
 /** Genesis' producer — the seed of every membership fold, and never evictable. */
@@ -1017,6 +1082,10 @@ export async function sequenceBlock(
   const coinbase = finalizeTransaction(
     revealTransaction(
       await createTransaction({
+        // The coinbase belongs to this pixel, so it is stamped with the pixel's own
+        // timestamp rather than a second, slightly later clock read. That also makes a
+        // block built from a named timestamp fully reproducible, which frozen vectors need.
+        timestamp,
         inputs: [],
         outputs: [{ amount: reward + fees, address: localSequencer.address }],
         metadata: {
@@ -1052,17 +1121,13 @@ export async function sequenceBlock(
   // Validate membership records with the accept path's own checker, so a producer
   // cannot ship a record only it would accept.
   const membership = opts.membership ?? [];
-  const listProblem = membershipListProblem(membership);
-  if (listProblem) throw new Error(listProblem);
-  for (const record of membership) {
-    if (record.includedAt !== nextIndex) {
-      throw new Error(
-        `Membership record claims includedAt #${record.includedAt} but this pixel is #${nextIndex}`,
-      );
-    }
-    const problem = await sequencerRecordProblem(record, electableKeysAt(state, nextHeight));
-    if (problem) throw new Error(problem);
-  }
+  await assertMembershipRecords({
+    state,
+    height: nextIndex,
+    records: membership,
+    txs: revealed,
+    atTimestamp: timestamp,
+  });
   const membershipDigestValue = (await membershipDigest(membership)) ?? undefined;
 
   const root = await merkleRoot(revealed.map((t) => t.txid));
@@ -1221,17 +1286,13 @@ export async function acceptBlock(
   // Membership records this block commits. Validated before the block is accepted,
   // and they take effect only after the activation delay — so a producer can never
   // be elected by a set it wrote itself.
-  const listProblem = membershipListProblem(block.membership);
-  if (listProblem) throw new Error(listProblem);
-  for (const record of block.membership ?? []) {
-    if (record.includedAt !== block.index) {
-      throw new Error(
-        `Membership record claims includedAt #${record.includedAt} inside pixel #${block.index}`,
-      );
-    }
-    const problem = await sequencerRecordProblem(record, electableKeysAt(state, block.index));
-    if (problem) throw new Error(problem);
-  }
+  await assertMembershipRecords({
+    state,
+    height: block.index,
+    records: block.membership,
+    txs: block.transactions,
+    atTimestamp: block.timestamp,
+  });
 
   const chosen = selectSequencerWithSkip(tip.hash, block.sequence, electable, skipCount);
   if (!(await verifyLightProof(block.lightProof, chosen))) {
@@ -1533,11 +1594,22 @@ export async function verifyChain(state: PixelChainState): Promise<boolean> {
 
     // Membership records are validated as history too, against the set that was
     // active when they were included.
-    if (membershipListProblem(block.membership)) return false;
-    for (const record of block.membership ?? []) {
-      if (record.includedAt !== block.index) return false;
-      if (await sequencerRecordProblem(record, electableKeysFromPixels(state.pixels, i)))
-        return false;
+    try {
+      await assertMembershipRecords({
+        state: {
+          ...state,
+          // Keep genesis in the pixel list so founderOf works at height 0; records
+          // below `height` are what the door / fold consult, never the pixel under check.
+          pixels: state.pixels.slice(0, Math.max(i, 1)),
+          utxos: replayUtxos,
+        },
+        height: block.index,
+        records: block.membership,
+        txs: block.transactions,
+        atTimestamp: block.timestamp,
+      });
+    } catch {
+      return false;
     }
     // Timestamps must strictly increase (PIX-14).
     if (i > 0 && !(block.timestamp > state.pixels[i - 1].timestamp)) return false;
